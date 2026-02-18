@@ -8,7 +8,6 @@ ALTER TABLE express_users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE express_jobs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE express_bids ENABLE ROW LEVEL SECURITY;
 ALTER TABLE express_messages ENABLE ROW LEVEL SECURITY;
-ALTER TABLE express_locations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE express_notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE express_transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE express_settings ENABLE ROW LEVEL SECURITY;
@@ -57,18 +56,6 @@ CREATE POLICY "messages_select" ON express_messages
 
 CREATE POLICY "messages_insert" ON express_messages
   FOR INSERT WITH CHECK (true);
-
--- ============================================================
--- express_locations: SELECT and INSERT/UPDATE for tracking
--- ============================================================
-CREATE POLICY "locations_select" ON express_locations
-  FOR SELECT USING (true);
-
-CREATE POLICY "locations_insert" ON express_locations
-  FOR INSERT WITH CHECK (true);
-
-CREATE POLICY "locations_update" ON express_locations
-  FOR UPDATE USING (true);
 
 -- ============================================================
 -- express_notifications: SELECT and INSERT
