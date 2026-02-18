@@ -1,0 +1,78 @@
+'use client';
+import { useState, useEffect } from 'react';
+import { useAuth } from '../../components/AuthContext';
+import Sidebar from '../../components/Sidebar';
+import { supabase } from '../../../lib/supabase';
+import useMobile from '../../components/useMobile';
+
+export default function AdminTransactions() {
+  const { user, loading } = useAuth();
+  const m = useMobile();
+  const [txns, setTxns] = useState([]);
+  const [stats, setStats] = useState({ total: 0, commission: 0, payouts: 0, count: 0 });
+
+  useEffect(() => {
+    if (!loading && !user) window.location.href = '/login';
+    if (!loading && user && user.role !== 'admin') window.location.href = '/';
+    if (user && user.role === 'admin') loadData();
+  }, [user, loading]);
+
+  const loadData = async () => {
+    const { data } = await supabase.from('express_transactions').select('*, job:job_id(job_number, item_description), client:client_id(contact_name, company_name), driver:driver_id(contact_name)').order('created_at', { ascending: false });
+    const t = data || [];
+    setTxns(t);
+    setStats({
+      total: t.reduce((s, x) => s + parseFloat(x.total_amount || 0), 0),
+      commission: t.reduce((s, x) => s + parseFloat(x.commission_amount || 0), 0),
+      payouts: t.reduce((s, x) => s + parseFloat(x.driver_payout || 0), 0),
+      count: t.length,
+    });
+  };
+
+  if (loading || !user) return null;
+  const card = { background: 'white', borderRadius: '14px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9' };
+
+  return (
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>
+      <Sidebar active="Transactions" />
+      <div style={{ flex: 1, padding: m ? '20px 16px' : '30px', overflowX: 'hidden' }}>
+        <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', marginBottom: '20px' }}>💳 All Transactions</h1>
+        <div style={{ display: 'grid', gridTemplateColumns: m ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: '16px', marginBottom: '25px' }}>
+          {[
+            { label: 'Total Volume', value: `$${stats.total.toFixed(2)}`, color: '#3b82f6', icon: '💰' },
+            { label: 'Commission Earned', value: `$${stats.commission.toFixed(2)}`, color: '#059669', icon: '🎯' },
+            { label: 'Driver Payouts', value: `$${stats.payouts.toFixed(2)}`, color: '#f59e0b', icon: '🚗' },
+            { label: 'Total Transactions', value: stats.count, color: '#8b5cf6', icon: '📊' },
+          ].map((s, i) => (
+            <div key={i} style={card}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ fontSize: '13px', color: '#64748b', fontWeight: '500', marginBottom: '6px' }}>{s.label}</div>
+                  <div style={{ fontSize: '24px', fontWeight: '800', color: s.color }}>{s.value}</div>
+                </div>
+                <span style={{ fontSize: '24px' }}>{s.icon}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={card}>
+          {txns.map(t => (
+            <div key={t.id} style={{ padding: '14px 0', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+              <div>
+                <div style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b' }}>{t.job?.job_number}</div>
+                <div style={{ fontSize: '12px', color: '#64748b' }}>Client: {t.client?.company_name || t.client?.contact_name} → Driver: {t.driver?.contact_name}</div>
+                <div style={{ fontSize: '11px', color: '#94a3b8' }}>{new Date(t.created_at).toLocaleString()}</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b' }}>${parseFloat(t.total_amount).toFixed(2)}</div>
+                <div style={{ fontSize: '11px', color: '#059669' }}>Commission: ${parseFloat(t.commission_amount).toFixed(2)}</div>
+                <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '700', background: t.payment_status === 'paid' ? '#f0fdf4' : '#fef9c3', color: t.payment_status === 'paid' ? '#10b981' : '#f59e0b' }}>{t.payment_status}</span>
+              </div>
+            </div>
+          ))}
+          {txns.length === 0 && <p style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>No transactions yet</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
