@@ -7,6 +7,17 @@ import Spinner from '../../components/Spinner';
 import { supabase } from '../../../lib/supabase';
 import useMobile from '../../components/useMobile';
 
+const exportCSV = (headers, rows, filename) => {
+  const csv = [headers, ...rows].map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
 export default function AdminTransactions() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -43,6 +54,22 @@ export default function AdminTransactions() {
     count: filteredTxns.length,
   };
 
+  const handleExportCSV = () => {
+    const headers = ['Date', 'Job #', 'Client', 'Driver', 'Total', 'Commission', 'Driver Payout', 'Status'];
+    const rows = filteredTxns.map(t => [
+      new Date(t.created_at).toLocaleDateString(),
+      t.job?.job_number || '',
+      t.client?.company_name || t.client?.contact_name || '',
+      t.driver?.contact_name || '',
+      parseFloat(t.total_amount || 0).toFixed(2),
+      parseFloat(t.commission_amount || 0).toFixed(2),
+      parseFloat(t.driver_payout || 0).toFixed(2),
+      t.payment_status,
+    ]);
+    const today = new Date().toISOString().split('T')[0];
+    exportCSV(headers, rows, `tcg-transactions-${today}.csv`);
+  };
+
   if (loading || !user) return <Spinner />;
   const card = { background: 'white', borderRadius: '14px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9' };
   const dateInput = { padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px', outline: 'none', background: '#f8fafc', color: '#1e293b', fontFamily: "'Inter', sans-serif" };
@@ -58,6 +85,7 @@ export default function AdminTransactions() {
           <label style={{ fontSize: '13px', fontWeight: '600', color: '#64748b' }}>To:</label>
           <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={dateInput} />
           {(dateFrom || dateTo) && <button onClick={() => { setDateFrom(''); setDateTo(''); }} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', background: 'white', color: '#64748b', fontSize: '12px', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>Clear</button>}
+          <button onClick={handleExportCSV} style={{ padding: '6px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', background: 'white', color: '#3b82f6', fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif", marginLeft: 'auto' }}>Export CSV</button>
         </div>
         <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
           {['all', 'held', 'paid', 'refunded'].map(f => (

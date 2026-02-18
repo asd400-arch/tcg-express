@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../components/AuthContext';
 import Sidebar from '../../components/Sidebar';
@@ -8,12 +8,24 @@ import { supabase } from '../../../lib/supabase';
 import useMobile from '../../components/useMobile';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
+const exportCSV = (headers, rows, filename) => {
+  const csv = [headers, ...rows].map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
 export default function DriverEarnings() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const m = useMobile();
   const [transactions, setTransactions] = useState([]);
-  const [stats, setStats] = useState({ total: 0, thisMonth: 0, pending: 0, count: 0 });
+  const [bids, setBids] = useState([]);
+  const [jobs, setJobs] = useState([]);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
@@ -24,18 +36,14 @@ export default function DriverEarnings() {
   }, [user, loading]);
 
   const loadData = async () => {
-    const { data } = await supabase.from('express_transactions').select('*, job:job_id(job_number, item_description)').eq('driver_id', user.id).order('created_at', { ascending: false });
-    const txns = data || [];
-    setTransactions(txns);
-    const now = new Date();
-    const thisMonth = txns.filter(t => { const d = new Date(t.created_at); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() && t.payment_status === 'paid'; });
-    const pending = txns.filter(t => t.payment_status === 'held');
-    setStats({
-      total: txns.filter(t => t.payment_status === 'paid').reduce((s, t) => s + parseFloat(t.driver_payout || 0), 0),
-      thisMonth: thisMonth.reduce((s, t) => s + parseFloat(t.driver_payout || 0), 0),
-      pending: pending.reduce((s, t) => s + parseFloat(t.driver_payout || 0), 0),
-      count: txns.filter(t => t.payment_status === 'paid').length,
-    });
+    const [txnRes, bidsRes, jobsRes] = await Promise.all([
+      supabase.from('express_transactions').select('*, job:job_id(job_number, item_description)').eq('driver_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('express_bids').select('id, status').eq('driver_id', user.id),
+      supabase.from('express_jobs').select('id, status, created_at, completed_at').eq('driver_id', user.id),
+    ]);
+    setTransactions(txnRes.data || []);
+    setBids(bidsRes.data || []);
+    setJobs(jobsRes.data || []);
   };
 
   const filteredTxns = transactions.filter(t => {
@@ -44,11 +52,62 @@ export default function DriverEarnings() {
     return true;
   });
 
-  const filteredStats = {
-    total: filteredTxns.filter(t => t.payment_status === 'paid').reduce((s, t) => s + parseFloat(t.driver_payout || 0), 0),
-    thisMonth: (() => { const now = new Date(); return filteredTxns.filter(t => { const d = new Date(t.created_at); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() && t.payment_status === 'paid'; }).reduce((s, t) => s + parseFloat(t.driver_payout || 0), 0); })(),
-    pending: filteredTxns.filter(t => t.payment_status === 'held').reduce((s, t) => s + parseFloat(t.driver_payout || 0), 0),
-    count: filteredTxns.filter(t => t.payment_status === 'paid').length,
+  const stats = useMemo(() => {
+    const now = new Date();
+    const paid = filteredTxns.filter(t => t.payment_status === 'paid');
+    const thisMonth = paid.filter(t => { const d = new Date(t.created_at); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); });
+    const pending = filteredTxns.filter(t => t.payment_status === 'held');
+
+    const acceptedBids = bids.filter(b => b.status === 'accepted').length;
+    const totalBids = bids.length;
+    const acceptanceRate = totalBids > 0 ? (acceptedBids / totalBids * 100) : 0;
+
+    const completedJobs = jobs.filter(j => j.completed_at);
+    const avgFulfillment = completedJobs.length > 0
+      ? completedJobs.reduce((s, j) => s + (new Date(j.completed_at) - new Date(j.created_at)) / 3600000, 0) / completedJobs.length
+      : 0;
+
+    return {
+      total: paid.reduce((s, t) => s + parseFloat(t.driver_payout || 0), 0),
+      thisMonth: thisMonth.reduce((s, t) => s + parseFloat(t.driver_payout || 0), 0),
+      pending: pending.reduce((s, t) => s + parseFloat(t.driver_payout || 0), 0),
+      count: paid.length,
+      acceptanceRate,
+      avgFulfillment,
+    };
+  }, [filteredTxns, bids, jobs]);
+
+  // 6-month earnings chart
+  const monthlyData = useMemo(() => {
+    const now = new Date();
+    const buckets = {};
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      buckets[key] = 0;
+    }
+    transactions.filter(t => t.payment_status === 'paid').forEach(t => {
+      const d = new Date(t.created_at);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      if (buckets[key] !== undefined) buckets[key] += parseFloat(t.driver_payout || 0);
+    });
+    return Object.entries(buckets).map(([month, amount]) => ({
+      month: new Date(month + '-01').toLocaleDateString('en', { month: 'short' }),
+      earnings: parseFloat(amount.toFixed(2)),
+    }));
+  }, [transactions]);
+
+  const handleExportCSV = () => {
+    const headers = ['Date', 'Job #', 'Description', 'Payout', 'Status'];
+    const rows = filteredTxns.map(t => [
+      new Date(t.created_at).toLocaleDateString(),
+      t.job?.job_number || '',
+      t.job?.item_description || '',
+      parseFloat(t.driver_payout || 0).toFixed(2),
+      t.payment_status,
+    ]);
+    const today = new Date().toISOString().split('T')[0];
+    exportCSV(headers, rows, `tcg-earnings-${today}.csv`);
   };
 
   if (loading || !user) return <Spinner />;
@@ -59,20 +118,23 @@ export default function DriverEarnings() {
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>
       <Sidebar active="Earnings" />
       <div style={{ flex: 1, padding: m ? '20px 16px' : '30px', overflowX: 'hidden' }}>
-        <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', marginBottom: '20px' }}>💰 Earnings</h1>
+        <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', marginBottom: '20px' }}>Earnings</h1>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap' }}>
           <label style={{ fontSize: '13px', fontWeight: '600', color: '#64748b' }}>From:</label>
           <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={dateInput} />
           <label style={{ fontSize: '13px', fontWeight: '600', color: '#64748b' }}>To:</label>
           <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={dateInput} />
           {(dateFrom || dateTo) && <button onClick={() => { setDateFrom(''); setDateTo(''); }} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', background: 'white', color: '#64748b', fontSize: '12px', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>Clear</button>}
+          <button onClick={handleExportCSV} style={{ padding: '6px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', background: 'white', color: '#3b82f6', fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif", marginLeft: 'auto' }}>Export CSV</button>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: m ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: '16px', marginBottom: '25px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: m ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: '16px', marginBottom: '25px' }}>
           {[
-            { label: 'Total Earned', value: `$${filteredStats.total.toFixed(2)}`, color: '#059669', icon: '💰' },
-            { label: 'This Month', value: `$${filteredStats.thisMonth.toFixed(2)}`, color: '#3b82f6', icon: '📅' },
-            { label: 'In Escrow', value: `$${filteredStats.pending.toFixed(2)}`, color: '#f59e0b', icon: '🔒' },
-            { label: 'Deliveries', value: filteredStats.count, color: '#8b5cf6', icon: '📦' },
+            { label: 'Total Earned', value: `$${stats.total.toFixed(2)}`, color: '#059669', icon: '💰' },
+            { label: 'This Month', value: `$${stats.thisMonth.toFixed(2)}`, color: '#3b82f6', icon: '📅' },
+            { label: 'In Escrow', value: `$${stats.pending.toFixed(2)}`, color: '#f59e0b', icon: '🔒' },
+            { label: 'Deliveries', value: stats.count, color: '#8b5cf6', icon: '📦' },
+            { label: 'Acceptance Rate', value: `${stats.acceptanceRate.toFixed(1)}%`, color: '#10b981', icon: '✅' },
+            { label: 'Avg Fulfillment Time', value: `${stats.avgFulfillment.toFixed(1)}h`, color: '#06b6d4', icon: '⏱' },
           ].map((s, i) => (
             <div key={i} style={card}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -85,38 +147,22 @@ export default function DriverEarnings() {
             </div>
           ))}
         </div>
-        {/* 7-Day Earnings Chart */}
-        {(() => {
-          const days = {};
-          for (let i = 6; i >= 0; i--) {
-            const d = new Date(); d.setDate(d.getDate() - i);
-            days[d.toISOString().split('T')[0]] = 0;
-          }
-          transactions.filter(t => t.payment_status === 'paid').forEach(t => {
-            const key = new Date(t.created_at).toISOString().split('T')[0];
-            if (days[key] !== undefined) days[key] += parseFloat(t.driver_payout || 0);
-          });
-          const chartData = Object.entries(days).map(([date, amount]) => ({
-            date: new Date(date).toLocaleDateString('en', { weekday: 'short' }),
-            earnings: parseFloat(amount.toFixed(2)),
-          }));
-          return (
-            <div style={{ ...card, marginBottom: '25px' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>Last 7 Days Earnings</h3>
-              <div style={{ width: '100%', height: 200 }}>
-                <ResponsiveContainer>
-                  <BarChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#94a3b8' }} />
-                    <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} />
-                    <Tooltip formatter={(v) => [`$${v}`, 'Earnings']} contentStyle={{ borderRadius: '10px', border: '1px solid #e2e8f0' }} />
-                    <Bar dataKey="earnings" fill="#10b981" radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          );
-        })()}
+
+        {/* 6-Month Earnings Chart */}
+        <div style={{ ...card, marginBottom: '25px' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>Monthly Earnings (Last 6 Months)</h3>
+          <div style={{ width: '100%', height: 250 }}>
+            <ResponsiveContainer>
+              <BarChart data={monthlyData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                <Tooltip formatter={(v) => [`$${v}`, 'Earnings']} contentStyle={{ borderRadius: '10px', border: '1px solid #e2e8f0' }} />
+                <Bar dataKey="earnings" fill="#10b981" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
 
         <div style={card}>
           <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>Transaction History</h3>
