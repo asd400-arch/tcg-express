@@ -18,12 +18,16 @@ export default function DriverSettings() {
   const [vehicleType, setVehicleType] = useState('');
   const [vehiclePlate, setVehiclePlate] = useState('');
   const [licenseNumber, setLicenseNumber] = useState('');
+  const [nricNumber, setNricNumber] = useState('');
+  const [businessRegNumber, setBusinessRegNumber] = useState('');
   const [saving, setSaving] = useState(false);
 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [changingPw, setChangingPw] = useState(false);
+
+  const [uploading, setUploading] = useState({});
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -34,16 +38,22 @@ export default function DriverSettings() {
       setVehicleType(user.vehicle_type || '');
       setVehiclePlate(user.vehicle_plate || '');
       setLicenseNumber(user.license_number || '');
+      setNricNumber(user.nric_number || '');
+      setBusinessRegNumber(user.business_reg_number || '');
     }
   }, [user, loading]);
 
   const saveProfile = async () => {
     setSaving(true);
     try {
+      const updates = { contact_name: contactName, phone, vehicle_type: vehicleType, vehicle_plate: vehiclePlate, license_number: licenseNumber, nric_number: nricNumber };
+      if (user.driver_type === 'company') {
+        updates.business_reg_number = businessRegNumber;
+      }
       const res = await fetch('/api/auth/profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, updates: { contact_name: contactName, phone, vehicle_type: vehicleType, vehicle_plate: vehiclePlate, license_number: licenseNumber } }),
+        body: JSON.stringify({ userId: user.id, updates }),
       });
       const result = await res.json();
       if (result.error) { toast.error(result.error); }
@@ -69,6 +79,32 @@ export default function DriverSettings() {
     setChangingPw(false);
   };
 
+  const uploadDoc = async (file, docType, urlField) => {
+    setUploading(prev => ({ ...prev, [docType]: true }));
+    try {
+      const ext = file.name.split('.').pop();
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('userId', user.id);
+      formData.append('path', `kyc/${user.id}/${docType}.${ext}`);
+      const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
+      const uploadResult = await uploadRes.json();
+      if (uploadResult.error) { toast.error(uploadResult.error); return; }
+
+      const patchRes = await fetch('/api/auth/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, updates: { [urlField]: uploadResult.url } }),
+      });
+      const patchResult = await patchRes.json();
+      if (patchResult.error) { toast.error(patchResult.error); }
+      else { updateUser(patchResult.data); toast.success('Document uploaded'); }
+    } catch { toast.error('Upload failed'); }
+    setUploading(prev => ({ ...prev, [docType]: false }));
+  };
+
+  const isPdf = (url) => url && url.toLowerCase().endsWith('.pdf');
+
   if (loading || !user) return <Spinner />;
 
   const card = { background: 'white', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9', marginBottom: '20px' };
@@ -80,6 +116,14 @@ export default function DriverSettings() {
     fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
   });
   const selectStyle = { ...input, appearance: 'auto' };
+
+  const docItems = [
+    { key: 'nric-front', urlField: 'nric_front_url', label: 'NRIC Front' },
+    { key: 'nric-back', urlField: 'nric_back_url', label: 'NRIC Back' },
+    { key: 'license-photo', urlField: 'license_photo_url', label: 'License Photo' },
+    { key: 'vehicle-insurance', urlField: 'vehicle_insurance_url', label: 'Vehicle Insurance' },
+    ...(user.driver_type === 'company' ? [{ key: 'business-reg-cert', urlField: 'business_reg_cert_url', label: 'Business Reg Cert' }] : []),
+  ];
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>
@@ -102,6 +146,27 @@ export default function DriverSettings() {
               <label style={label}>Phone</label>
               <input type="text" value={phone} onChange={e => setPhone(e.target.value)} placeholder="e.g. +65 9123 4567" style={input} />
             </div>
+          </div>
+        </div>
+
+        {/* Identity Information */}
+        <div style={card}>
+          <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>Identity Information</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div>
+              <label style={label}>Driver Type</label>
+              <input type="text" value={user.driver_type ? user.driver_type.charAt(0).toUpperCase() + user.driver_type.slice(1) : 'Not set'} disabled style={{ ...input, opacity: 0.6, cursor: 'not-allowed' }} />
+            </div>
+            <div>
+              <label style={label}>NRIC Number</label>
+              <input type="text" value={nricNumber} onChange={e => setNricNumber(e.target.value)} placeholder="e.g. S1234567D" style={input} />
+            </div>
+            {user.driver_type === 'company' && (
+              <div>
+                <label style={label}>Business Registration Number</label>
+                <input type="text" value={businessRegNumber} onChange={e => setBusinessRegNumber(e.target.value)} placeholder="e.g. 201912345A" style={input} />
+              </div>
+            )}
           </div>
         </div>
 
@@ -133,6 +198,40 @@ export default function DriverSettings() {
         <button onClick={saveProfile} disabled={saving} style={{ ...btn('#10b981'), marginBottom: '20px', opacity: saving ? 0.7 : 1 }}>
           {saving ? 'Saving...' : 'Save All Changes'}
         </button>
+
+        {/* KYC Documents */}
+        <div style={card}>
+          <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>KYC Documents</h3>
+          <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '16px' }}>View your uploaded documents or re-upload new ones</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {docItems.map(doc => {
+              const url = user[doc.urlField];
+              return (
+                <div key={doc.key} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '12px', borderRadius: '10px', background: '#f8fafc', border: '1px solid #f1f5f9' }}>
+                  {url ? (
+                    isPdf(url) ? (
+                      <a href={url} target="_blank" rel="noopener noreferrer" style={{ width: '64px', height: '48px', borderRadius: '6px', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', textDecoration: 'none', flexShrink: 0 }}>📋</a>
+                    ) : (
+                      <a href={url} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0 }}>
+                        <img src={url} alt={doc.label} style={{ width: '64px', height: '48px', objectFit: 'cover', borderRadius: '6px' }} />
+                      </a>
+                    )
+                  ) : (
+                    <div style={{ width: '64px', height: '48px', borderRadius: '6px', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', opacity: 0.5, flexShrink: 0 }}>📄</div>
+                  )}
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '13px', fontWeight: '600', color: '#374151' }}>{doc.label}</div>
+                    <div style={{ fontSize: '11px', color: url ? '#10b981' : '#94a3b8' }}>{url ? 'Uploaded' : 'Not uploaded'}</div>
+                  </div>
+                  <label style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid #e2e8f0', background: 'white', color: '#3b82f6', fontSize: '12px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif", whiteSpace: 'nowrap' }}>
+                    {uploading[doc.key] ? 'Uploading...' : (url ? 'Re-upload' : 'Upload')}
+                    <input type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => { if (e.target.files[0]) uploadDoc(e.target.files[0], doc.key, doc.urlField); }} disabled={uploading[doc.key]} />
+                  </label>
+                </div>
+              );
+            })}
+          </div>
+        </div>
 
         <div style={card}>
           <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>Change Password</h3>

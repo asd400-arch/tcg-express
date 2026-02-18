@@ -17,6 +17,7 @@ export default function AdminDrivers() {
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [expandedDriver, setExpandedDriver] = useState(null);
+  const [expandedKyc, setExpandedKyc] = useState(null);
   const [reviews, setReviews] = useState([]);
 
   useEffect(() => {
@@ -42,6 +43,10 @@ export default function AdminDrivers() {
     setReviews(data || []);
   };
 
+  const toggleKyc = (driverId) => {
+    setExpandedKyc(expandedKyc === driverId ? null : driverId);
+  };
+
   const updateStatus = async (id, status) => {
     await fetch('/api/admin/users/update', {
       method: 'POST',
@@ -52,13 +57,36 @@ export default function AdminDrivers() {
     loadData();
   };
 
+  const isPdf = (url) => url && url.toLowerCase().endsWith('.pdf');
+
+  const DocThumbnail = ({ url, label }) => {
+    if (!url) return (
+      <div style={{ textAlign: 'center', padding: '12px', borderRadius: '8px', border: '1px dashed #e2e8f0', background: '#f8fafc', minWidth: '120px' }}>
+        <div style={{ fontSize: '24px', marginBottom: '4px', opacity: 0.4 }}>📄</div>
+        <div style={{ fontSize: '11px', color: '#94a3b8' }}>{label}</div>
+        <div style={{ fontSize: '10px', color: '#cbd5e1' }}>Not uploaded</div>
+      </div>
+    );
+    return (
+      <a href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', textAlign: 'center', padding: '8px', borderRadius: '8px', border: '1px solid #e2e8f0', background: 'white', display: 'block', minWidth: '120px', cursor: 'pointer', transition: 'all 0.2s' }}>
+        {isPdf(url) ? (
+          <div style={{ fontSize: '32px', marginBottom: '4px' }}>📋</div>
+        ) : (
+          <img src={url} alt={label} style={{ width: '100px', height: '70px', objectFit: 'cover', borderRadius: '6px', marginBottom: '4px', display: 'block', margin: '0 auto 4px' }} />
+        )}
+        <div style={{ fontSize: '11px', color: '#3b82f6', fontWeight: '600' }}>{label}</div>
+      </a>
+    );
+  };
+
   if (loading || !user) return <Spinner />;
   const card = { background: 'white', borderRadius: '14px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9' };
   const sColor = { pending: '#f59e0b', approved: '#10b981', suspended: '#ef4444', rejected: '#94a3b8' };
+  const dtColor = { individual: '#8b5cf6', company: '#0ea5e9' };
   const filtered = (filter === 'all' ? drivers : drivers.filter(d => d.driver_status === filter)).filter(d => {
     if (!search.trim()) return true;
     const s = search.toLowerCase();
-    return (d.contact_name || '').toLowerCase().includes(s) || (d.email || '').toLowerCase().includes(s) || (d.phone || '').toLowerCase().includes(s) || (d.vehicle_type || '').toLowerCase().includes(s) || (d.vehicle_plate || '').toLowerCase().includes(s);
+    return (d.contact_name || '').toLowerCase().includes(s) || (d.email || '').toLowerCase().includes(s) || (d.phone || '').toLowerCase().includes(s) || (d.vehicle_type || '').toLowerCase().includes(s) || (d.vehicle_plate || '').toLowerCase().includes(s) || (d.driver_type || '').toLowerCase().includes(s);
   });
 
   return (
@@ -66,7 +94,7 @@ export default function AdminDrivers() {
       <Sidebar active="Drivers" />
       <div style={{ flex: 1, padding: m ? '20px 16px' : '30px', overflowX: 'hidden' }}>
         <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', marginBottom: '20px' }}>🚗 Drivers ({drivers.length})</h1>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name, email, phone, vehicle..." style={{ width: '100%', padding: '10px 16px', borderRadius: '10px', border: '1px solid #e2e8f0', fontSize: '14px', outline: 'none', background: '#f8fafc', color: '#1e293b', fontFamily: "'Inter', sans-serif", boxSizing: 'border-box', marginBottom: '12px' }} />
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name, email, phone, vehicle, driver type..." style={{ width: '100%', padding: '10px 16px', borderRadius: '10px', border: '1px solid #e2e8f0', fontSize: '14px', outline: 'none', background: '#f8fafc', color: '#1e293b', fontFamily: "'Inter', sans-serif", boxSizing: 'border-box', marginBottom: '12px' }} />
         <div style={{ display: 'flex', gap: '6px', marginBottom: '20px' }}>
           {['all', 'pending', 'approved', 'suspended', 'rejected'].map(f => (
             <button key={f} onClick={() => setFilter(f)} style={{
@@ -86,11 +114,17 @@ export default function AdminDrivers() {
                     <div style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b' }}>{d.contact_name}</div>
                     <div style={{ fontSize: '13px', color: '#64748b' }}>{d.email} • {d.phone}</div>
                     <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>{d.vehicle_type} • {d.vehicle_plate} • License: {d.license_number}</div>
+                    {d.nric_number && <div style={{ fontSize: '12px', color: '#94a3b8' }}>NRIC: {d.nric_number}{d.business_reg_number ? ` • BRN: ${d.business_reg_number}` : ''}</div>}
                     <div style={{ fontSize: '12px', color: '#94a3b8' }}>⭐ {d.driver_rating} • {d.total_deliveries} deliveries • Joined {new Date(d.created_at).toLocaleDateString()}</div>
                   </div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
-                  <span style={{ padding: '4px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: '700', background: `${sColor[d.driver_status]}15`, color: sColor[d.driver_status], textTransform: 'uppercase' }}>{d.driver_status}</span>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    {d.driver_type && (
+                      <span style={{ padding: '4px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: '700', background: `${dtColor[d.driver_type] || '#94a3b8'}15`, color: dtColor[d.driver_type] || '#94a3b8', textTransform: 'uppercase' }}>{d.driver_type}</span>
+                    )}
+                    <span style={{ padding: '4px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: '700', background: `${sColor[d.driver_status]}15`, color: sColor[d.driver_status], textTransform: 'uppercase' }}>{d.driver_status}</span>
+                  </div>
                   <div style={{ display: 'flex', gap: '6px' }}>
                     {d.driver_status !== 'approved' && <button onClick={() => updateStatus(d.id, 'approved')} style={{ padding: '5px 12px', borderRadius: '6px', border: 'none', background: '#10b981', color: 'white', fontSize: '11px', fontWeight: '600', cursor: 'pointer' }}>Approve</button>}
                     {d.driver_status === 'approved' && <button onClick={() => updateStatus(d.id, 'suspended')} style={{ padding: '5px 12px', borderRadius: '6px', border: 'none', background: '#f59e0b', color: 'white', fontSize: '11px', fontWeight: '600', cursor: 'pointer' }}>Suspend</button>}
@@ -98,11 +132,29 @@ export default function AdminDrivers() {
                   </div>
                 </div>
               </div>
-              <div style={{ marginTop: '12px' }}>
+              <div style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
+                <button onClick={() => toggleKyc(d.id)} style={{ padding: '5px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', background: expandedKyc === d.id ? '#f0f9ff' : 'white', color: expandedKyc === d.id ? '#3b82f6' : '#64748b', fontSize: '12px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>
+                  {expandedKyc === d.id ? 'Hide KYC Docs' : 'View KYC Docs'}
+                </button>
                 <button onClick={() => toggleReviews(d.id)} style={{ padding: '5px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', background: expandedDriver === d.id ? '#f8fafc' : 'white', color: '#64748b', fontSize: '12px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>
                   {expandedDriver === d.id ? 'Hide Reviews' : `Reviews (${d.total_deliveries || 0})`}
                 </button>
               </div>
+              {/* KYC Documents Section */}
+              {expandedKyc === d.id && (
+                <div style={{ marginTop: '12px', borderTop: '1px solid #f1f5f9', paddingTop: '12px' }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                    <DocThumbnail url={d.nric_front_url} label="NRIC Front" />
+                    <DocThumbnail url={d.nric_back_url} label="NRIC Back" />
+                    <DocThumbnail url={d.license_photo_url} label="License Photo" />
+                    <DocThumbnail url={d.vehicle_insurance_url} label="Vehicle Insurance" />
+                    {d.driver_type === 'company' && (
+                      <DocThumbnail url={d.business_reg_cert_url} label="Business Reg Cert" />
+                    )}
+                  </div>
+                </div>
+              )}
+              {/* Reviews Section */}
               {expandedDriver === d.id && (
                 <div style={{ marginTop: '12px', borderTop: '1px solid #f1f5f9', paddingTop: '12px' }}>
                   {reviews.length === 0 ? (

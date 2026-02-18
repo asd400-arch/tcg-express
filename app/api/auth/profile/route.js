@@ -3,7 +3,7 @@ import { supabaseAdmin } from '../../../../lib/supabase-server';
 
 const ALLOWED_FIELDS = {
   client: ['contact_name', 'phone', 'company_name'],
-  driver: ['contact_name', 'phone', 'vehicle_type', 'vehicle_plate', 'license_number'],
+  driver: ['contact_name', 'phone', 'vehicle_type', 'vehicle_plate', 'license_number', 'driver_type', 'nric_number', 'business_reg_number', 'nric_front_url', 'nric_back_url', 'license_photo_url', 'business_reg_cert_url', 'vehicle_insurance_url'],
   admin: ['contact_name', 'phone'],
 };
 
