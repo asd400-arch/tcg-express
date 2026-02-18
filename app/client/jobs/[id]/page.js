@@ -1,9 +1,12 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../components/AuthContext';
 import Sidebar from '../../../components/Sidebar';
+import Spinner from '../../../components/Spinner';
 import ChatBox from '../../../components/ChatBox';
 import LiveMap from '../../../components/LiveMap';
+import { useToast } from '../../../components/Toast';
 import { supabase } from '../../../../lib/supabase';
 import useMobile from '../../../components/useMobile';
 import { use } from 'react';
@@ -11,6 +14,8 @@ import { use } from 'react';
 export default function ClientJobDetail({ params }) {
   const resolvedParams = use(params);
   const { user, loading } = useAuth();
+  const router = useRouter();
+  const toast = useToast();
   const m = useMobile();
   const [jobId] = useState(resolvedParams.id);
   const [job, setJob] = useState(null);
@@ -18,7 +23,7 @@ export default function ClientJobDetail({ params }) {
   const [tab, setTab] = useState('details');
 
   useEffect(() => {
-    if (!loading && !user) window.location.href = '/login';
+    if (!loading && !user) router.push('/login');
     if (jobId && user) loadData();
   }, [jobId, user, loading]);
 
@@ -87,6 +92,7 @@ export default function ClientJobDetail({ params }) {
       status: 'assigned', assigned_driver_id: bid.driver_id, assigned_bid_id: bid.id,
       final_amount: bid.amount, commission_rate: rate, commission_amount: commission.toFixed(2), driver_payout: payout.toFixed(2),
     }).eq('id', jobId);
+    toast.success('Bid accepted');
     loadData();
   };
 
@@ -97,16 +103,18 @@ export default function ClientJobDetail({ params }) {
       total_amount: job.final_amount, commission_amount: job.commission_amount, driver_payout: job.driver_payout,
       payment_status: 'paid', paid_at: new Date().toISOString(),
     }]);
+    toast.success('Delivery confirmed');
     loadData();
   };
 
   const cancelJob = async () => {
     if (!confirm('Cancel this job?')) return;
     await supabase.from('express_jobs').update({ status: 'cancelled' }).eq('id', jobId);
+    toast.info('Job cancelled');
     loadData();
   };
 
-  if (loading || !user || !job) return null;
+  if (loading || !user || !job) return <Spinner />;
 
   const card = { background: 'white', borderRadius: '14px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9', marginBottom: '16px' };
   const statusColor = { open: '#3b82f6', bidding: '#8b5cf6', assigned: '#f59e0b', pickup_confirmed: '#f59e0b', in_transit: '#06b6d4', delivered: '#10b981', confirmed: '#10b981', completed: '#059669', cancelled: '#ef4444' };

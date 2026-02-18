@@ -1,14 +1,19 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../../components/AuthContext';
 import Sidebar from '../../components/Sidebar';
+import Spinner from '../../components/Spinner';
 import ChatBox from '../../components/ChatBox';
 import LiveMap from '../../components/LiveMap';
+import { useToast } from '../../components/Toast';
 import { supabase } from '../../../lib/supabase';
 import useMobile from '../../components/useMobile';
 
 export default function DriverMyJobs() {
   const { user, loading } = useAuth();
+  const router = useRouter();
+  const toast = useToast();
   const m = useMobile();
   const [jobs, setJobs] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -17,8 +22,8 @@ export default function DriverMyJobs() {
   const [activeTab, setActiveTab] = useState('info');
 
   useEffect(() => {
-    if (!loading && !user) window.location.href = '/login';
-    if (!loading && user && user.role !== 'driver') window.location.href = '/';
+    if (!loading && !user) router.push('/login');
+    if (!loading && user && user.role !== 'driver') router.push('/');
     if (user && user.role === 'driver') loadJobs();
   }, [user, loading]);
 
@@ -52,14 +57,14 @@ export default function DriverMyJobs() {
     formData.append('path', path);
     const res = await fetch('/api/upload', { method: 'POST', body: formData });
     const result = await res.json();
-    if (!result.url) { alert('Upload failed'); setUploading(false); return; }
+    if (!result.url) { toast.error('Upload failed'); setUploading(false); return; }
     const field = type === 'pickup' ? 'pickup_photo' : type === 'delivery' ? 'delivery_photo' : 'invoice_file';
     await supabase.from('express_jobs').update({ [field]: result.url }).eq('id', selected.id);
     setSelected({ ...selected, [field]: result.url });
     setUploading(false);
   };
 
-  if (loading || !user) return null;
+  if (loading || !user) return <Spinner />;
 
   const card = { background: 'white', borderRadius: '14px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9', marginBottom: '16px' };
   const statusColor = { assigned: '#f59e0b', pickup_confirmed: '#f59e0b', in_transit: '#06b6d4', delivered: '#10b981', confirmed: '#10b981', completed: '#059669', cancelled: '#ef4444' };

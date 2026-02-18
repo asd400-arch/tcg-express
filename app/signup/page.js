@@ -1,9 +1,11 @@
 'use client';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../components/AuthContext';
 
 export default function Signup() {
   const { signup } = useAuth();
+  const router = useRouter();
   const [step, setStep] = useState(1);
   const [role, setRole] = useState('');
   const [form, setForm] = useState({ email: '', password: '', confirm: '', contact_name: '', phone: '', company_name: '', vehicle_type: '', vehicle_plate: '', license_number: '' });
@@ -31,7 +33,7 @@ export default function Signup() {
     const result = await signup(userData);
     if (result.error) { setError(result.error); setLoading(false); return; }
     if (role === 'driver') { setSuccess(true); setLoading(false); }
-    else window.location.href = '/client/dashboard';
+    else router.push('/client/dashboard');
   };
 
   if (success) {

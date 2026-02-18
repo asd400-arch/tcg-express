@@ -1,19 +1,23 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../../components/AuthContext';
 import Sidebar from '../../components/Sidebar';
+import { useToast } from '../../components/Toast';
 import useMobile from '../../components/useMobile';
 
 export default function AdminSettings() {
   const { user, loading } = useAuth();
+  const router = useRouter();
+  const toast = useToast();
   const m = useMobile();
   const [commission, setCommission] = useState('15');
   const [saved, setSaved] = useState(false);
   const [settingsLoading, setSettingsLoading] = useState(true);
 
   useEffect(() => {
-    if (!loading && !user) window.location.href = '/login';
-    if (!loading && user && user.role !== 'admin') window.location.href = '/';
+    if (!loading && !user) router.push('/login');
+    if (!loading && user && user.role !== 'admin') router.push('/');
     if (user && user.role === 'admin') loadSettings();
   }, [user, loading]);
 
@@ -38,6 +42,7 @@ export default function AdminSettings() {
     if (result.success) {
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
+      toast.success('Settings saved');
     }
   };
 

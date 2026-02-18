@@ -1,12 +1,16 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../components/AuthContext';
 import Sidebar from '../../../components/Sidebar';
+import { useToast } from '../../../components/Toast';
 import { supabase } from '../../../../lib/supabase';
 import useMobile from '../../../components/useMobile';
 
 export default function NewJob() {
   const { user, loading } = useAuth();
+  const router = useRouter();
+  const toast = useToast();
   const m = useMobile();
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
@@ -20,8 +24,8 @@ export default function NewJob() {
   });
 
   useEffect(() => {
-    if (!loading && !user) window.location.href = '/login';
-    if (!loading && user && user.role !== 'client') window.location.href = '/';
+    if (!loading && !user) router.push('/login');
+    if (!loading && user && user.role !== 'client') router.push('/');
   }, [user, loading]);
 
   const set = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
@@ -43,7 +47,7 @@ export default function NewJob() {
       status: 'open',
     }]).select().single();
     setSubmitting(false);
-    if (error) { alert('Error: ' + error.message); return; }
+    if (error) { toast.error('Error: ' + error.message); return; }
     setSuccess(data);
   };
 

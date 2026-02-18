@@ -1,12 +1,17 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../../components/AuthContext';
 import Sidebar from '../../components/Sidebar';
+import Spinner from '../../components/Spinner';
+import { useToast } from '../../components/Toast';
 import { supabase } from '../../../lib/supabase';
 import useMobile from '../../components/useMobile';
 
 export default function AdminDashboard() {
   const { user, loading } = useAuth();
+  const router = useRouter();
+  const toast = useToast();
   const m = useMobile();
   const [stats, setStats] = useState({ jobs: 0, activeJobs: 0, drivers: 0, pendingDrivers: 0, clients: 0, revenue: 0 });
   const [recentJobs, setRecentJobs] = useState([]);
@@ -14,8 +19,8 @@ export default function AdminDashboard() {
   const [dataLoading, setDataLoading] = useState(true);
 
   useEffect(() => {
-    if (!loading && !user) window.location.href = '/login';
-    if (!loading && user && user.role !== 'admin') window.location.href = '/';
+    if (!loading && !user) router.push('/login');
+    if (!loading && user && user.role !== 'admin') router.push('/');
     if (user) loadData();
   }, [user, loading]);
 
@@ -54,6 +59,7 @@ export default function AdminDashboard() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ adminId: user.id, userId: id, updates: { driver_status: 'approved' } }),
     });
+    toast.success('Driver approved');
     loadData();
   };
 
@@ -63,10 +69,11 @@ export default function AdminDashboard() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ adminId: user.id, userId: id, updates: { driver_status: 'rejected' } }),
     });
+    toast.success('Driver rejected');
     loadData();
   };
 
-  if (loading || !user) return null;
+  if (loading || !user) return <Spinner />;
 
   const card = { background: 'white', borderRadius: '14px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9' };
   const statusColor = { open: '#3b82f6', bidding: '#8b5cf6', assigned: '#f59e0b', pickup_confirmed: '#f59e0b', in_transit: '#06b6d4', delivered: '#10b981', confirmed: '#10b981', completed: '#059669', cancelled: '#ef4444' };

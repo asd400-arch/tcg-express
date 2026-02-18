@@ -1,16 +1,18 @@
 'use client';
 import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from './components/AuthContext';
 
 export default function Home() {
   const { user, loading } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
     if (!loading) {
-      if (!user) window.location.href = '/login';
-      else if (user.role === 'admin') window.location.href = '/admin/dashboard';
-      else if (user.role === 'driver') window.location.href = '/driver/dashboard';
-      else window.location.href = '/client/dashboard';
+      if (!user) router.push('/login');
+      else if (user.role === 'admin') router.push('/admin/dashboard');
+      else if (user.role === 'driver') router.push('/driver/dashboard');
+      else router.push('/client/dashboard');
     }
   }, [user, loading]);
 

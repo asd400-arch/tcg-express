@@ -1,5 +1,6 @@
 import './globals.css';
 import { AuthProvider } from './components/AuthContext';
+import { ToastProvider } from './components/Toast';
 
 export const metadata = {
   title: 'TCG Express | B2B Express Delivery Platform',
@@ -22,7 +23,9 @@ export default function RootLayout({ children }) {
       </head>
       <body suppressHydrationWarning style={{ margin: 0, padding: 0 }}>
         <AuthProvider>
-          {children}
+          <ToastProvider>
+            {children}
+          </ToastProvider>
         </AuthProvider>
       </body>
     </html>

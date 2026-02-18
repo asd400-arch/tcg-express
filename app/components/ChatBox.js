@@ -1,8 +1,10 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
+import { useToast } from './Toast';
 import { supabase } from '../../lib/supabase';
 
 export default function ChatBox({ jobId, userId, receiverId, userRole }) {
+  const toast = useToast();
   const [messages, setMessages] = useState([]);
   const [newMsg, setNewMsg] = useState('');
   const [sending, setSending] = useState(false);
@@ -63,7 +65,7 @@ export default function ChatBox({ jobId, userId, receiverId, userRole }) {
     formData.append('path', path);
     const res = await fetch('/api/upload', { method: 'POST', body: formData });
     const result = await res.json();
-    if (!result.url) { alert('Upload failed'); setSending(false); return; }
+    if (!result.url) { toast.error('Upload failed'); setSending(false); return; }
     await supabase.from('express_messages').insert([{
       job_id: jobId, sender_id: userId, receiver_id: receiverId,
       content: '📷 Photo', message_type: 'image', attachment_url: result.url,

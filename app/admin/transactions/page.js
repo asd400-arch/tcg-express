@@ -1,19 +1,22 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../../components/AuthContext';
 import Sidebar from '../../components/Sidebar';
+import Spinner from '../../components/Spinner';
 import { supabase } from '../../../lib/supabase';
 import useMobile from '../../components/useMobile';
 
 export default function AdminTransactions() {
   const { user, loading } = useAuth();
+  const router = useRouter();
   const m = useMobile();
   const [txns, setTxns] = useState([]);
   const [stats, setStats] = useState({ total: 0, commission: 0, payouts: 0, count: 0 });
 
   useEffect(() => {
-    if (!loading && !user) window.location.href = '/login';
-    if (!loading && user && user.role !== 'admin') window.location.href = '/';
+    if (!loading && !user) router.push('/login');
+    if (!loading && user && user.role !== 'admin') router.push('/');
     if (user && user.role === 'admin') loadData();
   }, [user, loading]);
 
@@ -29,7 +32,7 @@ export default function AdminTransactions() {
     });
   };
 
-  if (loading || !user) return null;
+  if (loading || !user) return <Spinner />;
   const card = { background: 'white', borderRadius: '14px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9' };
 
   return (

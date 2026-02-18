@@ -1,9 +1,11 @@
 'use client';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../components/AuthContext';
 
 export default function Login() {
   const { login } = useAuth();
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -16,9 +18,9 @@ export default function Login() {
     const result = await login(email, password);
     if (result.error) { setError(result.error); setLoading(false); return; }
     const user = result.data;
-    if (user.role === 'admin') window.location.href = '/admin/dashboard';
-    else if (user.role === 'driver') window.location.href = '/driver/dashboard';
-    else window.location.href = '/client/dashboard';
+    if (user.role === 'admin') router.push('/admin/dashboard');
+    else if (user.role === 'driver') router.push('/driver/dashboard');
+    else router.push('/client/dashboard');
   };
 
   const input = { width: '100%', padding: '12px 16px', borderRadius: '10px', fontSize: '14px', background: '#f8fafc', border: '1px solid #e2e8f0', color: '#1e293b', outline: 'none', fontFamily: "'Inter', sans-serif", boxSizing: 'border-box' };

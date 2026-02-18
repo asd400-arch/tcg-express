@@ -1,12 +1,17 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../../components/AuthContext';
 import Sidebar from '../../components/Sidebar';
+import Spinner from '../../components/Spinner';
+import { useToast } from '../../components/Toast';
 import { supabase } from '../../../lib/supabase';
 import useMobile from '../../components/useMobile';
 
 export default function DriverJobs() {
   const { user, loading } = useAuth();
+  const router = useRouter();
+  const toast = useToast();
   const m = useMobile();
   const [jobs, setJobs] = useState([]);
   const [selectedJob, setSelectedJob] = useState(null);
@@ -17,8 +22,8 @@ export default function DriverJobs() {
   const [myBids, setMyBids] = useState({});
 
   useEffect(() => {
-    if (!loading && !user) window.location.href = '/login';
-    if (!loading && user && user.role !== 'driver') window.location.href = '/';
+    if (!loading && !user) router.push('/login');
+    if (!loading && user && user.role !== 'driver') router.push('/');
     if (user && user.role === 'driver') loadData();
   }, [user, loading]);
 
@@ -35,19 +40,19 @@ export default function DriverJobs() {
 
   const submitBid = async () => {
     if (!bidAmount || !selectedJob) return;
-    if (parseFloat(bidAmount) <= 0) { alert('Bid amount must be greater than 0'); return; }
+    if (parseFloat(bidAmount) <= 0) { toast.error('Bid amount must be greater than 0'); return; }
     setBidding(true);
     const { error } = await supabase.from('express_bids').insert([{
       job_id: selectedJob.id, driver_id: user.id,
       amount: parseFloat(bidAmount), estimated_time: bidTime, message: bidMsg,
     }]);
-    if (error) { alert('Error: ' + error.message); setBidding(false); return; }
+    if (error) { toast.error('Error: ' + error.message); setBidding(false); return; }
     await supabase.from('express_jobs').update({ status: 'bidding' }).eq('id', selectedJob.id).eq('status', 'open');
     setBidding(false); setSelectedJob(null); setBidAmount(''); setBidTime(''); setBidMsg('');
     loadData();
   };
 
-  if (loading || !user) return null;
+  if (loading || !user) return <Spinner />;
 
   const card = { background: 'white', borderRadius: '14px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9' };
   const input = { width: '100%', padding: '12px 16px', borderRadius: '10px', fontSize: '14px', background: '#f8fafc', border: '1px solid #e2e8f0', color: '#1e293b', outline: 'none', fontFamily: "'Inter', sans-serif", boxSizing: 'border-box' };

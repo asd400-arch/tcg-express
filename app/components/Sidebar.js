@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from './AuthContext';
 import useMobile from './useMobile';
 
@@ -26,10 +27,12 @@ const adminLinks = [
   { label: 'Settings', href: '/admin/settings', icon: '⚙️' },
 ];
 
-export default function Sidebar({ active = '' }) {
+export default function Sidebar({ active = '', title }) {
   const { user, logout } = useAuth();
+  const router = useRouter();
   const m = useMobile();
   const [open, setOpen] = useState(false);
+  const displayTitle = title || active;
 
   const links = user?.role === 'admin' ? adminLinks : user?.role === 'driver' ? driverLinks : clientLinks;
   const roleColor = user?.role === 'admin' ? '#ef4444' : user?.role === 'driver' ? '#10b981' : '#3b82f6';
@@ -82,7 +85,7 @@ export default function Sidebar({ active = '' }) {
             <div style={{ fontSize: '11px', color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.email}</div>
           </div>
         </div>
-        <button onClick={() => { logout(); window.location.href = '/login'; }} style={{
+        <button onClick={() => { logout(); router.push('/login'); }} style={{
           width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #e2e8f0',
           background: 'white', color: '#64748b', fontSize: '13px', fontWeight: '500',
           cursor: 'pointer', fontFamily: "'Inter', sans-serif",
@@ -100,9 +103,9 @@ export default function Sidebar({ active = '' }) {
           background: 'white', borderBottom: '1px solid #e2e8f0',
           padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: `linear-gradient(135deg, ${roleColor}, ${roleColor}cc)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: '900', color: 'white' }}>T</div>
-            <span style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b' }}>TCG Express</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: `linear-gradient(135deg, ${roleColor}, ${roleColor}cc)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: '900', color: 'white', flexShrink: 0 }}>T</div>
+            <span style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{displayTitle || 'TCG Express'}</span>
           </div>
           <div onClick={() => setOpen(true)} style={{ display: 'flex', flexDirection: 'column', gap: '4px', cursor: 'pointer', padding: '6px' }}>
             <div style={{ width: '20px', height: '2px', background: '#64748b', borderRadius: '2px' }}></div>
