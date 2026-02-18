@@ -13,7 +13,8 @@ export default function ClientTransactions() {
   const router = useRouter();
   const m = useMobile();
   const [transactions, setTransactions] = useState([]);
-  const [stats, setStats] = useState({ total: 0, thisMonth: 0, count: 0 });
+  const [stats, setStats] = useState({ total: 0, thisMonth: 0, escrow: 0, count: 0 });
+  const [filter, setFilter] = useState('all');
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -27,8 +28,9 @@ export default function ClientTransactions() {
     setTransactions(txns);
     const now = new Date();
     setStats({
-      total: txns.reduce((s, t) => s + parseFloat(t.total_amount || 0), 0),
-      thisMonth: txns.filter(t => { const d = new Date(t.created_at); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); }).reduce((s, t) => s + parseFloat(t.total_amount || 0), 0),
+      total: txns.filter(t => t.payment_status === 'paid').reduce((s, t) => s + parseFloat(t.total_amount || 0), 0),
+      thisMonth: txns.filter(t => { const d = new Date(t.created_at); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() && t.payment_status === 'paid'; }).reduce((s, t) => s + parseFloat(t.total_amount || 0), 0),
+      escrow: txns.filter(t => t.payment_status === 'held').reduce((s, t) => s + parseFloat(t.total_amount || 0), 0),
       count: txns.length,
     });
   };
@@ -41,10 +43,11 @@ export default function ClientTransactions() {
       <Sidebar active="Transactions" />
       <div style={{ flex: 1, padding: m ? '20px 16px' : '30px', overflowX: 'hidden' }}>
         <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', marginBottom: '20px' }}>💳 Transactions</h1>
-        <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr 1fr' : 'repeat(3, 1fr)', gap: '16px', marginBottom: '25px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: m ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: '16px', marginBottom: '25px' }}>
           {[
             { label: 'Total Spent', value: `$${stats.total.toFixed(2)}`, color: '#3b82f6', icon: '💳' },
             { label: 'This Month', value: `$${stats.thisMonth.toFixed(2)}`, color: '#f59e0b', icon: '📅' },
+            { label: 'In Escrow', value: `$${stats.escrow.toFixed(2)}`, color: '#d97706', icon: '🔒' },
             { label: 'Deliveries', value: stats.count, color: '#10b981', icon: '📦' },
           ].map((s, i) => (
             <div key={i} style={card}>
@@ -56,6 +59,16 @@ export default function ClientTransactions() {
                 <span style={{ fontSize: '24px' }}>{s.icon}</span>
               </div>
             </div>
+          ))}
+        </div>
+        {/* Filter */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+          {['all', 'held', 'paid'].map(f => (
+            <button key={f} onClick={() => setFilter(f)} style={{
+              padding: '6px 16px', borderRadius: '8px', border: '1px solid ' + (filter === f ? '#3b82f6' : '#e2e8f0'),
+              background: filter === f ? '#eff6ff' : 'white', color: filter === f ? '#3b82f6' : '#64748b',
+              fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif", textTransform: 'capitalize',
+            }}>{f === 'held' ? 'In Escrow' : f}</button>
           ))}
         </div>
         {/* 7-Day Spending Chart */}
@@ -93,21 +106,24 @@ export default function ClientTransactions() {
 
         <div style={card}>
           <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>Payment History</h3>
-          {transactions.length === 0 ? (
-            <p style={{ color: '#64748b', fontSize: '14px', textAlign: 'center', padding: '20px' }}>No transactions yet</p>
-          ) : transactions.map(t => (
-            <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 0', borderBottom: '1px solid #f1f5f9' }}>
-              <div>
-                <div style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b' }}>{t.job?.job_number}</div>
-                <div style={{ fontSize: '12px', color: '#64748b' }}>{t.job?.item_description}</div>
-                <div style={{ fontSize: '11px', color: '#94a3b8' }}>{new Date(t.created_at).toLocaleDateString()}</div>
+          {(() => {
+            const displayed = filter === 'all' ? transactions : transactions.filter(t => t.payment_status === filter);
+            return displayed.length === 0 ? (
+              <p style={{ color: '#64748b', fontSize: '14px', textAlign: 'center', padding: '20px' }}>No transactions found</p>
+            ) : displayed.map(t => (
+              <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 0', borderBottom: '1px solid #f1f5f9' }}>
+                <div>
+                  <div style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b' }}>{t.job?.job_number}</div>
+                  <div style={{ fontSize: '12px', color: '#64748b' }}>{t.job?.item_description}</div>
+                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>{new Date(t.created_at).toLocaleDateString()}</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b' }}>${parseFloat(t.total_amount).toFixed(2)}</div>
+                  <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '700', background: t.payment_status === 'paid' ? '#f0fdf4' : '#fffbeb', color: t.payment_status === 'paid' ? '#10b981' : '#d97706' }}>{t.payment_status === 'held' ? 'HELD' : t.payment_status.toUpperCase()}</span>
+                </div>
               </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b' }}>${parseFloat(t.total_amount).toFixed(2)}</div>
-                <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '700', background: t.payment_status === 'paid' ? '#f0fdf4' : '#fef9c3', color: t.payment_status === 'paid' ? '#10b981' : '#f59e0b' }}>{t.payment_status}</span>
-              </div>
-            </div>
-          ))}
+            ));
+          })()}
         </div>
       </div>
     </div>

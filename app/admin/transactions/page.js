@@ -12,9 +12,10 @@ export default function AdminTransactions() {
   const router = useRouter();
   const m = useMobile();
   const [txns, setTxns] = useState([]);
-  const [stats, setStats] = useState({ total: 0, commission: 0, payouts: 0, count: 0 });
+  const [stats, setStats] = useState({ total: 0, commission: 0, payouts: 0, escrow: 0, count: 0 });
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -30,6 +31,7 @@ export default function AdminTransactions() {
   const filteredTxns = txns.filter(t => {
     if (dateFrom && new Date(t.created_at) < new Date(dateFrom)) return false;
     if (dateTo && new Date(t.created_at) > new Date(dateTo + 'T23:59:59')) return false;
+    if (statusFilter !== 'all' && t.payment_status !== statusFilter) return false;
     return true;
   });
 
@@ -37,6 +39,7 @@ export default function AdminTransactions() {
     total: filteredTxns.reduce((s, x) => s + parseFloat(x.total_amount || 0), 0),
     commission: filteredTxns.reduce((s, x) => s + parseFloat(x.commission_amount || 0), 0),
     payouts: filteredTxns.reduce((s, x) => s + parseFloat(x.driver_payout || 0), 0),
+    escrow: txns.filter(t => t.payment_status === 'held').reduce((s, x) => s + parseFloat(x.total_amount || 0), 0),
     count: filteredTxns.length,
   };
 
@@ -56,11 +59,21 @@ export default function AdminTransactions() {
           <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={dateInput} />
           {(dateFrom || dateTo) && <button onClick={() => { setDateFrom(''); setDateTo(''); }} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', background: 'white', color: '#64748b', fontSize: '12px', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>Clear</button>}
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: m ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: '16px', marginBottom: '25px' }}>
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+          {['all', 'held', 'paid'].map(f => (
+            <button key={f} onClick={() => setStatusFilter(f)} style={{
+              padding: '6px 16px', borderRadius: '8px', border: '1px solid ' + (statusFilter === f ? '#3b82f6' : '#e2e8f0'),
+              background: statusFilter === f ? '#eff6ff' : 'white', color: statusFilter === f ? '#3b82f6' : '#64748b',
+              fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif", textTransform: 'capitalize',
+            }}>{f === 'held' ? 'In Escrow' : f}</button>
+          ))}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: m ? 'repeat(2, 1fr)' : 'repeat(5, 1fr)', gap: '16px', marginBottom: '25px' }}>
           {[
             { label: 'Total Volume', value: `$${filteredStats.total.toFixed(2)}`, color: '#3b82f6', icon: '💰' },
             { label: 'Commission Earned', value: `$${filteredStats.commission.toFixed(2)}`, color: '#059669', icon: '🎯' },
             { label: 'Driver Payouts', value: `$${filteredStats.payouts.toFixed(2)}`, color: '#f59e0b', icon: '🚗' },
+            { label: 'In Escrow', value: `$${filteredStats.escrow.toFixed(2)}`, color: '#d97706', icon: '🔒' },
             { label: 'Total Transactions', value: filteredStats.count, color: '#8b5cf6', icon: '📊' },
           ].map((s, i) => (
             <div key={i} style={card}>
@@ -81,11 +94,13 @@ export default function AdminTransactions() {
                 <div style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b' }}>{t.job?.job_number}</div>
                 <div style={{ fontSize: '12px', color: '#64748b' }}>Client: {t.client?.company_name || t.client?.contact_name} → Driver: {t.driver?.contact_name}</div>
                 <div style={{ fontSize: '11px', color: '#94a3b8' }}>{new Date(t.created_at).toLocaleString()}</div>
+                {t.held_at && <div style={{ fontSize: '11px', color: '#d97706' }}>Held: {new Date(t.held_at).toLocaleString()}</div>}
+                {t.released_at && <div style={{ fontSize: '11px', color: '#059669' }}>Released: {new Date(t.released_at).toLocaleString()}</div>}
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b' }}>${parseFloat(t.total_amount).toFixed(2)}</div>
                 <div style={{ fontSize: '11px', color: '#059669' }}>Commission: ${parseFloat(t.commission_amount).toFixed(2)}</div>
-                <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '700', background: t.payment_status === 'paid' ? '#f0fdf4' : '#fef9c3', color: t.payment_status === 'paid' ? '#10b981' : '#f59e0b' }}>{t.payment_status}</span>
+                <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '700', background: t.payment_status === 'paid' ? '#f0fdf4' : '#fffbeb', color: t.payment_status === 'paid' ? '#10b981' : '#d97706' }}>{t.payment_status === 'held' ? 'HELD' : t.payment_status.toUpperCase()}</span>
               </div>
             </div>
           ))}

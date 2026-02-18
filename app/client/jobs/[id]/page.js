@@ -24,6 +24,7 @@ export default function ClientJobDetail({ params }) {
   const [tab, setTab] = useState('details');
   const [showRating, setShowRating] = useState(false);
   const [hasReview, setHasReview] = useState(false);
+  const [heldTxn, setHeldTxn] = useState(null);
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -70,14 +71,16 @@ export default function ClientJobDetail({ params }) {
   }, [jobId]);
 
   const loadData = async () => {
-    const [jobRes, bidsRes, reviewRes] = await Promise.all([
+    const [jobRes, bidsRes, reviewRes, txnRes] = await Promise.all([
       supabase.from('express_jobs').select('*').eq('id', jobId).single(),
       supabase.from('express_bids').select('*, driver:driver_id(id, contact_name, phone, email, vehicle_type, vehicle_plate, driver_rating, total_deliveries)').eq('job_id', jobId).order('created_at', { ascending: true }),
       supabase.from('express_reviews').select('id').eq('job_id', jobId).limit(1),
+      supabase.from('express_transactions').select('*').eq('job_id', jobId).eq('payment_status', 'held').maybeSingle(),
     ]);
     setJob(jobRes.data);
     setBids(bidsRes.data || []);
     setHasReview((reviewRes.data || []).length > 0);
+    setHeldTxn(txnRes.data || null);
   };
 
   const acceptBid = async (bid) => {
@@ -97,6 +100,12 @@ export default function ClientJobDetail({ params }) {
       status: 'assigned', assigned_driver_id: bid.driver_id, assigned_bid_id: bid.id,
       final_amount: bid.amount, commission_rate: rate, commission_amount: commission.toFixed(2), driver_payout: payout.toFixed(2),
     }).eq('id', jobId);
+    // Create held transaction (escrow)
+    await supabase.from('express_transactions').insert([{
+      job_id: jobId, client_id: user.id, driver_id: bid.driver_id,
+      total_amount: bid.amount, commission_amount: commission.toFixed(2), driver_payout: payout.toFixed(2),
+      payment_status: 'held', held_at: new Date().toISOString(),
+    }]);
     // Notify driver in-app
     fetch('/api/notifications', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -109,17 +118,17 @@ export default function ClientJobDetail({ params }) {
         body: JSON.stringify({ to: bid.driver.email, type: 'bid_accepted', data: { jobNumber: job.job_number, amount: bid.amount, pickupAddress: job.pickup_address } }),
       }).catch(() => {});
     }
-    toast.success('Bid accepted');
+    toast.success('Bid accepted — payment held in escrow');
     loadData();
   };
 
   const confirmDelivery = async () => {
     await supabase.from('express_jobs').update({ status: 'confirmed', confirmed_at: new Date().toISOString() }).eq('id', jobId);
-    await supabase.from('express_transactions').insert([{
-      job_id: jobId, client_id: user.id, driver_id: job.assigned_driver_id,
-      total_amount: job.final_amount, commission_amount: job.commission_amount, driver_payout: job.driver_payout,
-      payment_status: 'paid', paid_at: new Date().toISOString(),
-    }]);
+    // Release held payment via server API
+    await fetch('/api/transactions/release', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user.id, jobId }),
+    });
     // Notify driver in-app
     fetch('/api/notifications', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -208,6 +217,12 @@ export default function ClientJobDetail({ params }) {
                 <div style={{ marginTop: '16px', padding: '14px', background: '#f0fdf4', borderRadius: '10px' }}>
                   <div style={{ fontSize: '13px', color: '#64748b' }}>Final Amount</div>
                   <div style={{ fontSize: '22px', fontWeight: '800', color: '#059669' }}>${job.final_amount}</div>
+                </div>
+              )}
+              {heldTxn && ['assigned', 'pickup_confirmed', 'in_transit', 'delivered'].includes(job.status) && (
+                <div style={{ marginTop: '12px', padding: '12px 14px', background: '#fffbeb', borderRadius: '10px', border: '1px solid #fde68a', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '700', background: '#f59e0b20', color: '#d97706' }}>HELD</span>
+                  <span style={{ fontSize: '14px', fontWeight: '600', color: '#92400e' }}>Payment held in escrow: ${parseFloat(heldTxn.total_amount).toFixed(2)}</span>
                 </div>
               )}
             </div>

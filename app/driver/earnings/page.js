@@ -29,7 +29,7 @@ export default function DriverEarnings() {
     setTransactions(txns);
     const now = new Date();
     const thisMonth = txns.filter(t => { const d = new Date(t.created_at); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() && t.payment_status === 'paid'; });
-    const pending = txns.filter(t => t.payment_status === 'pending');
+    const pending = txns.filter(t => t.payment_status === 'held');
     setStats({
       total: txns.filter(t => t.payment_status === 'paid').reduce((s, t) => s + parseFloat(t.driver_payout || 0), 0),
       thisMonth: thisMonth.reduce((s, t) => s + parseFloat(t.driver_payout || 0), 0),
@@ -47,7 +47,7 @@ export default function DriverEarnings() {
   const filteredStats = {
     total: filteredTxns.filter(t => t.payment_status === 'paid').reduce((s, t) => s + parseFloat(t.driver_payout || 0), 0),
     thisMonth: (() => { const now = new Date(); return filteredTxns.filter(t => { const d = new Date(t.created_at); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() && t.payment_status === 'paid'; }).reduce((s, t) => s + parseFloat(t.driver_payout || 0), 0); })(),
-    pending: filteredTxns.filter(t => t.payment_status === 'pending').reduce((s, t) => s + parseFloat(t.driver_payout || 0), 0),
+    pending: filteredTxns.filter(t => t.payment_status === 'held').reduce((s, t) => s + parseFloat(t.driver_payout || 0), 0),
     count: filteredTxns.filter(t => t.payment_status === 'paid').length,
   };
 
@@ -71,7 +71,7 @@ export default function DriverEarnings() {
           {[
             { label: 'Total Earned', value: `$${filteredStats.total.toFixed(2)}`, color: '#059669', icon: '💰' },
             { label: 'This Month', value: `$${filteredStats.thisMonth.toFixed(2)}`, color: '#3b82f6', icon: '📅' },
-            { label: 'Pending', value: `$${filteredStats.pending.toFixed(2)}`, color: '#f59e0b', icon: '⏳' },
+            { label: 'In Escrow', value: `$${filteredStats.pending.toFixed(2)}`, color: '#f59e0b', icon: '🔒' },
             { label: 'Deliveries', value: filteredStats.count, color: '#8b5cf6', icon: '📦' },
           ].map((s, i) => (
             <div key={i} style={card}>
@@ -131,7 +131,7 @@ export default function DriverEarnings() {
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: '16px', fontWeight: '700', color: '#059669' }}>+${parseFloat(t.driver_payout).toFixed(2)}</div>
-                <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '700', background: t.payment_status === 'paid' ? '#f0fdf4' : '#fef9c3', color: t.payment_status === 'paid' ? '#10b981' : '#f59e0b' }}>{t.payment_status}</span>
+                <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '700', background: t.payment_status === 'paid' ? '#f0fdf4' : '#fffbeb', color: t.payment_status === 'paid' ? '#10b981' : '#d97706' }}>{t.payment_status === 'held' ? 'IN ESCROW' : t.payment_status.toUpperCase()}</span>
               </div>
             </div>
           ))}
