@@ -71,8 +71,14 @@ export default function ClientJobDetail({ params }) {
   };
 
   const acceptBid = async (bid) => {
-    const savedRate = localStorage.getItem('tcg_commission');
-    const rate = parseFloat(savedRate) || 15;
+    let rate = 15;
+    try {
+      const settingsRes = await fetch('/api/admin/settings');
+      const settingsData = await settingsRes.json();
+      if (settingsData.data?.commission_rate) {
+        rate = parseFloat(settingsData.data.commission_rate);
+      }
+    } catch (e) {}
     const commission = parseFloat(bid.amount) * (rate / 100);
     const payout = parseFloat(bid.amount) - commission;
     await supabase.from('express_bids').update({ status: 'accepted' }).eq('id', bid.id);

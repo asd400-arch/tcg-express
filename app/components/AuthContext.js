@@ -1,6 +1,5 @@
 'use client';
 import { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
 
 const AuthContext = createContext({});
 
@@ -11,39 +10,66 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const saved = localStorage.getItem('tcg_user');
     if (saved) {
-      try { setUser(JSON.parse(saved)); } catch(e) {}
+      try {
+        const parsed = JSON.parse(saved);
+        // Validate session against server
+        fetch('/api/auth/me', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: parsed.id }),
+        })
+          .then(res => res.json())
+          .then(result => {
+            if (result.data) {
+              setUser(result.data);
+              localStorage.setItem('tcg_user', JSON.stringify(result.data));
+            } else {
+              // Session invalid — clear
+              localStorage.removeItem('tcg_user');
+            }
+            setLoading(false);
+          })
+          .catch(() => {
+            // Network error — use cached data as fallback
+            setUser(parsed);
+            setLoading(false);
+          });
+      } catch(e) {
+        localStorage.removeItem('tcg_user');
+        setLoading(false);
+      }
+    } else {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
   const login = async (email, password) => {
-    const { data, error } = await supabase
-      .from('express_users')
-      .select('*')
-      .eq('email', email)
-      .single();
-    if (error || !data) return { error: 'Invalid email or password' };
-    if (data.password_hash !== password) return { error: 'Invalid email or password' };
-    if (!data.is_active) return { error: 'Account is deactivated' };
-    if (data.role === 'driver' && data.driver_status !== 'approved') return { error: 'Driver account pending approval' };
-    setUser(data);
-    localStorage.setItem('tcg_user', JSON.stringify(data));
-    return { data };
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const result = await res.json();
+    if (result.error) return { error: result.error };
+    setUser(result.data);
+    localStorage.setItem('tcg_user', JSON.stringify(result.data));
+    return { data: result.data };
   };
 
   const signup = async (userData) => {
     const { email, password, ...rest } = userData;
-    const existing = await supabase.from('express_users').select('id').eq('email', email).single();
-    if (existing.data) return { error: 'Email already registered' };
-    const { data, error } = await supabase.from('express_users').insert([{
-      email, password_hash: password, ...rest
-    }]).select().single();
-    if (error) return { error: error.message };
-    if (data.role === 'client') {
-      setUser(data);
-      localStorage.setItem('tcg_user', JSON.stringify(data));
+    const res = await fetch('/api/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, ...rest }),
+    });
+    const result = await res.json();
+    if (result.error) return { error: result.error };
+    if (result.data.role === 'client') {
+      setUser(result.data);
+      localStorage.setItem('tcg_user', JSON.stringify(result.data));
     }
-    return { data };
+    return { data: result.data };
   };
 
   const logout = () => {

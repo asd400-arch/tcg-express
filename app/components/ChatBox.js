@@ -57,12 +57,16 @@ export default function ChatBox({ jobId, userId, receiverId, userRole }) {
     if (!file) return;
     setSending(true);
     const path = `chat/${jobId}/${Date.now()}_${file.name}`;
-    const { error } = await supabase.storage.from('express-uploads').upload(path, file);
-    if (error) { alert('Upload failed'); setSending(false); return; }
-    const { data: urlData } = supabase.storage.from('express-uploads').getPublicUrl(path);
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('userId', userId);
+    formData.append('path', path);
+    const res = await fetch('/api/upload', { method: 'POST', body: formData });
+    const result = await res.json();
+    if (!result.url) { alert('Upload failed'); setSending(false); return; }
     await supabase.from('express_messages').insert([{
       job_id: jobId, sender_id: userId, receiver_id: receiverId,
-      content: '📷 Photo', message_type: 'image', attachment_url: urlData.publicUrl,
+      content: '📷 Photo', message_type: 'image', attachment_url: result.url,
     }]);
     setSending(false);
   };

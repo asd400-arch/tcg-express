@@ -21,12 +21,16 @@ export default function AdminDashboard() {
 
   const loadData = async () => {
     setDataLoading(true);
-    const [jobs, users, txn] = await Promise.all([
+    const [jobs, usersRes, txn] = await Promise.all([
       supabase.from('express_jobs').select('*').order('created_at', { ascending: false }),
-      supabase.from('express_users').select('*'),
+      fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminId: user.id }),
+      }).then(r => r.json()),
       supabase.from('express_transactions').select('commission_amount').eq('payment_status', 'paid'),
     ]);
-    const j = jobs.data || []; const u = users.data || []; const t = txn.data || [];
+    const j = jobs.data || []; const u = usersRes.data || []; const t = txn.data || [];
     const drivers = u.filter(x => x.role === 'driver');
     const clients = u.filter(x => x.role === 'client');
     const pd = drivers.filter(x => x.driver_status === 'pending');
@@ -45,12 +49,20 @@ export default function AdminDashboard() {
   };
 
   const approveDriver = async (id) => {
-    await supabase.from('express_users').update({ driver_status: 'approved' }).eq('id', id);
+    await fetch('/api/admin/users/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminId: user.id, userId: id, updates: { driver_status: 'approved' } }),
+    });
     loadData();
   };
 
   const rejectDriver = async (id) => {
-    await supabase.from('express_users').update({ driver_status: 'rejected' }).eq('id', id);
+    await fetch('/api/admin/users/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminId: user.id, userId: id, updates: { driver_status: 'rejected' } }),
+    });
     loadData();
   };
 

@@ -2,7 +2,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../components/AuthContext';
 import Sidebar from '../../components/Sidebar';
-import { supabase } from '../../../lib/supabase';
 import useMobile from '../../components/useMobile';
 
 export default function AdminClients() {
@@ -17,12 +16,21 @@ export default function AdminClients() {
   }, [user, loading]);
 
   const loadData = async () => {
-    const { data } = await supabase.from('express_users').select('*').eq('role', 'client').order('created_at', { ascending: false });
-    setClients(data || []);
+    const res = await fetch('/api/admin/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminId: user.id, role: 'client' }),
+    });
+    const result = await res.json();
+    setClients(result.data || []);
   };
 
   const toggleActive = async (id, current) => {
-    await supabase.from('express_users').update({ is_active: !current }).eq('id', id);
+    await fetch('/api/admin/users/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminId: user.id, userId: id, updates: { is_active: !current } }),
+    });
     loadData();
   };
 

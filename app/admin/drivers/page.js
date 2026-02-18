@@ -2,7 +2,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../components/AuthContext';
 import Sidebar from '../../components/Sidebar';
-import { supabase } from '../../../lib/supabase';
 import useMobile from '../../components/useMobile';
 
 export default function AdminDrivers() {
@@ -18,12 +17,21 @@ export default function AdminDrivers() {
   }, [user, loading]);
 
   const loadData = async () => {
-    const { data } = await supabase.from('express_users').select('*').eq('role', 'driver').order('created_at', { ascending: false });
-    setDrivers(data || []);
+    const res = await fetch('/api/admin/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminId: user.id, role: 'driver' }),
+    });
+    const result = await res.json();
+    setDrivers(result.data || []);
   };
 
   const updateStatus = async (id, status) => {
-    await supabase.from('express_users').update({ driver_status: status }).eq('id', id);
+    await fetch('/api/admin/users/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminId: user.id, userId: id, updates: { driver_status: status } }),
+    });
     loadData();
   };
 

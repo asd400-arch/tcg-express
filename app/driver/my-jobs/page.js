@@ -46,16 +46,16 @@ export default function DriverMyJobs() {
     setUploading(true);
     const ext = file.name.split('.').pop();
     const path = `jobs/${selected.id}/${type}_${Date.now()}.${ext}`;
-    let result = await supabase.storage.from('express-uploads').upload(path, file);
-    if (result.error) {
-      await supabase.storage.createBucket('express-uploads', { public: true });
-      result = await supabase.storage.from('express-uploads').upload(path, file);
-      if (result.error) { alert('Upload failed'); setUploading(false); return; }
-    }
-    const { data: urlData } = supabase.storage.from('express-uploads').getPublicUrl(path);
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('userId', user.id);
+    formData.append('path', path);
+    const res = await fetch('/api/upload', { method: 'POST', body: formData });
+    const result = await res.json();
+    if (!result.url) { alert('Upload failed'); setUploading(false); return; }
     const field = type === 'pickup' ? 'pickup_photo' : type === 'delivery' ? 'delivery_photo' : 'invoice_file';
-    await supabase.from('express_jobs').update({ [field]: urlData.publicUrl }).eq('id', selected.id);
-    setSelected({ ...selected, [field]: urlData.publicUrl });
+    await supabase.from('express_jobs').update({ [field]: result.url }).eq('id', selected.id);
+    setSelected({ ...selected, [field]: result.url });
     setUploading(false);
   };
 

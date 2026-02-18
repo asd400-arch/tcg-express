@@ -9,18 +9,36 @@ export default function AdminSettings() {
   const m = useMobile();
   const [commission, setCommission] = useState('15');
   const [saved, setSaved] = useState(false);
+  const [settingsLoading, setSettingsLoading] = useState(true);
 
   useEffect(() => {
     if (!loading && !user) window.location.href = '/login';
     if (!loading && user && user.role !== 'admin') window.location.href = '/';
-    const saved = localStorage.getItem('tcg_commission');
-    if (saved) setCommission(saved);
+    if (user && user.role === 'admin') loadSettings();
   }, [user, loading]);
 
-  const saveSettings = () => {
-    localStorage.setItem('tcg_commission', commission);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  const loadSettings = async () => {
+    try {
+      const res = await fetch('/api/admin/settings');
+      const result = await res.json();
+      if (result.data?.commission_rate) {
+        setCommission(result.data.commission_rate);
+      }
+    } catch (e) {}
+    setSettingsLoading(false);
+  };
+
+  const saveSettings = async () => {
+    const res = await fetch('/api/admin/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminId: user.id, key: 'commission_rate', value: commission }),
+    });
+    const result = await res.json();
+    if (result.success) {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    }
   };
 
   if (loading || !user) return null;
@@ -37,7 +55,7 @@ export default function AdminSettings() {
           <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>Commission Rate</h3>
           <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '14px' }}>Percentage taken from each completed delivery.</p>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-            <input type="number" min="0" max="50" style={{ ...input, maxWidth: '120px' }} value={commission} onChange={e => setCommission(e.target.value)} />
+            <input type="number" min="0" max="50" style={{ ...input, maxWidth: '120px' }} value={commission} onChange={e => setCommission(e.target.value)} disabled={settingsLoading} />
             <span style={{ fontSize: '16px', fontWeight: '700', color: '#64748b' }}>%</span>
           </div>
           <div style={{ padding: '14px', background: '#f8fafc', borderRadius: '10px', marginBottom: '16px' }}>
@@ -47,7 +65,7 @@ export default function AdminSettings() {
               <div><span style={{ fontSize: '12px', color: '#94a3b8' }}>Driver Payout</span><div style={{ fontSize: '16px', fontWeight: '700', color: '#3b82f6' }}>${(100 - 100 * parseFloat(commission || 0) / 100).toFixed(2)}</div></div>
             </div>
           </div>
-          <button onClick={saveSettings} style={{
+          <button onClick={saveSettings} disabled={settingsLoading} style={{
             padding: '12px 24px', borderRadius: '10px', border: 'none',
             background: 'linear-gradient(135deg, #ef4444, #dc2626)', color: 'white',
             fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
