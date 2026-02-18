@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tcg-express-v1';
+const CACHE_NAME = 'tcg-express-v2';
 
 const PRECACHE_URLS = [
   '/',
@@ -79,4 +79,40 @@ self.addEventListener('fetch', (event) => {
     );
     return;
   }
+});
+
+// Push notification handler
+self.addEventListener('push', (event) => {
+  let data = { title: 'TCG Express', body: 'You have a new notification' };
+  try {
+    data = event.data.json();
+  } catch (e) {
+    // fallback to defaults
+  }
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'TCG Express', {
+      body: data.body || '',
+      icon: '/icons/icon-192.svg',
+      badge: '/icons/icon-192.svg',
+      vibrate: [100, 50, 100],
+      data: { url: data.url || '/' },
+    })
+  );
+});
+
+// Notification click handler
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = event.notification.data?.url || '/';
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      for (const client of windowClients) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          client.navigate(url);
+          return client.focus();
+        }
+      }
+      return clients.openWindow(url);
+    })
+  );
 });

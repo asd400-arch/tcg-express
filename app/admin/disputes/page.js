@@ -44,7 +44,7 @@ export default function AdminDisputes() {
   const loadDisputes = async () => {
     setDataLoading(true);
     try {
-      const res = await fetch(`/api/disputes?role=admin&adminId=${user.id}`);
+      const res = await fetch('/api/disputes');
       const result = await res.json();
       setDisputes(result.data || []);
     } catch (e) {
@@ -60,7 +60,7 @@ export default function AdminDisputes() {
       const res = await fetch('/api/disputes/resolve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ disputeId, adminId: user.id, resolution: 'under_review' }),
+        body: JSON.stringify({ disputeId, resolution: 'under_review' }),
       });
       // under_review is not a valid resolution in resolve endpoint, so let's handle differently
       // We'll update directly
@@ -85,7 +85,7 @@ export default function AdminDisputes() {
       const res = await fetch('/api/disputes/resolve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ disputeId, adminId: user.id, resolution, adminNotes }),
+        body: JSON.stringify({ disputeId, resolution, adminNotes }),
       });
       const result = await res.json();
       if (!res.ok) {

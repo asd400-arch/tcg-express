@@ -37,7 +37,7 @@ export default function AdminProfile() {
       const res = await fetch('/api/auth/profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, updates: { contact_name: contactName, phone } }),
+        body: JSON.stringify({ updates: { contact_name: contactName, phone } }),
       });
       const result = await res.json();
       if (result.error) { toast.error(result.error); }
@@ -54,7 +54,7 @@ export default function AdminProfile() {
       const res = await fetch('/api/auth/change-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, currentPassword, newPassword }),
+        body: JSON.stringify({ currentPassword, newPassword }),
       });
       const result = await res.json();
       if (result.error) { toast.error(result.error); }

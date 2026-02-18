@@ -1,29 +1,23 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../lib/supabase-server';
+import { getSession } from '../../../lib/auth';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_PREFIXES = ['jobs/', 'chat/', 'kyc/'];
 
 export async function POST(request) {
   try {
-    const formData = await request.formData();
-    const file = formData.get('file');
-    const userId = formData.get('userId');
-    const uploadPath = formData.get('path');
-
-    if (!file || !userId || !uploadPath) {
-      return NextResponse.json({ error: 'Missing file, userId, or path' }, { status: 400 });
+    const session = getSession(request);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Verify user exists and is active
-    const { data: user } = await supabaseAdmin
-      .from('express_users')
-      .select('id, is_active')
-      .eq('id', userId)
-      .single();
+    const formData = await request.formData();
+    const file = formData.get('file');
+    const uploadPath = formData.get('path');
 
-    if (!user || !user.is_active) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    if (!file || !uploadPath) {
+      return NextResponse.json({ error: 'Missing file or path' }, { status: 400 });
     }
 
     // Validate path prefix

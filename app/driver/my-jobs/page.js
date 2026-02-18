@@ -6,6 +6,7 @@ import Sidebar from '../../components/Sidebar';
 import Spinner from '../../components/Spinner';
 import ChatBox from '../../components/ChatBox';
 import LiveMap from '../../components/LiveMap';
+import useGpsTracking from '../../components/useGpsTracking';
 import { useToast } from '../../components/Toast';
 import DisputeModal from '../../components/DisputeModal';
 import { supabase } from '../../../lib/supabase';
@@ -23,6 +24,7 @@ export default function DriverMyJobs() {
   const [activeTab, setActiveTab] = useState('info');
   const [dispute, setDispute] = useState(null);
   const [showDispute, setShowDispute] = useState(false);
+  const gps = useGpsTracking(user?.id, selected?.id);
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -48,14 +50,28 @@ export default function DriverMyJobs() {
     setDispute(disputeData || null);
   };
 
+  // Auto-start GPS when viewing an in_transit job (handles page refresh)
+  useEffect(() => {
+    if (selected?.status === 'in_transit' && !gps.tracking) {
+      gps.startTracking();
+    }
+  }, [selected?.id, selected?.status]);
+
   const updateStatus = async (status) => {
     const updates = { status };
     if (status === 'delivered') updates.completed_at = new Date().toISOString();
     await supabase.from('express_jobs').update(updates).eq('id', selected.id);
-    // Notify client about status change
-    fetch('/api/notifications', {
+    // Auto-start GPS on in_transit, auto-stop on delivered
+    if (status === 'in_transit') gps.startTracking();
+    if (status === 'delivered') gps.stopTracking();
+    // Notify client about status change (in-app + push via unified endpoint)
+    fetch('/api/notify', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: selected.client_id, type: 'job', title: 'Job status updated', message: `${selected.job_number} is now ${status.replace(/_/g, ' ')}` }),
+      body: JSON.stringify({
+        userId: selected.client_id, type: 'job', category: 'delivery_status',
+        title: 'Job status updated', message: `${selected.job_number} is now ${status.replace(/_/g, ' ')}`,
+        url: `/client/jobs/${selected.id}`,
+      }),
     }).catch(() => {});
     setSelected({ ...selected, ...updates });
     loadJobs();
@@ -69,7 +85,6 @@ export default function DriverMyJobs() {
     const path = `jobs/${selected.id}/${type}_${Date.now()}.${ext}`;
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('userId', user.id);
     formData.append('path', path);
     const res = await fetch('/api/upload', { method: 'POST', body: formData });
     const result = await res.json();
@@ -148,11 +163,30 @@ export default function DriverMyJobs() {
             {/* Status Action - Top Priority */}
             {statusFlow[selected.status] && (
               <button onClick={() => updateStatus(statusFlow[selected.status].next)} style={{
-                padding: '16px 28px', borderRadius: '12px', border: 'none', width: '100%', marginBottom: '20px',
+                padding: '16px 28px', borderRadius: '12px', border: 'none', width: '100%', marginBottom: '10px',
                 background: `linear-gradient(135deg, ${statusFlow[selected.status].color}, ${statusFlow[selected.status].color}cc)`,
                 color: 'white', fontSize: '18px', fontWeight: '700', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
                 boxShadow: `0 4px 14px ${statusFlow[selected.status].color}40`,
               }}>{statusFlow[selected.status].label}</button>
+            )}
+
+            {/* GPS Tracking indicator */}
+            {gps.tracking && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', marginBottom: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10b981', display: 'inline-block', animation: 'pulse 2s infinite' }}></span>
+                  <span style={{ fontSize: '13px', fontWeight: '600', color: '#059669' }}>GPS Tracking Active</span>
+                </div>
+                <button onClick={gps.stopTracking} style={{
+                  padding: '4px 12px', borderRadius: '6px', border: '1px solid #ef4444', background: 'white',
+                  color: '#ef4444', fontSize: '11px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
+                }}>Stop GPS</button>
+              </div>
+            )}
+            {gps.error && (
+              <div style={{ padding: '10px 16px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', marginBottom: '10px', fontSize: '13px', color: '#dc2626' }}>
+                ⚠️ GPS Error: {gps.error}
+              </div>
             )}
 
             {/* Tabs */}
@@ -216,7 +250,7 @@ export default function DriverMyJobs() {
 
             {/* Tracking Tab */}
             {activeTab === 'tracking' && showMap && (
-              <LiveMap jobId={selected.id} driverId={user.id} isDriver={true} />
+              <LiveMap jobId={selected.id} driverId={user.id} isDriver={true} driverLocation={gps.currentLocation} locationHistory={gps.locationHistory} />
             )}
 
             {/* Uploads Tab */}
@@ -265,7 +299,6 @@ export default function DriverMyJobs() {
         {showDispute && selected && (
           <DisputeModal
             jobId={selected.id}
-            userId={user.id}
             onClose={() => setShowDispute(false)}
             onSubmitted={() => { loadJobs(); selectJob({ ...selected, status: 'disputed' }); }}
           />

@@ -31,7 +31,7 @@ export default function AdminDashboard() {
       fetch('/api/admin/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ adminId: user.id }),
+        body: JSON.stringify({}),
       }).then(r => r.json()),
       supabase.from('express_transactions').select('commission_amount').eq('payment_status', 'paid'),
       supabase.from('express_disputes').select('id').in('status', ['open', 'under_review']),
@@ -59,7 +59,7 @@ export default function AdminDashboard() {
     await fetch('/api/admin/users/update', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ adminId: user.id, userId: id, updates: { driver_status: 'approved' } }),
+      body: JSON.stringify({ userId: id, updates: { driver_status: 'approved' } }),
     });
     toast.success('Driver approved');
     loadData();
@@ -69,7 +69,7 @@ export default function AdminDashboard() {
     await fetch('/api/admin/users/update', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ adminId: user.id, userId: id, updates: { driver_status: 'rejected' } }),
+      body: JSON.stringify({ userId: id, updates: { driver_status: 'rejected' } }),
     });
     toast.success('Driver rejected');
     loadData();

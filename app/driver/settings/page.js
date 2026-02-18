@@ -6,6 +6,7 @@ import Sidebar from '../../components/Sidebar';
 import { useToast } from '../../components/Toast';
 import Spinner from '../../components/Spinner';
 import useMobile from '../../components/useMobile';
+import NotificationPreferences from '../../components/NotificationPreferences';
 
 export default function DriverSettings() {
   const { user, loading, updateUser } = useAuth();
@@ -53,7 +54,7 @@ export default function DriverSettings() {
       const res = await fetch('/api/auth/profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, updates }),
+        body: JSON.stringify({ updates }),
       });
       const result = await res.json();
       if (result.error) { toast.error(result.error); }
@@ -70,7 +71,7 @@ export default function DriverSettings() {
       const res = await fetch('/api/auth/change-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, currentPassword, newPassword }),
+        body: JSON.stringify({ currentPassword, newPassword }),
       });
       const result = await res.json();
       if (result.error) { toast.error(result.error); }
@@ -85,7 +86,6 @@ export default function DriverSettings() {
       const ext = file.name.split('.').pop();
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('userId', user.id);
       formData.append('path', `kyc/${user.id}/${docType}.${ext}`);
       const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
       const uploadResult = await uploadRes.json();
@@ -94,7 +94,7 @@ export default function DriverSettings() {
       const patchRes = await fetch('/api/auth/profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, updates: { [urlField]: uploadResult.url } }),
+        body: JSON.stringify({ updates: { [urlField]: uploadResult.url } }),
       });
       const patchResult = await patchRes.json();
       if (patchResult.error) { toast.error(patchResult.error); }
@@ -232,6 +232,8 @@ export default function DriverSettings() {
             })}
           </div>
         </div>
+
+        <NotificationPreferences user={user} onSave={updateUser} toast={toast} />
 
         <div style={card}>
           <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>Change Password</h3>

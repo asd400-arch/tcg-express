@@ -30,7 +30,7 @@ export default function AdminDrivers() {
     const res = await fetch('/api/admin/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ adminId: user.id, role: 'driver' }),
+      body: JSON.stringify({ role: 'driver' }),
     });
     const result = await res.json();
     setDrivers(result.data || []);
@@ -51,7 +51,7 @@ export default function AdminDrivers() {
     await fetch('/api/admin/users/update', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ adminId: user.id, userId: id, updates: { driver_status: status } }),
+      body: JSON.stringify({ userId: id, updates: { driver_status: status } }),
     });
     toast.success('Status updated');
     loadData();

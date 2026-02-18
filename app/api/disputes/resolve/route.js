@@ -1,27 +1,22 @@
 import { supabaseAdmin } from '../../../../lib/supabase-server';
-import { createNotification } from '../../../../lib/notifications';
 import { NextResponse } from 'next/server';
+import { getSession } from '../../../../lib/auth';
+import { notify } from '../../../../lib/notify';
 
 export async function POST(req) {
   try {
-    const { disputeId, adminId, resolution, adminNotes } = await req.json();
-    if (!disputeId || !adminId || !resolution) {
+    const session = getSession(req);
+    if (!session || session.role !== 'admin') {
+      return NextResponse.json({ error: 'Unauthorized — admin only' }, { status: 403 });
+    }
+
+    const { disputeId, resolution, adminNotes } = await req.json();
+    if (!disputeId || !resolution) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
     if (!['refund_client', 'release_driver'].includes(resolution)) {
       return NextResponse.json({ error: 'Invalid resolution. Must be refund_client or release_driver' }, { status: 400 });
-    }
-
-    // Verify admin
-    const { data: admin } = await supabaseAdmin
-      .from('express_users')
-      .select('id, role, contact_name')
-      .eq('id', adminId)
-      .single();
-
-    if (!admin || admin.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized — admin only' }, { status: 403 });
     }
 
     // Fetch dispute
@@ -49,7 +44,7 @@ export async function POST(req) {
         status: 'resolved',
         resolution,
         admin_notes: adminNotes || null,
-        resolved_by: adminId,
+        resolved_by: session.userId,
         resolved_at: now,
         updated_at: now,
       })
@@ -68,7 +63,7 @@ export async function POST(req) {
       .maybeSingle();
 
     if (resolution === 'refund_client') {
-      // Refund escrow — same logic as Phase 10 refund
+      // Refund escrow
       if (txn) {
         await supabaseAdmin
           .from('express_transactions')
@@ -82,24 +77,27 @@ export async function POST(req) {
         .eq('id', job.id);
 
       const refundAmount = txn ? parseFloat(txn.total_amount).toFixed(2) : job.final_amount;
+      const emailData = { jobNumber: job.job_number, resolution: 'Refunded to client', adminNotes: adminNotes || 'No additional notes' };
 
       // Notify client
       if (job.client_id) {
-        await createNotification(
-          job.client_id,
-          'dispute',
-          `Dispute resolved — ${job.job_number}`,
-          `Resolved in your favor. Escrow of $${refundAmount} has been refunded.`
-        );
+        await notify(job.client_id, {
+          type: 'dispute', category: 'job_updates',
+          title: `Dispute resolved — ${job.job_number}`,
+          message: `Resolved in your favor. Escrow of $${refundAmount} has been refunded.`,
+          emailTemplate: 'dispute_resolved', emailData,
+          url: `/client/jobs/${job.id}`,
+        });
       }
       // Notify driver
       if (job.assigned_driver_id) {
-        await createNotification(
-          job.assigned_driver_id,
-          'dispute',
-          `Dispute resolved — ${job.job_number}`,
-          `Resolved in favor of the client. Escrow has been refunded.`
-        );
+        await notify(job.assigned_driver_id, {
+          type: 'dispute', category: 'job_updates',
+          title: `Dispute resolved — ${job.job_number}`,
+          message: `Resolved in favor of the client. Escrow has been refunded.`,
+          emailTemplate: 'dispute_resolved', emailData,
+          url: '/driver/my-jobs',
+        });
       }
     } else {
       // release_driver — release escrow to driver
@@ -116,62 +114,28 @@ export async function POST(req) {
         .eq('id', job.id);
 
       const payoutAmount = job.driver_payout || job.final_amount;
+      const emailData = { jobNumber: job.job_number, resolution: 'Released to driver', adminNotes: adminNotes || 'No additional notes' };
 
       // Notify driver
       if (job.assigned_driver_id) {
-        await createNotification(
-          job.assigned_driver_id,
-          'dispute',
-          `Dispute resolved — ${job.job_number}`,
-          `Resolved in your favor. Payment of $${payoutAmount} has been released.`
-        );
+        await notify(job.assigned_driver_id, {
+          type: 'dispute', category: 'job_updates',
+          title: `Dispute resolved — ${job.job_number}`,
+          message: `Resolved in your favor. Payment of $${payoutAmount} has been released.`,
+          emailTemplate: 'dispute_resolved', emailData,
+          url: '/driver/my-jobs',
+        });
       }
       // Notify client
       if (job.client_id) {
-        await createNotification(
-          job.client_id,
-          'dispute',
-          `Dispute resolved — ${job.job_number}`,
-          `Resolved in favor of the driver. Payment has been released.`
-        );
+        await notify(job.client_id, {
+          type: 'dispute', category: 'job_updates',
+          title: `Dispute resolved — ${job.job_number}`,
+          message: `Resolved in favor of the driver. Payment has been released.`,
+          emailTemplate: 'dispute_resolved', emailData,
+          url: `/client/jobs/${job.id}`,
+        });
       }
-    }
-
-    // Send emails to both parties
-    try {
-      const emailPromises = [];
-      const [clientRes, driverRes] = await Promise.all([
-        job.client_id ? supabaseAdmin.from('express_users').select('email').eq('id', job.client_id).single() : null,
-        job.assigned_driver_id ? supabaseAdmin.from('express_users').select('email').eq('id', job.assigned_driver_id).single() : null,
-      ]);
-
-      const emailData = {
-        jobNumber: job.job_number,
-        resolution: resolution === 'refund_client' ? 'Refunded to client' : 'Released to driver',
-        adminNotes: adminNotes || 'No additional notes',
-      };
-
-      if (clientRes?.data?.email) {
-        emailPromises.push(
-          fetch(new URL('/api/notifications/email', req.url), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ to: clientRes.data.email, type: 'dispute_resolved', data: emailData }),
-          })
-        );
-      }
-      if (driverRes?.data?.email) {
-        emailPromises.push(
-          fetch(new URL('/api/notifications/email', req.url), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ to: driverRes.data.email, type: 'dispute_resolved', data: emailData }),
-          })
-        );
-      }
-      await Promise.allSettled(emailPromises);
-    } catch (e) {
-      // Email failures shouldn't block
     }
 
     return NextResponse.json({ data: { disputeId, resolution } });

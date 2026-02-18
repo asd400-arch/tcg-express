@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { supabaseAdmin } from '../../../../lib/supabase-server';
 import { sendEmail } from '../../../../lib/email';
+import { rateLimit } from '../../../../lib/rate-limit';
+
+const forgotLimiter = rateLimit({ interval: 3600000, maxRequests: 3, name: 'forgot-password' });
 
 export async function POST(request) {
   try {
@@ -12,6 +16,12 @@ export async function POST(request) {
     // Always return success to prevent email enumeration
     const successResponse = NextResponse.json({ success: true });
 
+    // Rate limit by email
+    const { success: allowed } = forgotLimiter.check(email.toLowerCase().trim());
+    if (!allowed) {
+      return successResponse; // Don't reveal rate limit to prevent enumeration
+    }
+
     const { data: user } = await supabaseAdmin
       .from('express_users')
       .select('id, email, contact_name')
@@ -20,13 +30,13 @@ export async function POST(request) {
 
     if (!user) return successResponse;
 
-    // Generate 6-digit code
-    const code = String(Math.floor(100000 + Math.random() * 900000));
+    // Generate 6-digit code using crypto.randomInt
+    const code = String(crypto.randomInt(100000, 999999));
     const expires = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
     await supabaseAdmin
       .from('express_users')
-      .update({ reset_code: code, reset_code_expires: expires })
+      .update({ reset_code: code, reset_code_expires: expires, reset_attempts: 0 })
       .eq('id', user.id);
 
     await sendEmail(

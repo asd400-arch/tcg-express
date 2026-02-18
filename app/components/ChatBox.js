@@ -61,7 +61,6 @@ export default function ChatBox({ jobId, userId, receiverId, userRole }) {
     const path = `chat/${jobId}/${Date.now()}_${file.name}`;
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('userId', userId);
     formData.append('path', path);
     const res = await fetch('/api/upload', { method: 'POST', body: formData });
     const result = await res.json();

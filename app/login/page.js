@@ -18,7 +18,9 @@ export default function Login() {
     const result = await login(email, password);
     if (result.error) { setError(result.error); setLoading(false); return; }
     const user = result.data;
-    if (user.role === 'admin') router.push('/admin/dashboard');
+    if (!user.is_verified) {
+      router.push('/verify-email');
+    } else if (user.role === 'admin') router.push('/admin/dashboard');
     else if (user.role === 'driver') router.push('/driver/dashboard');
     else router.push('/client/dashboard');
   };

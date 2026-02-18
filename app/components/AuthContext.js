@@ -8,39 +8,18 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const saved = localStorage.getItem('tcg_user');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        // Validate session against server
-        fetch('/api/auth/me', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: parsed.id }),
-        })
-          .then(res => res.json())
-          .then(result => {
-            if (result.data) {
-              setUser(result.data);
-              localStorage.setItem('tcg_user', JSON.stringify(result.data));
-            } else {
-              // Session invalid — clear
-              localStorage.removeItem('tcg_user');
-            }
-            setLoading(false);
-          })
-          .catch(() => {
-            // Network error — use cached data as fallback
-            setUser(parsed);
-            setLoading(false);
-          });
-      } catch(e) {
-        localStorage.removeItem('tcg_user');
+    // Validate session via cookie-based GET /api/auth/me
+    fetch('/api/auth/me')
+      .then(res => res.json())
+      .then(result => {
+        if (result.data) {
+          setUser(result.data);
+        }
         setLoading(false);
-      }
-    } else {
-      setLoading(false);
-    }
+      })
+      .catch(() => {
+        setLoading(false);
+      });
   }, []);
 
   const login = async (email, password) => {
@@ -52,7 +31,6 @@ export function AuthProvider({ children }) {
     const result = await res.json();
     if (result.error) return { error: result.error };
     setUser(result.data);
-    localStorage.setItem('tcg_user', JSON.stringify(result.data));
     return { data: result.data };
   };
 
@@ -65,21 +43,18 @@ export function AuthProvider({ children }) {
     });
     const result = await res.json();
     if (result.error) return { error: result.error };
-    if (result.data.role === 'client') {
-      setUser(result.data);
-      localStorage.setItem('tcg_user', JSON.stringify(result.data));
-    }
-    return { data: result.data };
+    // Set user for all roles (needed for verify-email page to show email)
+    setUser(result.data);
+    return { data: result.data, requiresVerification: result.requiresVerification };
   };
 
-  const logout = () => {
+  const logout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
     setUser(null);
-    localStorage.removeItem('tcg_user');
   };
 
   const updateUser = (updated) => {
     setUser(updated);
-    localStorage.setItem('tcg_user', JSON.stringify(updated));
   };
 
   return (

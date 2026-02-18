@@ -1,11 +1,17 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { supabaseAdmin } from '../../../../lib/supabase-server';
+import { getSession } from '../../../../lib/auth';
 
 export async function POST(request) {
   try {
-    const { userId, currentPassword, newPassword } = await request.json();
-    if (!userId || !currentPassword || !newPassword) {
+    const session = getSession(request);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { currentPassword, newPassword } = await request.json();
+    if (!currentPassword || !newPassword) {
       return NextResponse.json({ error: 'All fields required' }, { status: 400 });
     }
 
@@ -16,20 +22,15 @@ export async function POST(request) {
     const { data: user, error: fetchErr } = await supabaseAdmin
       .from('express_users')
       .select('id, password_hash')
-      .eq('id', userId)
+      .eq('id', session.userId)
       .single();
 
     if (fetchErr || !user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Verify current password (supports bcrypt + legacy plain-text)
-    let passwordValid = false;
-    if (user.password_hash.startsWith('$2')) {
-      passwordValid = await bcrypt.compare(currentPassword, user.password_hash);
-    } else {
-      passwordValid = user.password_hash === currentPassword;
-    }
+    // Bcrypt only
+    const passwordValid = await bcrypt.compare(currentPassword, user.password_hash);
 
     if (!passwordValid) {
       return NextResponse.json({ error: 'Current password is incorrect' }, { status: 401 });
@@ -40,7 +41,7 @@ export async function POST(request) {
     const { error: updateErr } = await supabaseAdmin
       .from('express_users')
       .update({ password_hash: hashed })
-      .eq('id', userId);
+      .eq('id', session.userId);
 
     if (updateErr) {
       return NextResponse.json({ error: 'Failed to update password' }, { status: 500 });

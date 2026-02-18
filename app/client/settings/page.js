@@ -6,6 +6,7 @@ import Sidebar from '../../components/Sidebar';
 import { useToast } from '../../components/Toast';
 import Spinner from '../../components/Spinner';
 import useMobile from '../../components/useMobile';
+import NotificationPreferences from '../../components/NotificationPreferences';
 
 export default function ClientSettings() {
   const { user, loading, updateUser } = useAuth();
@@ -39,7 +40,7 @@ export default function ClientSettings() {
       const res = await fetch('/api/auth/profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, updates: { contact_name: contactName, phone, company_name: companyName } }),
+        body: JSON.stringify({ updates: { contact_name: contactName, phone, company_name: companyName } }),
       });
       const result = await res.json();
       if (result.error) { toast.error(result.error); }
@@ -56,7 +57,7 @@ export default function ClientSettings() {
       const res = await fetch('/api/auth/change-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, currentPassword, newPassword }),
+        body: JSON.stringify({ currentPassword, newPassword }),
       });
       const result = await res.json();
       if (result.error) { toast.error(result.error); }
@@ -106,6 +107,8 @@ export default function ClientSettings() {
             {saving ? 'Saving...' : 'Save Changes'}
           </button>
         </div>
+
+        <NotificationPreferences user={user} onSave={updateUser} toast={toast} />
 
         <div style={card}>
           <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>Change Password</h3>

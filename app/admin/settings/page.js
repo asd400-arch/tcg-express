@@ -36,7 +36,7 @@ export default function AdminSettings() {
     const res = await fetch('/api/admin/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ adminId: user.id, key: 'commission_rate', value: commission }),
+      body: JSON.stringify({ key: 'commission_rate', value: commission }),
     });
     const result = await res.json();
     if (result.success) {

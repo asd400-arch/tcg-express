@@ -25,7 +25,6 @@ export default function Signup() {
     const ext = file.name.split('.').pop();
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('userId', userId);
     formData.append('path', `kyc/${userId}/${docType}.${ext}`);
     const res = await fetch('/api/upload', { method: 'POST', body: formData });
     const result = await res.json();
@@ -87,13 +86,15 @@ export default function Signup() {
         await fetch('/api/auth/profile', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId, updates: urls }),
+          body: JSON.stringify({ updates: urls }),
         });
 
+        // Clear the session cookie since driver needs admin approval
+        await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
         setSuccess(true);
         setLoading(false);
       } else if (role === 'client') {
-        router.push('/client/dashboard');
+        router.push('/verify-email');
       }
     } catch (err) {
       setError(err.message || 'Something went wrong during upload');

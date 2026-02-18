@@ -1,20 +1,15 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../../lib/supabase-server';
+import { getSession } from '../../../../lib/auth';
 
 export async function POST(request) {
   try {
-    const { adminId, role } = await request.json();
-
-    // Verify admin
-    const { data: admin } = await supabaseAdmin
-      .from('express_users')
-      .select('id, role')
-      .eq('id', adminId)
-      .single();
-
-    if (!admin || admin.role !== 'admin') {
+    const session = getSession(request);
+    if (!session || session.role !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
+
+    const { role } = await request.json();
 
     let query = supabaseAdmin
       .from('express_users')

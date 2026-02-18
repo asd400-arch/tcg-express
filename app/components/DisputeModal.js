@@ -12,7 +12,7 @@ const REASONS = [
   { value: 'other', label: 'Other' },
 ];
 
-export default function DisputeModal({ jobId, userId, onClose, onSubmitted }) {
+export default function DisputeModal({ jobId, onClose, onSubmitted }) {
   const toast = useToast();
   const [reason, setReason] = useState('');
   const [description, setDescription] = useState('');
@@ -26,7 +26,7 @@ export default function DisputeModal({ jobId, userId, onClose, onSubmitted }) {
       const res = await fetch('/api/disputes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, jobId, reason, description: description.trim() }),
+        body: JSON.stringify({ jobId, reason, description: description.trim() }),
       });
       const result = await res.json();
       if (!res.ok) {

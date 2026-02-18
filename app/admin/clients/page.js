@@ -25,7 +25,7 @@ export default function AdminClients() {
     const res = await fetch('/api/admin/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ adminId: user.id, role: 'client' }),
+      body: JSON.stringify({ role: 'client' }),
     });
     const result = await res.json();
     setClients(result.data || []);
@@ -35,7 +35,7 @@ export default function AdminClients() {
     await fetch('/api/admin/users/update', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ adminId: user.id, userId: id, updates: { is_active: !current } }),
+      body: JSON.stringify({ userId: id, updates: { is_active: !current } }),
     });
     toast.success('Client updated');
     loadData();

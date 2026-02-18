@@ -1,17 +1,18 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../../lib/supabase-server';
+import { getSession } from '../../../../lib/auth';
 
-export async function POST(request) {
+export async function GET(request) {
   try {
-    const { userId } = await request.json();
-    if (!userId) {
-      return NextResponse.json({ error: 'User ID required' }, { status: 400 });
+    const session = getSession(request);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { data: user, error } = await supabaseAdmin
       .from('express_users')
       .select('*')
-      .eq('id', userId)
+      .eq('id', session.userId)
       .single();
 
     if (error || !user) {

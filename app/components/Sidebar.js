@@ -9,6 +9,7 @@ const clientLinks = [
   { label: 'Dashboard', href: '/client/dashboard', icon: '📊' },
   { label: 'New Job', href: '/client/jobs/new', icon: '➕' },
   { label: 'My Jobs', href: '/client/jobs', icon: '📦' },
+  { label: 'Schedules', href: '/client/schedules', icon: '📅' },
   { label: 'Transactions', href: '/client/transactions', icon: '💳' },
   { label: 'Settings', href: '/client/settings', icon: '⚙️' },
 ];

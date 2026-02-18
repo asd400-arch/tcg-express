@@ -111,18 +111,16 @@ export default function ClientJobDetail({ params }) {
       total_amount: bid.amount, commission_amount: commission.toFixed(2), driver_payout: payout.toFixed(2),
       payment_status: 'held', held_at: new Date().toISOString(),
     }]);
-    // Notify driver in-app
-    fetch('/api/notifications', {
+    // Notify driver (in-app + email + push via unified endpoint)
+    fetch('/api/notify', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: bid.driver_id, type: 'job', title: 'Bid accepted!', message: `Your bid of $${bid.amount} has been accepted` }),
+      body: JSON.stringify({
+        userId: bid.driver_id, type: 'job', category: 'bid_activity',
+        title: 'Bid accepted!', message: `Your bid of $${bid.amount} has been accepted`,
+        emailTemplate: 'bid_accepted', emailData: { jobNumber: job.job_number, amount: bid.amount, pickupAddress: job.pickup_address },
+        url: '/driver/my-jobs',
+      }),
     }).catch(() => {});
-    // Email driver
-    if (bid.driver?.email) {
-      fetch('/api/notifications/email', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to: bid.driver.email, type: 'bid_accepted', data: { jobNumber: job.job_number, amount: bid.amount, pickupAddress: job.pickup_address } }),
-      }).catch(() => {});
-    }
     toast.success('Bid accepted — payment held in escrow');
     loadData();
   };
@@ -132,21 +130,18 @@ export default function ClientJobDetail({ params }) {
     // Release held payment via server API
     await fetch('/api/transactions/release', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: user.id, jobId }),
+      body: JSON.stringify({ jobId }),
     });
-    // Notify driver in-app
-    fetch('/api/notifications', {
+    // Notify driver (in-app + email + push via unified endpoint)
+    fetch('/api/notify', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: job.assigned_driver_id, type: 'delivery', title: 'Delivery confirmed!', message: `Delivery for ${job.job_number} confirmed. Payout: $${job.driver_payout}` }),
+      body: JSON.stringify({
+        userId: job.assigned_driver_id, type: 'delivery', category: 'delivery_status',
+        title: 'Delivery confirmed!', message: `Delivery for ${job.job_number} confirmed. Payout: $${job.driver_payout}`,
+        emailTemplate: 'delivery_confirmed', emailData: { jobNumber: job.job_number, payout: job.driver_payout },
+        url: '/driver/my-jobs',
+      }),
     }).catch(() => {});
-    // Email driver - find driver email from accepted bid
-    const acceptedBid = bids.find(b => b.status === 'accepted');
-    if (acceptedBid?.driver?.email) {
-      fetch('/api/notifications/email', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to: acceptedBid.driver.email, type: 'delivery_confirmed', data: { jobNumber: job.job_number, payout: job.driver_payout } }),
-      }).catch(() => {});
-    }
     toast.success('Delivery confirmed');
     setShowRating(true);
     loadData();
@@ -166,7 +161,7 @@ export default function ClientJobDetail({ params }) {
       const res = await fetch('/api/transactions/refund', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, jobId, role: 'client' }),
+        body: JSON.stringify({ jobId }),
       });
       const result = await res.json();
       if (!res.ok) {
@@ -277,6 +272,14 @@ export default function ClientJobDetail({ params }) {
             )}
 
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              {showMap && (
+                <a href={`/client/track/${jobId}`} style={{
+                  padding: '12px 24px', borderRadius: '10px', border: 'none',
+                  background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: 'white',
+                  fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
+                  textDecoration: 'none', display: 'inline-block',
+                }}>🗺️ Track Live</a>
+              )}
               {job.status === 'delivered' && (
                 <button onClick={confirmDelivery} style={{ padding: '12px 24px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>✅ Confirm Delivery & Pay</button>
               )}
@@ -362,7 +365,6 @@ export default function ClientJobDetail({ params }) {
         {showDispute && (
           <DisputeModal
             jobId={jobId}
-            userId={user.id}
             onClose={() => setShowDispute(false)}
             onSubmitted={() => loadData()}
           />

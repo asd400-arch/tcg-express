@@ -1,12 +1,22 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { supabaseAdmin } from '../../../../lib/supabase-server';
+import { createSession, setSessionCookie } from '../../../../lib/auth';
+import { rateLimit } from '../../../../lib/rate-limit';
+
+const loginLimiter = rateLimit({ interval: 60000, maxRequests: 5, name: 'login' });
 
 export async function POST(request) {
   try {
     const { email, password } = await request.json();
     if (!email || !password) {
       return NextResponse.json({ error: 'Email and password required' }, { status: 400 });
+    }
+
+    // Rate limit by email
+    const { success: allowed } = loginLimiter.check(email.toLowerCase().trim());
+    if (!allowed) {
+      return NextResponse.json({ error: 'Too many login attempts. Please try again in a minute.' }, { status: 429 });
     }
 
     const { data: user, error } = await supabaseAdmin
@@ -19,14 +29,8 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
     }
 
-    // Support both bcrypt hashes and legacy plain-text passwords
-    let passwordValid = false;
-    if (user.password_hash.startsWith('$2')) {
-      passwordValid = await bcrypt.compare(password, user.password_hash);
-    } else {
-      // Legacy plain-text comparison — will be removed after migration
-      passwordValid = user.password_hash === password;
-    }
+    // Bcrypt only
+    const passwordValid = await bcrypt.compare(password, user.password_hash);
 
     if (!passwordValid) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
@@ -37,12 +41,21 @@ export async function POST(request) {
     }
 
     if (user.role === 'driver' && user.driver_status !== 'approved') {
-      return NextResponse.json({ error: 'Driver account pending approval' }, { status: 403 });
+      const statusMessages = {
+        pending: 'Your driver account is pending admin approval',
+        rejected: 'Your driver application has been declined',
+        suspended: 'Your driver account has been suspended',
+      };
+      const message = statusMessages[user.driver_status] || 'Driver account not approved';
+      return NextResponse.json({ error: message }, { status: 403 });
     }
 
-    // Strip password_hash before returning
+    // Create session and set cookie
+    const token = await createSession(user);
     const { password_hash, ...safeUser } = user;
-    return NextResponse.json({ data: safeUser });
+    const response = NextResponse.json({ data: safeUser });
+    setSessionCookie(response, token);
+    return response;
   } catch (err) {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }

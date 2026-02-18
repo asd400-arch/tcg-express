@@ -48,10 +48,14 @@ export default function DriverJobs() {
     }]);
     if (error) { toast.error('Error: ' + error.message); setBidding(false); return; }
     await supabase.from('express_jobs').update({ status: 'bidding' }).eq('id', selectedJob.id).eq('status', 'open');
-    // Notify client about new bid
-    fetch('/api/notifications', {
+    // Notify client about new bid (in-app + push via unified endpoint)
+    fetch('/api/notify', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: selectedJob.client_id, type: 'bid', title: 'New bid received', message: `A driver bid $${parseFloat(bidAmount).toFixed(2)} on ${selectedJob.item_description}` }),
+      body: JSON.stringify({
+        userId: selectedJob.client_id, type: 'bid', category: 'bid_activity',
+        title: 'New bid received', message: `A driver bid $${parseFloat(bidAmount).toFixed(2)} on ${selectedJob.item_description}`,
+        url: `/client/jobs/${selectedJob.id}`,
+      }),
     }).catch(() => {});
     setBidding(false); setSelectedJob(null); setBidAmount(''); setBidTime(''); setBidMsg('');
     loadData();

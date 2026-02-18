@@ -1,11 +1,17 @@
 import { supabaseAdmin } from '../../../../lib/supabase-server';
 import { NextResponse } from 'next/server';
+import { getSession } from '../../../../lib/auth';
 
 export async function POST(req) {
   try {
-    const { userId, jobId } = await req.json();
-    if (!userId || !jobId) {
-      return NextResponse.json({ error: 'Missing userId or jobId' }, { status: 400 });
+    const session = getSession(req);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { jobId } = await req.json();
+    if (!jobId) {
+      return NextResponse.json({ error: 'Missing jobId' }, { status: 400 });
     }
 
     // Verify user is the job's client
@@ -18,7 +24,7 @@ export async function POST(req) {
     if (jobErr || !job) {
       return NextResponse.json({ error: 'Job not found' }, { status: 404 });
     }
-    if (job.client_id !== userId) {
+    if (job.client_id !== session.userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 

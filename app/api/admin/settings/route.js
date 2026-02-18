@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../../lib/supabase-server';
+import { getSession } from '../../../../lib/auth';
 
 // GET — read settings (no auth required for reading commission rate)
 export async function GET() {
@@ -24,21 +25,15 @@ export async function GET() {
 // POST — update settings (admin only)
 export async function POST(request) {
   try {
-    const { adminId, key, value } = await request.json();
-
-    if (!adminId || !key || value === undefined) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    const session = getSession(request);
+    if (!session || session.role !== 'admin') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    // Verify admin
-    const { data: admin } = await supabaseAdmin
-      .from('express_users')
-      .select('id, role')
-      .eq('id', adminId)
-      .single();
+    const { key, value } = await request.json();
 
-    if (!admin || admin.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    if (!key || value === undefined) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
     // Validate commission_rate

@@ -1,14 +1,21 @@
 import { supabaseAdmin } from '../../../lib/supabase-server';
 import { createNotification } from '../../../lib/notifications';
 import { NextResponse } from 'next/server';
+import { getSession } from '../../../lib/auth';
+import { notify } from '../../../lib/notify';
 
 const VALID_REASONS = ['damaged_item', 'wrong_delivery', 'late_delivery', 'wrong_address', 'item_not_as_described', 'driver_no_show', 'other'];
 const DISPUTABLE_STATUSES = ['assigned', 'pickup_confirmed', 'in_transit', 'delivered'];
 
 export async function POST(req) {
   try {
-    const { userId, jobId, reason, description } = await req.json();
-    if (!userId || !jobId || !reason || !description) {
+    const session = getSession(req);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { jobId, reason, description } = await req.json();
+    if (!jobId || !reason || !description) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
@@ -20,7 +27,7 @@ export async function POST(req) {
     const { data: user, error: userErr } = await supabaseAdmin
       .from('express_users')
       .select('id, role, contact_name, email')
-      .eq('id', userId)
+      .eq('id', session.userId)
       .single();
 
     if (userErr || !user) {
@@ -43,10 +50,10 @@ export async function POST(req) {
     }
 
     // Verify user is part of this job
-    if (user.role === 'client' && job.client_id !== userId) {
+    if (user.role === 'client' && job.client_id !== session.userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
-    if (user.role === 'driver' && job.assigned_driver_id !== userId) {
+    if (user.role === 'driver' && job.assigned_driver_id !== session.userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
@@ -72,7 +79,7 @@ export async function POST(req) {
       .from('express_disputes')
       .insert([{
         job_id: jobId,
-        opened_by: userId,
+        opened_by: session.userId,
         opened_by_role: user.role,
         reason,
         description,
@@ -96,18 +103,21 @@ export async function POST(req) {
     const otherPartyId = user.role === 'client' ? job.assigned_driver_id : job.client_id;
 
     if (otherPartyId) {
-      await createNotification(
-        otherPartyId,
-        'dispute',
-        `Dispute opened on ${job.job_number}`,
-        `${user.contact_name} opened a dispute: ${reasonLabel}`
-      );
+      await notify(otherPartyId, {
+        type: 'dispute',
+        category: 'job_updates',
+        title: `Dispute opened on ${job.job_number}`,
+        message: `${user.contact_name} opened a dispute: ${reasonLabel}`,
+        emailTemplate: 'job_disputed',
+        emailData: { jobNumber: job.job_number, openerName: user.contact_name, openerRole: user.role, reason: reasonLabel, description },
+        url: user.role === 'client' ? '/driver/my-jobs' : `/client/jobs/${jobId}`,
+      });
     }
 
-    // Notify all admins
+    // Notify all admins (in-app only, no email template for admin dispute alerts)
     const { data: admins } = await supabaseAdmin
       .from('express_users')
-      .select('id, email')
+      .select('id')
       .eq('role', 'admin');
 
     if (admins) {
@@ -121,37 +131,6 @@ export async function POST(req) {
       }
     }
 
-    // Send email to the other party
-    try {
-      if (otherPartyId) {
-        const { data: otherUser } = await supabaseAdmin
-          .from('express_users')
-          .select('email')
-          .eq('id', otherPartyId)
-          .single();
-
-        if (otherUser?.email) {
-          await fetch(new URL('/api/notifications/email', req.url), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              to: otherUser.email,
-              type: 'job_disputed',
-              data: {
-                jobNumber: job.job_number,
-                openerName: user.contact_name,
-                openerRole: user.role,
-                reason: reasonLabel,
-                description,
-              },
-            }),
-          });
-        }
-      }
-    } catch (e) {
-      // Email failure shouldn't block
-    }
-
     return NextResponse.json({ data: dispute });
   } catch (err) {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
@@ -160,26 +139,12 @@ export async function POST(req) {
 
 export async function GET(req) {
   try {
-    const { searchParams } = new URL(req.url);
-    const role = searchParams.get('role');
-    const userId = searchParams.get('userId');
+    const session = getSession(req);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    if (role === 'admin') {
-      // Verify admin
-      const adminId = searchParams.get('adminId');
-      if (!adminId) {
-        return NextResponse.json({ error: 'Missing adminId' }, { status: 400 });
-      }
-      const { data: adminUser } = await supabaseAdmin
-        .from('express_users')
-        .select('role')
-        .eq('id', adminId)
-        .single();
-
-      if (!adminUser || adminUser.role !== 'admin') {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-      }
-
+    if (session.role === 'admin') {
       const { data, error } = await supabaseAdmin
         .from('express_disputes')
         .select('*, job:job_id(id, job_number, client_id, assigned_driver_id, status, final_amount), opener:opened_by(id, contact_name, email)')
@@ -191,31 +156,27 @@ export async function GET(req) {
       return NextResponse.json({ data });
     }
 
-    if (userId) {
-      // Get disputes for jobs where user is client or driver
-      const { data: userJobs } = await supabaseAdmin
-        .from('express_jobs')
-        .select('id')
-        .or(`client_id.eq.${userId},assigned_driver_id.eq.${userId}`);
+    // For clients/drivers — get disputes for jobs where user is client or driver
+    const { data: userJobs } = await supabaseAdmin
+      .from('express_jobs')
+      .select('id')
+      .or(`client_id.eq.${session.userId},assigned_driver_id.eq.${session.userId}`);
 
-      const jobIds = (userJobs || []).map(j => j.id);
-      if (jobIds.length === 0) {
-        return NextResponse.json({ data: [] });
-      }
-
-      const { data, error } = await supabaseAdmin
-        .from('express_disputes')
-        .select('*, job:job_id(id, job_number, status), opener:opened_by(id, contact_name)')
-        .in('job_id', jobIds)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        return NextResponse.json({ error: 'Failed to fetch disputes' }, { status: 500 });
-      }
-      return NextResponse.json({ data });
+    const jobIds = (userJobs || []).map(j => j.id);
+    if (jobIds.length === 0) {
+      return NextResponse.json({ data: [] });
     }
 
-    return NextResponse.json({ error: 'Missing role or userId parameter' }, { status: 400 });
+    const { data, error } = await supabaseAdmin
+      .from('express_disputes')
+      .select('*, job:job_id(id, job_number, status), opener:opened_by(id, contact_name)')
+      .in('job_id', jobIds)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      return NextResponse.json({ error: 'Failed to fetch disputes' }, { status: 500 });
+    }
+    return NextResponse.json({ data });
   } catch (err) {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
