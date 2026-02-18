@@ -77,7 +77,7 @@ export default function ClientJobDetail({ params }) {
     const [jobRes, bidsRes, reviewRes, txnRes, disputeRes] = await Promise.all([
       supabase.from('express_jobs').select('*').eq('id', jobId).single(),
       supabase.from('express_bids').select('*, driver:driver_id(id, contact_name, phone, email, vehicle_type, vehicle_plate, driver_rating, total_deliveries)').eq('job_id', jobId).order('created_at', { ascending: true }),
-      supabase.from('express_reviews').select('id').eq('job_id', jobId).limit(1),
+      supabase.from('express_reviews').select('id').eq('job_id', jobId).eq('reviewer_role', 'client').limit(1),
       supabase.from('express_transactions').select('*').eq('job_id', jobId).eq('payment_status', 'held').maybeSingle(),
       supabase.from('express_disputes').select('*').eq('job_id', jobId).in('status', ['open', 'under_review']).maybeSingle(),
     ]);
@@ -314,7 +314,7 @@ export default function ClientJobDetail({ params }) {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: '700', color: '#64748b' }}>{bid.driver?.contact_name?.[0] || 'D'}</div>
                       <div>
-                        <div style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b' }}>{bid.driver?.contact_name || 'Driver'}</div>
+                        <a href={`/profile/driver/${bid.driver?.id}`} style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b', textDecoration: 'none' }}>{bid.driver?.contact_name || 'Driver'}</a>
                         <div style={{ fontSize: '12px', color: '#64748b' }}>{bid.driver?.vehicle_type} • {bid.driver?.vehicle_plate} • ⭐ {bid.driver?.driver_rating || '5.0'} • {bid.driver?.total_deliveries || 0} jobs</div>
                       </div>
                     </div>

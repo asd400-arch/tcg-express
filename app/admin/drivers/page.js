@@ -39,7 +39,7 @@ export default function AdminDrivers() {
   const toggleReviews = async (driverId) => {
     if (expandedDriver === driverId) { setExpandedDriver(null); return; }
     setExpandedDriver(driverId);
-    const { data } = await supabase.from('express_reviews').select('*, client:client_id(contact_name)').eq('driver_id', driverId).order('created_at', { ascending: false });
+    const { data } = await supabase.from('express_reviews').select('*, client:client_id(contact_name), driver:driver_id(contact_name)').eq('driver_id', driverId).order('created_at', { ascending: false });
     setReviews(data || []);
   };
 
@@ -161,9 +161,10 @@ export default function AdminDrivers() {
                     <p style={{ fontSize: '13px', color: '#94a3b8' }}>No reviews yet</p>
                   ) : reviews.map(r => (
                     <div key={r.id} style={{ padding: '8px 0', borderBottom: '1px solid #f8fafc' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
                         <span style={{ color: '#f59e0b', fontSize: '14px' }}>{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</span>
-                        <span style={{ fontSize: '12px', color: '#64748b' }}>{r.client?.contact_name || 'Client'}</span>
+                        <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '700', background: r.reviewer_role === 'driver' ? '#8b5cf615' : '#3b82f615', color: r.reviewer_role === 'driver' ? '#8b5cf6' : '#3b82f6' }}>From {r.reviewer_role === 'driver' ? 'Driver' : 'Client'}</span>
+                        <span style={{ fontSize: '12px', color: '#64748b' }}>{r.reviewer_role === 'driver' ? (r.driver?.contact_name || 'Driver') : (r.client?.contact_name || 'Client')}</span>
                         <span style={{ fontSize: '11px', color: '#94a3b8' }}>{new Date(r.created_at).toLocaleDateString()}</span>
                       </div>
                       {r.review_text && <p style={{ fontSize: '13px', color: '#374151', margin: 0 }}>{r.review_text}</p>}

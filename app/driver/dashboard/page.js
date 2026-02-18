@@ -29,7 +29,7 @@ export default function DriverDashboard() {
       supabase.from('express_jobs').select('*').eq('assigned_driver_id', user.id).order('created_at', { ascending: false }),
       supabase.from('express_jobs').select('*').in('status', ['open', 'bidding']).order('created_at', { ascending: false }).limit(5),
       supabase.from('express_transactions').select('driver_payout').eq('driver_id', user.id).eq('payment_status', 'paid'),
-      supabase.from('express_reviews').select('*, client:client_id(contact_name)').eq('driver_id', user.id).order('created_at', { ascending: false }).limit(5),
+      supabase.from('express_reviews').select('*, client:client_id(contact_name)').eq('driver_id', user.id).eq('reviewer_role', 'client').order('created_at', { ascending: false }).limit(5),
     ]);
     const mj = myJ.data || []; const oj = openJ.data || [];
     const totalEarnings = (txn.data || []).reduce((sum, t) => sum + (parseFloat(t.driver_payout) || 0), 0);

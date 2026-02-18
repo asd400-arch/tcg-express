@@ -9,6 +9,7 @@ import LiveMap from '../../components/LiveMap';
 import useGpsTracking from '../../components/useGpsTracking';
 import { useToast } from '../../components/Toast';
 import DisputeModal from '../../components/DisputeModal';
+import RatingModal from '../../components/RatingModal';
 import { supabase } from '../../../lib/supabase';
 import useMobile from '../../components/useMobile';
 
@@ -24,6 +25,8 @@ export default function DriverMyJobs() {
   const [activeTab, setActiveTab] = useState('info');
   const [dispute, setDispute] = useState(null);
   const [showDispute, setShowDispute] = useState(false);
+  const [showRating, setShowRating] = useState(false);
+  const [hasReviewedClient, setHasReviewedClient] = useState(false);
   const gps = useGpsTracking(user?.id, selected?.id);
 
   useEffect(() => {
@@ -40,14 +43,13 @@ export default function DriverMyJobs() {
   const selectJob = async (job) => {
     setSelected(job);
     setActiveTab('info');
-    // Load dispute data for this job
-    const { data: disputeData } = await supabase
-      .from('express_disputes')
-      .select('*')
-      .eq('job_id', job.id)
-      .in('status', ['open', 'under_review'])
-      .maybeSingle();
-    setDispute(disputeData || null);
+    // Load dispute data and check for existing driver review
+    const [disputeRes, reviewRes] = await Promise.all([
+      supabase.from('express_disputes').select('*').eq('job_id', job.id).in('status', ['open', 'under_review']).maybeSingle(),
+      supabase.from('express_reviews').select('id').eq('job_id', job.id).eq('reviewer_role', 'driver').limit(1),
+    ]);
+    setDispute(disputeRes.data || null);
+    setHasReviewedClient((reviewRes.data || []).length > 0);
   };
 
   // Auto-start GPS when viewing an in_transit job (handles page refresh)
@@ -245,6 +247,15 @@ export default function DriverMyJobs() {
                     color: '#e11d48', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
                   }}>⚠️ Open Dispute</button>
                 )}
+
+                {/* Rate Client button */}
+                {['confirmed', 'completed'].includes(selected.status) && !hasReviewedClient && (
+                  <button onClick={() => setShowRating(true)} style={{
+                    padding: '12px 24px', borderRadius: '10px', border: 'none',
+                    background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: 'white',
+                    fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
+                  }}>⭐ Rate Client</button>
+                )}
               </>
             )}
 
@@ -293,6 +304,18 @@ export default function DriverMyJobs() {
               <ChatBox jobId={selected.id} userId={user.id} receiverId={selected.client_id} userRole="driver" />
             )}
           </>
+        )}
+
+        {/* Rating Modal */}
+        {showRating && selected && (
+          <RatingModal
+            jobId={selected.id}
+            clientId={selected.client_id}
+            driverId={user.id}
+            reviewerRole="driver"
+            onClose={() => setShowRating(false)}
+            onSubmitted={() => { setHasReviewedClient(true); }}
+          />
         )}
 
         {/* Dispute Modal */}

@@ -13,6 +13,7 @@ export default function ClientDashboard() {
   const m = useMobile();
   const [jobs, setJobs] = useState([]);
   const [stats, setStats] = useState({ total: 0, active: 0, completed: 0, pending: 0 });
+  const [driverReviews, setDriverReviews] = useState([]);
   const [dataLoading, setDataLoading] = useState(true);
 
   useEffect(() => {
@@ -23,9 +24,13 @@ export default function ClientDashboard() {
 
   const loadData = async () => {
     setDataLoading(true);
-    const { data } = await supabase.from('express_jobs').select('*').eq('client_id', user.id).order('created_at', { ascending: false });
-    const j = data || [];
+    const [jobsRes, revRes] = await Promise.all([
+      supabase.from('express_jobs').select('*').eq('client_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('express_reviews').select('*, driver:driver_id(contact_name)').eq('client_id', user.id).eq('reviewer_role', 'driver').order('created_at', { ascending: false }).limit(5),
+    ]);
+    const j = jobsRes.data || [];
     setJobs(j);
+    setDriverReviews(revRes.data || []);
     setStats({
       total: j.length,
       active: j.filter(x => ['open','bidding','assigned','pickup_confirmed','in_transit'].includes(x.status)).length,
@@ -49,12 +54,13 @@ export default function ClientDashboard() {
           <p style={{ color: '#64748b', fontSize: '14px' }}>{user.company_name || 'Your delivery dashboard'}</p>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: m ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: '16px', marginBottom: '30px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: m ? 'repeat(2, 1fr)' : 'repeat(5, 1fr)', gap: '16px', marginBottom: '30px' }}>
           {[
             { label: 'Total Jobs', value: stats.total, color: '#3b82f6', icon: '📦' },
             { label: 'Active', value: stats.active, color: '#f59e0b', icon: '🚚' },
             { label: 'Completed', value: stats.completed, color: '#10b981', icon: '✅' },
             { label: 'Pending Confirm', value: stats.pending, color: '#8b5cf6', icon: '⏳' },
+            { label: 'Your Rating', value: (user.client_rating || 5.0).toFixed(1), color: '#f59e0b', icon: '⭐' },
           ].map((s, i) => (
             <div key={i} style={card}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -96,6 +102,27 @@ export default function ClientDashboard() {
                 </a>
               ))}
             </div>
+          )}
+        </div>
+
+        {/* Reviews from Drivers */}
+        <div style={{ ...card, marginTop: '25px' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>⭐ Reviews from Drivers</h3>
+          {driverReviews.length === 0 ? (
+            <p style={{ color: '#64748b', fontSize: '14px', textAlign: 'center', padding: '20px' }}>No reviews from drivers yet</p>
+          ) : (
+            driverReviews.map(r => (
+              <div key={r.id} style={{ padding: '12px 0', borderBottom: '1px solid #f1f5f9' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ color: '#f59e0b', fontSize: '14px' }}>{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</span>
+                    <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>{r.driver?.contact_name || 'Driver'}</span>
+                  </div>
+                  <span style={{ fontSize: '11px', color: '#94a3b8' }}>{new Date(r.created_at).toLocaleDateString()}</span>
+                </div>
+                {r.review_text && <p style={{ fontSize: '13px', color: '#64748b', margin: '4px 0 0' }}>{r.review_text}</p>}
+              </div>
+            ))
           )}
         </div>
       </div>

@@ -3,30 +3,34 @@ import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useToast } from './Toast';
 
-export default function RatingModal({ jobId, clientId, driverId, onClose, onSubmitted }) {
+export default function RatingModal({ jobId, clientId, driverId, reviewerRole = 'client', onClose, onSubmitted }) {
   const toast = useToast();
   const [rating, setRating] = useState(0);
   const [hover, setHover] = useState(0);
   const [reviewText, setReviewText] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  const isDriverReview = reviewerRole === 'driver';
+  const title = isDriverReview ? 'Rate Your Client' : 'Rate Your Driver';
+  const placeholder = isDriverReview ? 'How was your experience with this client?' : 'How was your delivery experience?';
+
   const submit = async () => {
     if (rating === 0) { toast.error('Please select a rating'); return; }
     setSubmitting(true);
     const { error } = await supabase.from('express_reviews').insert([{
       job_id: jobId, client_id: clientId, driver_id: driverId,
-      rating, review_text: reviewText || null,
+      rating, review_text: reviewText || null, reviewer_role: reviewerRole,
     }]);
     if (error) {
       toast.error('Error submitting review');
       setSubmitting(false);
       return;
     }
-    // Update driver average
+    // Update average rating
     await fetch('/api/reviews/submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ driverId }),
+      body: JSON.stringify({ driverId, clientId, reviewerRole }),
     });
     toast.success('Review submitted!');
     setSubmitting(false);
@@ -38,8 +42,8 @@ export default function RatingModal({ jobId, clientId, driverId, onClose, onSubm
     <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
       <div style={{ background: 'white', borderRadius: '20px', padding: '30px', maxWidth: '420px', width: '100%' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>Rate Your Driver</h3>
-          <div onClick={onClose} style={{ cursor: 'pointer', fontSize: '20px', color: '#94a3b8' }}>✕</div>
+          <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>{title}</h3>
+          <div onClick={onClose} style={{ cursor: 'pointer', fontSize: '20px', color: '#94a3b8' }}>&#10005;</div>
         </div>
 
         <div style={{ textAlign: 'center', marginBottom: '20px' }}>
@@ -68,7 +72,7 @@ export default function RatingModal({ jobId, clientId, driverId, onClose, onSubm
           <textarea
             value={reviewText}
             onChange={e => setReviewText(e.target.value)}
-            placeholder="How was your delivery experience?"
+            placeholder={placeholder}
             style={{
               width: '100%', padding: '12px 16px', borderRadius: '10px', fontSize: '14px',
               background: '#f8fafc', border: '1px solid #e2e8f0', color: '#1e293b',
