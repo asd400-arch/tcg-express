@@ -10,6 +10,7 @@ const clientLinks = [
   { label: 'New Job', href: '/client/jobs/new', icon: '➕' },
   { label: 'My Jobs', href: '/client/jobs', icon: '📦' },
   { label: 'Transactions', href: '/client/transactions', icon: '💳' },
+  { label: 'Settings', href: '/client/settings', icon: '⚙️' },
 ];
 
 const driverLinks = [
@@ -17,6 +18,7 @@ const driverLinks = [
   { label: 'Available Jobs', href: '/driver/jobs', icon: '🔍' },
   { label: 'My Jobs', href: '/driver/my-jobs', icon: '📦' },
   { label: 'Earnings', href: '/driver/earnings', icon: '💰' },
+  { label: 'Settings', href: '/driver/settings', icon: '⚙️' },
 ];
 
 const adminLinks = [
@@ -26,6 +28,7 @@ const adminLinks = [
   { label: 'Clients', href: '/admin/clients', icon: '🏢' },
   { label: 'Transactions', href: '/admin/transactions', icon: '💳' },
   { label: 'Analytics', href: '/admin/analytics', icon: '📈' },
+  { label: 'Profile', href: '/admin/profile', icon: '👤' },
   { label: 'Settings', href: '/admin/settings', icon: '⚙️' },
 ];
 

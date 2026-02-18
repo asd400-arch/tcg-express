@@ -50,6 +50,9 @@ export default function Login() {
             fontSize: '15px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
             opacity: loading ? 0.7 : 1,
           }}>{loading ? 'Signing in...' : 'Sign In'}</button>
+          <div style={{ textAlign: 'right' }}>
+            <a href="/forgot-password" style={{ color: '#3b82f6', fontSize: '13px', fontWeight: '500', textDecoration: 'none' }}>Forgot password?</a>
+          </div>
         </form>
 
         <div style={{ textAlign: 'center', marginTop: '24px' }}>
