@@ -100,7 +100,7 @@ export default function ClientJobDetail({ params }) {
     // Notify driver in-app
     fetch('/api/notifications', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: bid.driver_id, type: 'job', title: 'Bid accepted!', message: `Your bid of $${bid.amount} has been accepted`, data: { jobId } }),
+      body: JSON.stringify({ userId: bid.driver_id, type: 'job', title: 'Bid accepted!', message: `Your bid of $${bid.amount} has been accepted` }),
     }).catch(() => {});
     // Email driver
     if (bid.driver?.email) {
@@ -123,7 +123,7 @@ export default function ClientJobDetail({ params }) {
     // Notify driver in-app
     fetch('/api/notifications', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: job.assigned_driver_id, type: 'delivery', title: 'Delivery confirmed!', message: `Delivery for ${job.job_number} confirmed. Payout: $${job.driver_payout}`, data: { jobId } }),
+      body: JSON.stringify({ userId: job.assigned_driver_id, type: 'delivery', title: 'Delivery confirmed!', message: `Delivery for ${job.job_number} confirmed. Payout: $${job.driver_payout}` }),
     }).catch(() => {});
     // Email driver - find driver email from accepted bid
     const acceptedBid = bids.find(b => b.status === 'accepted');

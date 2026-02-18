@@ -44,7 +44,7 @@ export default function DriverMyJobs() {
     // Notify client about status change
     fetch('/api/notifications', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: selected.client_id, type: 'job', title: 'Job status updated', message: `${selected.job_number} is now ${status.replace(/_/g, ' ')}`, data: { jobId: selected.id } }),
+      body: JSON.stringify({ userId: selected.client_id, type: 'job', title: 'Job status updated', message: `${selected.job_number} is now ${status.replace(/_/g, ' ')}` }),
     }).catch(() => {});
     setSelected({ ...selected, ...updates });
     loadJobs();

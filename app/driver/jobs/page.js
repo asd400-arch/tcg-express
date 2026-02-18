@@ -51,7 +51,7 @@ export default function DriverJobs() {
     // Notify client about new bid
     fetch('/api/notifications', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: selectedJob.client_id, type: 'bid', title: 'New bid received', message: `A driver bid $${parseFloat(bidAmount).toFixed(2)} on ${selectedJob.item_description}`, data: { jobId: selectedJob.id } }),
+      body: JSON.stringify({ userId: selectedJob.client_id, type: 'bid', title: 'New bid received', message: `A driver bid $${parseFloat(bidAmount).toFixed(2)} on ${selectedJob.item_description}` }),
     }).catch(() => {});
     setBidding(false); setSelectedJob(null); setBidAmount(''); setBidTime(''); setBidMsg('');
     loadData();
