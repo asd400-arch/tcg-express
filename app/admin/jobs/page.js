@@ -4,12 +4,14 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../../components/AuthContext';
 import Sidebar from '../../components/Sidebar';
 import Spinner from '../../components/Spinner';
+import { useToast } from '../../components/Toast';
 import { supabase } from '../../../lib/supabase';
 import useMobile from '../../components/useMobile';
 
 export default function AdminJobs() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const toast = useToast();
   const m = useMobile();
   const [jobs, setJobs] = useState([]);
   const [filter, setFilter] = useState('all');
@@ -24,6 +26,34 @@ export default function AdminJobs() {
   const loadData = async () => {
     const { data } = await supabase.from('express_jobs').select('*, client:client_id(contact_name, company_name), driver:assigned_driver_id(contact_name)').order('created_at', { ascending: false });
     setJobs(data || []);
+  };
+
+  const forceCancel = async (job) => {
+    if (!confirm(`Cancel job ${job.job_number}? This will refund any held escrow.`)) return;
+    // For jobs with escrow (assigned, pickup_confirmed, in_transit, delivered)
+    if (['assigned', 'pickup_confirmed', 'in_transit', 'delivered'].includes(job.status)) {
+      try {
+        const res = await fetch('/api/transactions/refund', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.id, jobId: job.id, role: 'admin' }),
+        });
+        const result = await res.json();
+        if (!res.ok) {
+          toast.error(result.error || 'Failed to cancel job');
+          return;
+        }
+        toast.success('Job cancelled — escrow refunded');
+      } catch (e) {
+        toast.error('Failed to cancel job');
+        return;
+      }
+    } else {
+      // For open/bidding jobs — direct cancel, no escrow
+      await supabase.from('express_jobs').update({ status: 'cancelled', cancelled_at: new Date().toISOString(), cancelled_by: 'admin' }).eq('id', job.id);
+      toast.success('Job cancelled');
+    }
+    loadData();
   };
 
   if (loading || !user) return <Spinner />;
@@ -64,9 +94,14 @@ export default function AdminJobs() {
                 <div style={{ fontSize: '13px', color: '#374151' }}>{job.item_description}</div>
                 <div style={{ fontSize: '11px', color: '#94a3b8' }}>Client: {job.client?.company_name || job.client?.contact_name} {job.driver ? `• Driver: ${job.driver.contact_name}` : ''}</div>
               </div>
-              <div style={{ textAlign: 'right' }}>
-                {job.final_amount && <div style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b' }}>${job.final_amount}</div>}
-                <div style={{ fontSize: '11px', color: '#94a3b8' }}>{new Date(job.created_at).toLocaleDateString()}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ textAlign: 'right' }}>
+                  {job.final_amount && <div style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b' }}>${job.final_amount}</div>}
+                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>{new Date(job.created_at).toLocaleDateString()}</div>
+                </div>
+                {!['confirmed', 'completed', 'cancelled'].includes(job.status) && (
+                  <button onClick={(e) => { e.stopPropagation(); forceCancel(job); }} style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid #ef4444', background: 'white', color: '#ef4444', fontSize: '11px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif", whiteSpace: 'nowrap' }}>Cancel</button>
+                )}
               </div>
             </div>
           ))}

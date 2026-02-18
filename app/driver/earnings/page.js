@@ -131,7 +131,7 @@ export default function DriverEarnings() {
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: '16px', fontWeight: '700', color: '#059669' }}>+${parseFloat(t.driver_payout).toFixed(2)}</div>
-                <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '700', background: t.payment_status === 'paid' ? '#f0fdf4' : '#fffbeb', color: t.payment_status === 'paid' ? '#10b981' : '#d97706' }}>{t.payment_status === 'held' ? 'IN ESCROW' : t.payment_status.toUpperCase()}</span>
+                <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '700', background: t.payment_status === 'paid' ? '#f0fdf4' : t.payment_status === 'refunded' ? '#fef2f2' : '#fffbeb', color: t.payment_status === 'paid' ? '#10b981' : t.payment_status === 'refunded' ? '#ef4444' : '#d97706' }}>{t.payment_status === 'held' ? 'IN ESCROW' : t.payment_status === 'refunded' ? 'REFUNDED' : t.payment_status.toUpperCase()}</span>
               </div>
             </div>
           ))}

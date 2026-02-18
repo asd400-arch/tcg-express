@@ -154,6 +154,27 @@ export default function ClientJobDetail({ params }) {
     loadData();
   };
 
+  const cancelJobWithEscrow = async () => {
+    const amount = heldTxn ? `$${parseFloat(heldTxn.total_amount).toFixed(2)}` : '';
+    if (!confirm(`Cancel this job and refund escrow${amount ? ` of ${amount}` : ''}? This cannot be undone.`)) return;
+    try {
+      const res = await fetch('/api/transactions/refund', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, jobId, role: 'client' }),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        toast.error(result.error || 'Failed to cancel job');
+        return;
+      }
+      toast.success('Job cancelled — escrow refunded');
+      loadData();
+    } catch (e) {
+      toast.error('Failed to cancel job');
+    }
+  };
+
   if (loading || !user || !job) return <Spinner />;
 
   const card = { background: 'white', borderRadius: '14px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9', marginBottom: '16px' };
@@ -245,6 +266,9 @@ export default function ClientJobDetail({ params }) {
               )}
               {['open', 'bidding'].includes(job.status) && (
                 <button onClick={cancelJob} style={{ padding: '12px 24px', borderRadius: '10px', border: '1px solid #ef4444', background: 'white', color: '#ef4444', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>Cancel Job</button>
+              )}
+              {['assigned', 'pickup_confirmed'].includes(job.status) && (
+                <button onClick={cancelJobWithEscrow} style={{ padding: '12px 24px', borderRadius: '10px', border: '1px solid #ef4444', background: 'white', color: '#ef4444', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>Cancel Job & Refund</button>
               )}
             </div>
           </>

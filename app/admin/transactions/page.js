@@ -60,7 +60,7 @@ export default function AdminTransactions() {
           {(dateFrom || dateTo) && <button onClick={() => { setDateFrom(''); setDateTo(''); }} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', background: 'white', color: '#64748b', fontSize: '12px', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>Clear</button>}
         </div>
         <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-          {['all', 'held', 'paid'].map(f => (
+          {['all', 'held', 'paid', 'refunded'].map(f => (
             <button key={f} onClick={() => setStatusFilter(f)} style={{
               padding: '6px 16px', borderRadius: '8px', border: '1px solid ' + (statusFilter === f ? '#3b82f6' : '#e2e8f0'),
               background: statusFilter === f ? '#eff6ff' : 'white', color: statusFilter === f ? '#3b82f6' : '#64748b',
@@ -96,11 +96,12 @@ export default function AdminTransactions() {
                 <div style={{ fontSize: '11px', color: '#94a3b8' }}>{new Date(t.created_at).toLocaleString()}</div>
                 {t.held_at && <div style={{ fontSize: '11px', color: '#d97706' }}>Held: {new Date(t.held_at).toLocaleString()}</div>}
                 {t.released_at && <div style={{ fontSize: '11px', color: '#059669' }}>Released: {new Date(t.released_at).toLocaleString()}</div>}
+                {t.refunded_at && <div style={{ fontSize: '11px', color: '#ef4444' }}>Refunded: {new Date(t.refunded_at).toLocaleString()}</div>}
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b' }}>${parseFloat(t.total_amount).toFixed(2)}</div>
                 <div style={{ fontSize: '11px', color: '#059669' }}>Commission: ${parseFloat(t.commission_amount).toFixed(2)}</div>
-                <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '700', background: t.payment_status === 'paid' ? '#f0fdf4' : '#fffbeb', color: t.payment_status === 'paid' ? '#10b981' : '#d97706' }}>{t.payment_status === 'held' ? 'HELD' : t.payment_status.toUpperCase()}</span>
+                <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '700', background: t.payment_status === 'paid' ? '#f0fdf4' : t.payment_status === 'refunded' ? '#fef2f2' : '#fffbeb', color: t.payment_status === 'paid' ? '#10b981' : t.payment_status === 'refunded' ? '#ef4444' : '#d97706' }}>{t.payment_status === 'held' ? 'HELD' : t.payment_status === 'refunded' ? 'REFUNDED' : t.payment_status.toUpperCase()}</span>
               </div>
             </div>
           ))}

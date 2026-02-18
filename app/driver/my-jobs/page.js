@@ -81,6 +81,7 @@ export default function DriverMyJobs() {
 
   const filtered = jobs.filter(j => {
     if (filter === 'active') return ['assigned','pickup_confirmed','in_transit','delivered'].includes(j.status);
+    if (filter === 'cancelled') return j.status === 'cancelled';
     return ['confirmed','completed'].includes(j.status);
   });
 
@@ -94,7 +95,7 @@ export default function DriverMyJobs() {
           <>
             <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', marginBottom: '20px' }}>📦 My Jobs</h1>
             <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
-              {['active', 'completed'].map(f => (
+              {['active', 'completed', 'cancelled'].map(f => (
                 <button key={f} onClick={() => setFilter(f)} style={{
                   padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer',
                   background: filter === f ? '#10b981' : '#e2e8f0', color: filter === f ? 'white' : '#64748b',

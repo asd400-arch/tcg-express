@@ -63,7 +63,7 @@ export default function ClientTransactions() {
         </div>
         {/* Filter */}
         <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-          {['all', 'held', 'paid'].map(f => (
+          {['all', 'held', 'paid', 'refunded'].map(f => (
             <button key={f} onClick={() => setFilter(f)} style={{
               padding: '6px 16px', borderRadius: '8px', border: '1px solid ' + (filter === f ? '#3b82f6' : '#e2e8f0'),
               background: filter === f ? '#eff6ff' : 'white', color: filter === f ? '#3b82f6' : '#64748b',
@@ -119,7 +119,7 @@ export default function ClientTransactions() {
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b' }}>${parseFloat(t.total_amount).toFixed(2)}</div>
-                  <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '700', background: t.payment_status === 'paid' ? '#f0fdf4' : '#fffbeb', color: t.payment_status === 'paid' ? '#10b981' : '#d97706' }}>{t.payment_status === 'held' ? 'HELD' : t.payment_status.toUpperCase()}</span>
+                  <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '700', background: t.payment_status === 'paid' ? '#f0fdf4' : t.payment_status === 'refunded' ? '#fef2f2' : '#fffbeb', color: t.payment_status === 'paid' ? '#10b981' : t.payment_status === 'refunded' ? '#ef4444' : '#d97706' }}>{t.payment_status === 'held' ? 'HELD' : t.payment_status === 'refunded' ? 'REFUNDED' : t.payment_status.toUpperCase()}</span>
                 </div>
               </div>
             ));

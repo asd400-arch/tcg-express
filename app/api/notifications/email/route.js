@@ -18,6 +18,10 @@ const templates = {
     subject: 'Driver application update',
     html: `<h2>Application Update</h2><p>Unfortunately, your TCG Express driver application has been declined at this time.</p><p>If you believe this is an error, please contact support.</p><p>— TCG Express</p>`,
   }),
+  job_cancelled: (data) => ({
+    subject: `Job cancelled - ${data.jobNumber || 'Job'}`,
+    html: `<h2>Job Cancelled</h2><p>Job <strong>${data.jobNumber}</strong> has been cancelled by <strong>${data.cancelledBy || 'unknown'}</strong>.</p>${data.refundAmount ? `<p>Escrow of <strong>$${data.refundAmount}</strong> has been refunded.</p>` : ''}<p>— TCG Express</p>`,
+  }),
 };
 
 export async function POST(request) {
