@@ -8,6 +8,7 @@ import ChatBox from '../../../components/ChatBox';
 import LiveMap from '../../../components/LiveMap';
 import { useToast } from '../../../components/Toast';
 import RatingModal from '../../../components/RatingModal';
+import DisputeModal from '../../../components/DisputeModal';
 import { supabase } from '../../../../lib/supabase';
 import useMobile from '../../../components/useMobile';
 import { use } from 'react';
@@ -25,6 +26,8 @@ export default function ClientJobDetail({ params }) {
   const [showRating, setShowRating] = useState(false);
   const [hasReview, setHasReview] = useState(false);
   const [heldTxn, setHeldTxn] = useState(null);
+  const [dispute, setDispute] = useState(null);
+  const [showDispute, setShowDispute] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -71,16 +74,18 @@ export default function ClientJobDetail({ params }) {
   }, [jobId]);
 
   const loadData = async () => {
-    const [jobRes, bidsRes, reviewRes, txnRes] = await Promise.all([
+    const [jobRes, bidsRes, reviewRes, txnRes, disputeRes] = await Promise.all([
       supabase.from('express_jobs').select('*').eq('id', jobId).single(),
       supabase.from('express_bids').select('*, driver:driver_id(id, contact_name, phone, email, vehicle_type, vehicle_plate, driver_rating, total_deliveries)').eq('job_id', jobId).order('created_at', { ascending: true }),
       supabase.from('express_reviews').select('id').eq('job_id', jobId).limit(1),
       supabase.from('express_transactions').select('*').eq('job_id', jobId).eq('payment_status', 'held').maybeSingle(),
+      supabase.from('express_disputes').select('*').eq('job_id', jobId).in('status', ['open', 'under_review']).maybeSingle(),
     ]);
     setJob(jobRes.data);
     setBids(bidsRes.data || []);
     setHasReview((reviewRes.data || []).length > 0);
     setHeldTxn(txnRes.data || null);
+    setDispute(disputeRes.data || null);
   };
 
   const acceptBid = async (bid) => {
@@ -178,7 +183,7 @@ export default function ClientJobDetail({ params }) {
   if (loading || !user || !job) return <Spinner />;
 
   const card = { background: 'white', borderRadius: '14px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9', marginBottom: '16px' };
-  const statusColor = { open: '#3b82f6', bidding: '#8b5cf6', assigned: '#f59e0b', pickup_confirmed: '#f59e0b', in_transit: '#06b6d4', delivered: '#10b981', confirmed: '#10b981', completed: '#059669', cancelled: '#ef4444' };
+  const statusColor = { open: '#3b82f6', bidding: '#8b5cf6', assigned: '#f59e0b', pickup_confirmed: '#f59e0b', in_transit: '#06b6d4', delivered: '#10b981', confirmed: '#10b981', completed: '#059669', cancelled: '#ef4444', disputed: '#e11d48' };
   const showMap = ['assigned', 'pickup_confirmed', 'in_transit'].includes(job.status);
   const showChat = job.assigned_driver_id;
 
@@ -257,6 +262,20 @@ export default function ClientJobDetail({ params }) {
                 </div>
               </div>
             )}
+            {/* Dispute info card */}
+            {dispute && (
+              <div style={{ ...card, border: '1px solid #fecaca', background: '#fef2f2' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                  <span style={{ fontSize: '18px' }}>⚠️</span>
+                  <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#991b1b' }}>Active Dispute</h3>
+                  <span style={{ padding: '3px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '700', background: dispute.status === 'open' ? '#ef444420' : '#f59e0b20', color: dispute.status === 'open' ? '#ef4444' : '#d97706', textTransform: 'uppercase' }}>{dispute.status.replace(/_/g, ' ')}</span>
+                </div>
+                <div style={{ fontSize: '13px', color: '#991b1b', marginBottom: '4px' }}><strong>Reason:</strong> {dispute.reason.replace(/_/g, ' ')}</div>
+                <div style={{ fontSize: '13px', color: '#7f1d1d' }}>{dispute.description}</div>
+                <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '8px' }}>Opened {new Date(dispute.created_at).toLocaleString()}</div>
+              </div>
+            )}
+
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
               {job.status === 'delivered' && (
                 <button onClick={confirmDelivery} style={{ padding: '12px 24px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>✅ Confirm Delivery & Pay</button>
@@ -269,6 +288,9 @@ export default function ClientJobDetail({ params }) {
               )}
               {['assigned', 'pickup_confirmed'].includes(job.status) && (
                 <button onClick={cancelJobWithEscrow} style={{ padding: '12px 24px', borderRadius: '10px', border: '1px solid #ef4444', background: 'white', color: '#ef4444', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>Cancel Job & Refund</button>
+              )}
+              {['assigned', 'pickup_confirmed', 'in_transit', 'delivered'].includes(job.status) && !dispute && (
+                <button onClick={() => setShowDispute(true)} style={{ padding: '12px 24px', borderRadius: '10px', border: '1px solid #e11d48', background: 'white', color: '#e11d48', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>⚠️ Open Dispute</button>
               )}
             </div>
           </>
@@ -333,6 +355,16 @@ export default function ClientJobDetail({ params }) {
             driverId={job.assigned_driver_id}
             onClose={() => setShowRating(false)}
             onSubmitted={() => { setHasReview(true); loadData(); }}
+          />
+        )}
+
+        {/* Dispute Modal */}
+        {showDispute && (
+          <DisputeModal
+            jobId={jobId}
+            userId={user.id}
+            onClose={() => setShowDispute(false)}
+            onSubmitted={() => loadData()}
           />
         )}
       </div>

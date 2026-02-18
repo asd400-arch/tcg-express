@@ -24,6 +24,7 @@ const driverLinks = [
 const adminLinks = [
   { label: 'Dashboard', href: '/admin/dashboard', icon: '📊' },
   { label: 'All Jobs', href: '/admin/jobs', icon: '📦' },
+  { label: 'Disputes', href: '/admin/disputes', icon: '⚖️' },
   { label: 'Drivers', href: '/admin/drivers', icon: '🚗' },
   { label: 'Clients', href: '/admin/clients', icon: '🏢' },
   { label: 'Transactions', href: '/admin/transactions', icon: '💳' },

@@ -13,7 +13,7 @@ export default function AdminDashboard() {
   const router = useRouter();
   const toast = useToast();
   const m = useMobile();
-  const [stats, setStats] = useState({ jobs: 0, activeJobs: 0, drivers: 0, pendingDrivers: 0, clients: 0, revenue: 0 });
+  const [stats, setStats] = useState({ jobs: 0, activeJobs: 0, drivers: 0, pendingDrivers: 0, clients: 0, revenue: 0, openDisputes: 0 });
   const [recentJobs, setRecentJobs] = useState([]);
   const [pendingDrivers, setPendingDrivers] = useState([]);
   const [dataLoading, setDataLoading] = useState(true);
@@ -26,7 +26,7 @@ export default function AdminDashboard() {
 
   const loadData = async () => {
     setDataLoading(true);
-    const [jobs, usersRes, txn] = await Promise.all([
+    const [jobs, usersRes, txn, disputesRes] = await Promise.all([
       supabase.from('express_jobs').select('*').order('created_at', { ascending: false }),
       fetch('/api/admin/users', {
         method: 'POST',
@@ -34,6 +34,7 @@ export default function AdminDashboard() {
         body: JSON.stringify({ adminId: user.id }),
       }).then(r => r.json()),
       supabase.from('express_transactions').select('commission_amount').eq('payment_status', 'paid'),
+      supabase.from('express_disputes').select('id').in('status', ['open', 'under_review']),
     ]);
     const j = jobs.data || []; const u = usersRes.data || []; const t = txn.data || [];
     const drivers = u.filter(x => x.role === 'driver');
@@ -47,6 +48,7 @@ export default function AdminDashboard() {
       pendingDrivers: pd.length,
       clients: clients.length,
       revenue,
+      openDisputes: (disputesRes.data || []).length,
     });
     setRecentJobs(j.slice(0, 8));
     setPendingDrivers(pd);
@@ -95,6 +97,7 @@ export default function AdminDashboard() {
             { label: 'Total Drivers', value: stats.drivers, color: '#10b981', icon: '🚗' },
             { label: 'Pending Drivers', value: stats.pendingDrivers, color: '#ef4444', icon: '⏳' },
             { label: 'Total Clients', value: stats.clients, color: '#8b5cf6', icon: '🏢' },
+            { label: 'Open Disputes', value: stats.openDisputes, color: '#e11d48', icon: '⚖️' },
             { label: 'Revenue', value: `$${stats.revenue.toFixed(2)}`, color: '#059669', icon: '💰' },
           ].map((s, i) => (
             <div key={i} style={card}>

@@ -7,6 +7,7 @@ import Spinner from '../../components/Spinner';
 import ChatBox from '../../components/ChatBox';
 import LiveMap from '../../components/LiveMap';
 import { useToast } from '../../components/Toast';
+import DisputeModal from '../../components/DisputeModal';
 import { supabase } from '../../../lib/supabase';
 import useMobile from '../../components/useMobile';
 
@@ -20,6 +21,8 @@ export default function DriverMyJobs() {
   const [filter, setFilter] = useState('active');
   const [uploading, setUploading] = useState(false);
   const [activeTab, setActiveTab] = useState('info');
+  const [dispute, setDispute] = useState(null);
+  const [showDispute, setShowDispute] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -32,9 +35,17 @@ export default function DriverMyJobs() {
     setJobs(data || []);
   };
 
-  const selectJob = (job) => {
+  const selectJob = async (job) => {
     setSelected(job);
     setActiveTab('info');
+    // Load dispute data for this job
+    const { data: disputeData } = await supabase
+      .from('express_disputes')
+      .select('*')
+      .eq('job_id', job.id)
+      .in('status', ['open', 'under_review'])
+      .maybeSingle();
+    setDispute(disputeData || null);
   };
 
   const updateStatus = async (status) => {
@@ -72,7 +83,7 @@ export default function DriverMyJobs() {
   if (loading || !user) return <Spinner />;
 
   const card = { background: 'white', borderRadius: '14px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9', marginBottom: '16px' };
-  const statusColor = { assigned: '#f59e0b', pickup_confirmed: '#f59e0b', in_transit: '#06b6d4', delivered: '#10b981', confirmed: '#10b981', completed: '#059669', cancelled: '#ef4444' };
+  const statusColor = { assigned: '#f59e0b', pickup_confirmed: '#f59e0b', in_transit: '#06b6d4', delivered: '#10b981', confirmed: '#10b981', completed: '#059669', cancelled: '#ef4444', disputed: '#e11d48' };
   const statusFlow = {
     assigned: { next: 'pickup_confirmed', label: '📸 Confirm Pickup', color: '#f59e0b' },
     pickup_confirmed: { next: 'in_transit', label: '🚚 Start Delivery', color: '#06b6d4' },
@@ -80,7 +91,7 @@ export default function DriverMyJobs() {
   };
 
   const filtered = jobs.filter(j => {
-    if (filter === 'active') return ['assigned','pickup_confirmed','in_transit','delivered'].includes(j.status);
+    if (filter === 'active') return ['assigned','pickup_confirmed','in_transit','delivered','disputed'].includes(j.status);
     if (filter === 'cancelled') return j.status === 'cancelled';
     return ['confirmed','completed'].includes(j.status);
   });
@@ -178,6 +189,28 @@ export default function DriverMyJobs() {
                   <div><div style={{ fontSize: '12px', color: '#94a3b8' }}>Commission ({selected.commission_rate}%)</div><div style={{ fontSize: '20px', fontWeight: '800', color: '#ef4444' }}>-${selected.commission_amount}</div></div>
                   <div><div style={{ fontSize: '12px', color: '#94a3b8' }}>Your Payout</div><div style={{ fontSize: '20px', fontWeight: '800', color: '#059669' }}>${selected.driver_payout}</div></div>
                 </div>
+
+                {/* Dispute info card */}
+                {dispute && (
+                  <div style={{ ...card, border: '1px solid #fecaca', background: '#fef2f2' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                      <span style={{ fontSize: '18px' }}>⚠️</span>
+                      <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#991b1b' }}>Active Dispute</h3>
+                      <span style={{ padding: '3px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '700', background: dispute.status === 'open' ? '#ef444420' : '#f59e0b20', color: dispute.status === 'open' ? '#ef4444' : '#d97706', textTransform: 'uppercase' }}>{dispute.status.replace(/_/g, ' ')}</span>
+                    </div>
+                    <div style={{ fontSize: '13px', color: '#991b1b', marginBottom: '4px' }}><strong>Reason:</strong> {dispute.reason.replace(/_/g, ' ')}</div>
+                    <div style={{ fontSize: '13px', color: '#7f1d1d' }}>{dispute.description}</div>
+                    <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '8px' }}>Opened {new Date(dispute.created_at).toLocaleString()}</div>
+                  </div>
+                )}
+
+                {/* Open Dispute button */}
+                {['assigned', 'pickup_confirmed', 'in_transit', 'delivered'].includes(selected.status) && !dispute && (
+                  <button onClick={() => setShowDispute(true)} style={{
+                    padding: '12px 24px', borderRadius: '10px', border: '1px solid #e11d48', background: 'white',
+                    color: '#e11d48', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
+                  }}>⚠️ Open Dispute</button>
+                )}
               </>
             )}
 
@@ -226,6 +259,16 @@ export default function DriverMyJobs() {
               <ChatBox jobId={selected.id} userId={user.id} receiverId={selected.client_id} userRole="driver" />
             )}
           </>
+        )}
+
+        {/* Dispute Modal */}
+        {showDispute && selected && (
+          <DisputeModal
+            jobId={selected.id}
+            userId={user.id}
+            onClose={() => setShowDispute(false)}
+            onSubmitted={() => { loadJobs(); selectJob({ ...selected, status: 'disputed' }); }}
+          />
         )}
       </div>
     </div>
