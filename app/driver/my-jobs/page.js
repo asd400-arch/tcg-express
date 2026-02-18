@@ -41,6 +41,11 @@ export default function DriverMyJobs() {
     const updates = { status };
     if (status === 'delivered') updates.completed_at = new Date().toISOString();
     await supabase.from('express_jobs').update(updates).eq('id', selected.id);
+    // Notify client about status change
+    fetch('/api/notifications', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: selected.client_id, type: 'job', title: 'Job status updated', message: `${selected.job_number} is now ${status.replace(/_/g, ' ')}`, data: { jobId: selected.id } }),
+    }).catch(() => {});
     setSelected({ ...selected, ...updates });
     loadJobs();
   };

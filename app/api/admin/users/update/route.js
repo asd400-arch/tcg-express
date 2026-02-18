@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../../../lib/supabase-server';
+import { createNotification } from '../../../../../lib/notifications';
+import { sendEmail } from '../../../../../lib/email';
 
 const ALLOWED_FIELDS = ['driver_status', 'is_active'];
 const ALLOWED_DRIVER_STATUSES = ['approved', 'rejected', 'suspended', 'pending'];
@@ -52,6 +54,25 @@ export async function POST(request) {
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Send notifications for driver status changes
+    if (safeUpdates.driver_status) {
+      const { data: targetUser } = await supabaseAdmin
+        .from('express_users')
+        .select('id, email, contact_name')
+        .eq('id', userId)
+        .single();
+
+      if (targetUser) {
+        if (safeUpdates.driver_status === 'approved') {
+          createNotification(userId, 'account', 'Account approved!', 'Your driver account has been approved. You can now accept jobs.').catch(() => {});
+          if (targetUser.email) sendEmail(targetUser.email, 'Your driver account has been approved!', `<h2>Account Approved!</h2><p>Congratulations ${targetUser.contact_name}! Your TCG Express driver account has been approved.</p><p>You can now start accepting delivery jobs.</p><p>— TCG Express</p>`).catch(() => {});
+        } else if (safeUpdates.driver_status === 'rejected') {
+          createNotification(userId, 'account', 'Application update', 'Your driver application has been declined.').catch(() => {});
+          if (targetUser.email) sendEmail(targetUser.email, 'Driver application update', `<h2>Application Update</h2><p>Hi ${targetUser.contact_name}, unfortunately your TCG Express driver application has been declined at this time.</p><p>If you believe this is an error, please contact support.</p><p>— TCG Express</p>`).catch(() => {});
+        }
+      }
     }
 
     return NextResponse.json({ success: true });

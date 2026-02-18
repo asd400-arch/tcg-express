@@ -13,6 +13,8 @@ export default function AdminTransactions() {
   const m = useMobile();
   const [txns, setTxns] = useState([]);
   const [stats, setStats] = useState({ total: 0, commission: 0, payouts: 0, count: 0 });
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -22,30 +24,44 @@ export default function AdminTransactions() {
 
   const loadData = async () => {
     const { data } = await supabase.from('express_transactions').select('*, job:job_id(job_number, item_description), client:client_id(contact_name, company_name), driver:driver_id(contact_name)').order('created_at', { ascending: false });
-    const t = data || [];
-    setTxns(t);
-    setStats({
-      total: t.reduce((s, x) => s + parseFloat(x.total_amount || 0), 0),
-      commission: t.reduce((s, x) => s + parseFloat(x.commission_amount || 0), 0),
-      payouts: t.reduce((s, x) => s + parseFloat(x.driver_payout || 0), 0),
-      count: t.length,
-    });
+    setTxns(data || []);
+  };
+
+  const filteredTxns = txns.filter(t => {
+    if (dateFrom && new Date(t.created_at) < new Date(dateFrom)) return false;
+    if (dateTo && new Date(t.created_at) > new Date(dateTo + 'T23:59:59')) return false;
+    return true;
+  });
+
+  const filteredStats = {
+    total: filteredTxns.reduce((s, x) => s + parseFloat(x.total_amount || 0), 0),
+    commission: filteredTxns.reduce((s, x) => s + parseFloat(x.commission_amount || 0), 0),
+    payouts: filteredTxns.reduce((s, x) => s + parseFloat(x.driver_payout || 0), 0),
+    count: filteredTxns.length,
   };
 
   if (loading || !user) return <Spinner />;
   const card = { background: 'white', borderRadius: '14px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9' };
+  const dateInput = { padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px', outline: 'none', background: '#f8fafc', color: '#1e293b', fontFamily: "'Inter', sans-serif" };
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>
       <Sidebar active="Transactions" />
       <div style={{ flex: 1, padding: m ? '20px 16px' : '30px', overflowX: 'hidden' }}>
         <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', marginBottom: '20px' }}>💳 All Transactions</h1>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap' }}>
+          <label style={{ fontSize: '13px', fontWeight: '600', color: '#64748b' }}>From:</label>
+          <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={dateInput} />
+          <label style={{ fontSize: '13px', fontWeight: '600', color: '#64748b' }}>To:</label>
+          <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={dateInput} />
+          {(dateFrom || dateTo) && <button onClick={() => { setDateFrom(''); setDateTo(''); }} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', background: 'white', color: '#64748b', fontSize: '12px', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>Clear</button>}
+        </div>
         <div style={{ display: 'grid', gridTemplateColumns: m ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: '16px', marginBottom: '25px' }}>
           {[
-            { label: 'Total Volume', value: `$${stats.total.toFixed(2)}`, color: '#3b82f6', icon: '💰' },
-            { label: 'Commission Earned', value: `$${stats.commission.toFixed(2)}`, color: '#059669', icon: '🎯' },
-            { label: 'Driver Payouts', value: `$${stats.payouts.toFixed(2)}`, color: '#f59e0b', icon: '🚗' },
-            { label: 'Total Transactions', value: stats.count, color: '#8b5cf6', icon: '📊' },
+            { label: 'Total Volume', value: `$${filteredStats.total.toFixed(2)}`, color: '#3b82f6', icon: '💰' },
+            { label: 'Commission Earned', value: `$${filteredStats.commission.toFixed(2)}`, color: '#059669', icon: '🎯' },
+            { label: 'Driver Payouts', value: `$${filteredStats.payouts.toFixed(2)}`, color: '#f59e0b', icon: '🚗' },
+            { label: 'Total Transactions', value: filteredStats.count, color: '#8b5cf6', icon: '📊' },
           ].map((s, i) => (
             <div key={i} style={card}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -59,7 +75,7 @@ export default function AdminTransactions() {
           ))}
         </div>
         <div style={card}>
-          {txns.map(t => (
+          {filteredTxns.map(t => (
             <div key={t.id} style={{ padding: '14px 0', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
               <div>
                 <div style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b' }}>{t.job?.job_number}</div>
@@ -73,7 +89,7 @@ export default function AdminTransactions() {
               </div>
             </div>
           ))}
-          {txns.length === 0 && <p style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>No transactions yet</p>}
+          {filteredTxns.length === 0 && <p style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>No transactions found</p>}
         </div>
       </div>
     </div>

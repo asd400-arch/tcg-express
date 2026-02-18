@@ -14,6 +14,7 @@ export default function DriverDashboard() {
   const [myJobs, setMyJobs] = useState([]);
   const [availableJobs, setAvailableJobs] = useState([]);
   const [stats, setStats] = useState({ active: 0, completed: 0, earnings: 0, rating: 5.0 });
+  const [recentReviews, setRecentReviews] = useState([]);
   const [dataLoading, setDataLoading] = useState(true);
 
   useEffect(() => {
@@ -24,15 +25,17 @@ export default function DriverDashboard() {
 
   const loadData = async () => {
     setDataLoading(true);
-    const [myJ, openJ, txn] = await Promise.all([
+    const [myJ, openJ, txn, revRes] = await Promise.all([
       supabase.from('express_jobs').select('*').eq('assigned_driver_id', user.id).order('created_at', { ascending: false }),
       supabase.from('express_jobs').select('*').in('status', ['open', 'bidding']).order('created_at', { ascending: false }).limit(5),
       supabase.from('express_transactions').select('driver_payout').eq('driver_id', user.id).eq('payment_status', 'paid'),
+      supabase.from('express_reviews').select('*, client:client_id(contact_name)').eq('driver_id', user.id).order('created_at', { ascending: false }).limit(5),
     ]);
     const mj = myJ.data || []; const oj = openJ.data || [];
     const totalEarnings = (txn.data || []).reduce((sum, t) => sum + (parseFloat(t.driver_payout) || 0), 0);
     setMyJobs(mj);
     setAvailableJobs(oj);
+    setRecentReviews(revRes.data || []);
     setStats({
       active: mj.filter(x => ['assigned','pickup_confirmed','in_transit'].includes(x.status)).length,
       completed: mj.filter(x => ['confirmed','completed'].includes(x.status)).length,
@@ -118,6 +121,27 @@ export default function DriverDashboard() {
                 </div>
                 <span style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '600', background: `${statusColor[job.status] || '#64748b'}15`, color: statusColor[job.status] || '#64748b', textTransform: 'capitalize' }}>{job.status.replace(/_/g, ' ')}</span>
               </a>
+            ))
+          )}
+        </div>
+
+        {/* Recent Reviews */}
+        <div style={{ ...card, marginTop: '25px' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>⭐ Recent Reviews</h3>
+          {recentReviews.length === 0 ? (
+            <p style={{ color: '#64748b', fontSize: '14px', textAlign: 'center', padding: '20px' }}>No reviews yet. Complete deliveries to receive ratings!</p>
+          ) : (
+            recentReviews.map(r => (
+              <div key={r.id} style={{ padding: '12px 0', borderBottom: '1px solid #f1f5f9' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ color: '#f59e0b', fontSize: '14px' }}>{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</span>
+                    <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>{r.client?.contact_name || 'Client'}</span>
+                  </div>
+                  <span style={{ fontSize: '11px', color: '#94a3b8' }}>{new Date(r.created_at).toLocaleDateString()}</span>
+                </div>
+                {r.review_text && <p style={{ fontSize: '13px', color: '#64748b', margin: '4px 0 0' }}>{r.review_text}</p>}
+              </div>
             ))
           )}
         </div>

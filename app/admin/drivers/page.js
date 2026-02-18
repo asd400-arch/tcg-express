@@ -6,6 +6,7 @@ import Sidebar from '../../components/Sidebar';
 import Spinner from '../../components/Spinner';
 import { useToast } from '../../components/Toast';
 import useMobile from '../../components/useMobile';
+import { supabase } from '../../../lib/supabase';
 
 export default function AdminDrivers() {
   const { user, loading } = useAuth();
@@ -14,6 +15,9 @@ export default function AdminDrivers() {
   const m = useMobile();
   const [drivers, setDrivers] = useState([]);
   const [filter, setFilter] = useState('all');
+  const [search, setSearch] = useState('');
+  const [expandedDriver, setExpandedDriver] = useState(null);
+  const [reviews, setReviews] = useState([]);
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -31,6 +35,13 @@ export default function AdminDrivers() {
     setDrivers(result.data || []);
   };
 
+  const toggleReviews = async (driverId) => {
+    if (expandedDriver === driverId) { setExpandedDriver(null); return; }
+    setExpandedDriver(driverId);
+    const { data } = await supabase.from('express_reviews').select('*, client:client_id(contact_name)').eq('driver_id', driverId).order('created_at', { ascending: false });
+    setReviews(data || []);
+  };
+
   const updateStatus = async (id, status) => {
     await fetch('/api/admin/users/update', {
       method: 'POST',
@@ -44,13 +55,18 @@ export default function AdminDrivers() {
   if (loading || !user) return <Spinner />;
   const card = { background: 'white', borderRadius: '14px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9' };
   const sColor = { pending: '#f59e0b', approved: '#10b981', suspended: '#ef4444', rejected: '#94a3b8' };
-  const filtered = filter === 'all' ? drivers : drivers.filter(d => d.driver_status === filter);
+  const filtered = (filter === 'all' ? drivers : drivers.filter(d => d.driver_status === filter)).filter(d => {
+    if (!search.trim()) return true;
+    const s = search.toLowerCase();
+    return (d.contact_name || '').toLowerCase().includes(s) || (d.email || '').toLowerCase().includes(s) || (d.phone || '').toLowerCase().includes(s) || (d.vehicle_type || '').toLowerCase().includes(s) || (d.vehicle_plate || '').toLowerCase().includes(s);
+  });
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>
       <Sidebar active="Drivers" />
       <div style={{ flex: 1, padding: m ? '20px 16px' : '30px', overflowX: 'hidden' }}>
         <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', marginBottom: '20px' }}>🚗 Drivers ({drivers.length})</h1>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name, email, phone, vehicle..." style={{ width: '100%', padding: '10px 16px', borderRadius: '10px', border: '1px solid #e2e8f0', fontSize: '14px', outline: 'none', background: '#f8fafc', color: '#1e293b', fontFamily: "'Inter', sans-serif", boxSizing: 'border-box', marginBottom: '12px' }} />
         <div style={{ display: 'flex', gap: '6px', marginBottom: '20px' }}>
           {['all', 'pending', 'approved', 'suspended', 'rejected'].map(f => (
             <button key={f} onClick={() => setFilter(f)} style={{
@@ -82,6 +98,27 @@ export default function AdminDrivers() {
                   </div>
                 </div>
               </div>
+              <div style={{ marginTop: '12px' }}>
+                <button onClick={() => toggleReviews(d.id)} style={{ padding: '5px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', background: expandedDriver === d.id ? '#f8fafc' : 'white', color: '#64748b', fontSize: '12px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>
+                  {expandedDriver === d.id ? 'Hide Reviews' : `Reviews (${d.total_deliveries || 0})`}
+                </button>
+              </div>
+              {expandedDriver === d.id && (
+                <div style={{ marginTop: '12px', borderTop: '1px solid #f1f5f9', paddingTop: '12px' }}>
+                  {reviews.length === 0 ? (
+                    <p style={{ fontSize: '13px', color: '#94a3b8' }}>No reviews yet</p>
+                  ) : reviews.map(r => (
+                    <div key={r.id} style={{ padding: '8px 0', borderBottom: '1px solid #f8fafc' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                        <span style={{ color: '#f59e0b', fontSize: '14px' }}>{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</span>
+                        <span style={{ fontSize: '12px', color: '#64748b' }}>{r.client?.contact_name || 'Client'}</span>
+                        <span style={{ fontSize: '11px', color: '#94a3b8' }}>{new Date(r.created_at).toLocaleDateString()}</span>
+                      </div>
+                      {r.review_text && <p style={{ fontSize: '13px', color: '#374151', margin: 0 }}>{r.review_text}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
           {filtered.length === 0 && <div style={card}><p style={{ color: '#64748b', textAlign: 'center' }}>No drivers found</p></div>}

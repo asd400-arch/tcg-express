@@ -13,6 +13,7 @@ export default function AdminClients() {
   const toast = useToast();
   const m = useMobile();
   const [clients, setClients] = useState([]);
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -48,8 +49,13 @@ export default function AdminClients() {
       <Sidebar active="Clients" />
       <div style={{ flex: 1, padding: m ? '20px 16px' : '30px', overflowX: 'hidden' }}>
         <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', marginBottom: '20px' }}>🏢 Clients ({clients.length})</h1>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by company, name, email, phone..." style={{ width: '100%', padding: '10px 16px', borderRadius: '10px', border: '1px solid #e2e8f0', fontSize: '14px', outline: 'none', background: '#f8fafc', color: '#1e293b', fontFamily: "'Inter', sans-serif", boxSizing: 'border-box', marginBottom: '16px' }} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {clients.map(c => (
+          {clients.filter(c => {
+            if (!search.trim()) return true;
+            const s = search.toLowerCase();
+            return (c.company_name || '').toLowerCase().includes(s) || (c.contact_name || '').toLowerCase().includes(s) || (c.email || '').toLowerCase().includes(s) || (c.phone || '').toLowerCase().includes(s);
+          }).map(c => (
             <div key={c.id} style={card}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                 <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>

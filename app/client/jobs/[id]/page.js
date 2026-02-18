@@ -7,6 +7,7 @@ import Spinner from '../../../components/Spinner';
 import ChatBox from '../../../components/ChatBox';
 import LiveMap from '../../../components/LiveMap';
 import { useToast } from '../../../components/Toast';
+import RatingModal from '../../../components/RatingModal';
 import { supabase } from '../../../../lib/supabase';
 import useMobile from '../../../components/useMobile';
 import { use } from 'react';
@@ -21,6 +22,8 @@ export default function ClientJobDetail({ params }) {
   const [job, setJob] = useState(null);
   const [bids, setBids] = useState([]);
   const [tab, setTab] = useState('details');
+  const [showRating, setShowRating] = useState(false);
+  const [hasReview, setHasReview] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -67,12 +70,14 @@ export default function ClientJobDetail({ params }) {
   }, [jobId]);
 
   const loadData = async () => {
-    const [jobRes, bidsRes] = await Promise.all([
+    const [jobRes, bidsRes, reviewRes] = await Promise.all([
       supabase.from('express_jobs').select('*').eq('id', jobId).single(),
-      supabase.from('express_bids').select('*, driver:driver_id(id, contact_name, phone, vehicle_type, vehicle_plate, driver_rating, total_deliveries)').eq('job_id', jobId).order('created_at', { ascending: true }),
+      supabase.from('express_bids').select('*, driver:driver_id(id, contact_name, phone, email, vehicle_type, vehicle_plate, driver_rating, total_deliveries)').eq('job_id', jobId).order('created_at', { ascending: true }),
+      supabase.from('express_reviews').select('id').eq('job_id', jobId).limit(1),
     ]);
     setJob(jobRes.data);
     setBids(bidsRes.data || []);
+    setHasReview((reviewRes.data || []).length > 0);
   };
 
   const acceptBid = async (bid) => {
@@ -92,6 +97,18 @@ export default function ClientJobDetail({ params }) {
       status: 'assigned', assigned_driver_id: bid.driver_id, assigned_bid_id: bid.id,
       final_amount: bid.amount, commission_rate: rate, commission_amount: commission.toFixed(2), driver_payout: payout.toFixed(2),
     }).eq('id', jobId);
+    // Notify driver in-app
+    fetch('/api/notifications', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: bid.driver_id, type: 'job', title: 'Bid accepted!', message: `Your bid of $${bid.amount} has been accepted`, data: { jobId } }),
+    }).catch(() => {});
+    // Email driver
+    if (bid.driver?.email) {
+      fetch('/api/notifications/email', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: bid.driver.email, type: 'bid_accepted', data: { jobNumber: job.job_number, amount: bid.amount, pickupAddress: job.pickup_address } }),
+      }).catch(() => {});
+    }
     toast.success('Bid accepted');
     loadData();
   };
@@ -103,7 +120,21 @@ export default function ClientJobDetail({ params }) {
       total_amount: job.final_amount, commission_amount: job.commission_amount, driver_payout: job.driver_payout,
       payment_status: 'paid', paid_at: new Date().toISOString(),
     }]);
+    // Notify driver in-app
+    fetch('/api/notifications', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: job.assigned_driver_id, type: 'delivery', title: 'Delivery confirmed!', message: `Delivery for ${job.job_number} confirmed. Payout: $${job.driver_payout}`, data: { jobId } }),
+    }).catch(() => {});
+    // Email driver - find driver email from accepted bid
+    const acceptedBid = bids.find(b => b.status === 'accepted');
+    if (acceptedBid?.driver?.email) {
+      fetch('/api/notifications/email', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: acceptedBid.driver.email, type: 'delivery_confirmed', data: { jobNumber: job.job_number, payout: job.driver_payout } }),
+      }).catch(() => {});
+    }
     toast.success('Delivery confirmed');
+    setShowRating(true);
     loadData();
   };
 
@@ -194,6 +225,9 @@ export default function ClientJobDetail({ params }) {
               {job.status === 'delivered' && (
                 <button onClick={confirmDelivery} style={{ padding: '12px 24px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>✅ Confirm Delivery & Pay</button>
               )}
+              {job.status === 'confirmed' && !hasReview && (
+                <button onClick={() => setShowRating(true)} style={{ padding: '12px 24px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: 'white', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>⭐ Rate Driver</button>
+              )}
               {['open', 'bidding'].includes(job.status) && (
                 <button onClick={cancelJob} style={{ padding: '12px 24px', borderRadius: '10px', border: '1px solid #ef4444', background: 'white', color: '#ef4444', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>Cancel Job</button>
               )}
@@ -250,6 +284,17 @@ export default function ClientJobDetail({ params }) {
         {/* Messages Tab */}
         {tab === 'messages' && showChat && (
           <ChatBox jobId={jobId} userId={user.id} receiverId={job.assigned_driver_id} userRole="client" />
+        )}
+
+        {/* Rating Modal */}
+        {showRating && job.assigned_driver_id && (
+          <RatingModal
+            jobId={jobId}
+            clientId={user.id}
+            driverId={job.assigned_driver_id}
+            onClose={() => setShowRating(false)}
+            onSubmitted={() => { setHasReview(true); loadData(); }}
+          />
         )}
       </div>
     </div>

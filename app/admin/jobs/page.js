@@ -13,6 +13,7 @@ export default function AdminJobs() {
   const m = useMobile();
   const [jobs, setJobs] = useState([]);
   const [filter, setFilter] = useState('all');
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -28,9 +29,13 @@ export default function AdminJobs() {
   if (loading || !user) return <Spinner />;
   const card = { background: 'white', borderRadius: '14px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9' };
   const statusColor = { open: '#3b82f6', bidding: '#8b5cf6', assigned: '#f59e0b', pickup_confirmed: '#f59e0b', in_transit: '#06b6d4', delivered: '#10b981', confirmed: '#10b981', completed: '#059669', cancelled: '#ef4444' };
-  const filtered = filter === 'all' ? jobs : jobs.filter(j => {
+  const filtered = (filter === 'all' ? jobs : jobs.filter(j => {
     if (filter === 'active') return !['confirmed','completed','cancelled'].includes(j.status);
     return j.status === filter;
+  })).filter(j => {
+    if (!search.trim()) return true;
+    const s = search.toLowerCase();
+    return (j.job_number || '').toLowerCase().includes(s) || (j.item_description || '').toLowerCase().includes(s) || (j.client?.contact_name || '').toLowerCase().includes(s) || (j.client?.company_name || '').toLowerCase().includes(s) || (j.driver?.contact_name || '').toLowerCase().includes(s);
   });
 
   return (
@@ -38,6 +43,7 @@ export default function AdminJobs() {
       <Sidebar active="All Jobs" />
       <div style={{ flex: 1, padding: m ? '20px 16px' : '30px', overflowX: 'hidden' }}>
         <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', marginBottom: '20px' }}>📦 All Jobs ({jobs.length})</h1>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by job #, description, client, driver..." style={{ width: '100%', padding: '10px 16px', borderRadius: '10px', border: '1px solid #e2e8f0', fontSize: '14px', outline: 'none', background: '#f8fafc', color: '#1e293b', fontFamily: "'Inter', sans-serif", boxSizing: 'border-box', marginBottom: '12px' }} />
         <div style={{ display: 'flex', gap: '6px', marginBottom: '20px', flexWrap: 'wrap' }}>
           {['all', 'active', 'open', 'bidding', 'assigned', 'in_transit', 'delivered', 'confirmed', 'cancelled'].map(f => (
             <button key={f} onClick={() => setFilter(f)} style={{

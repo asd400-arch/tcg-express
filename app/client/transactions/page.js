@@ -6,6 +6,7 @@ import Sidebar from '../../components/Sidebar';
 import Spinner from '../../components/Spinner';
 import { supabase } from '../../../lib/supabase';
 import useMobile from '../../components/useMobile';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export default function ClientTransactions() {
   const { user, loading } = useAuth();
@@ -57,6 +58,39 @@ export default function ClientTransactions() {
             </div>
           ))}
         </div>
+        {/* 7-Day Spending Chart */}
+        {(() => {
+          const days = {};
+          for (let i = 6; i >= 0; i--) {
+            const d = new Date(); d.setDate(d.getDate() - i);
+            days[d.toISOString().split('T')[0]] = 0;
+          }
+          transactions.forEach(t => {
+            const key = new Date(t.created_at).toISOString().split('T')[0];
+            if (days[key] !== undefined) days[key] += parseFloat(t.total_amount || 0);
+          });
+          const chartData = Object.entries(days).map(([date, amount]) => ({
+            date: new Date(date).toLocaleDateString('en', { weekday: 'short' }),
+            spending: parseFloat(amount.toFixed(2)),
+          }));
+          return (
+            <div style={{ ...card, marginBottom: '25px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>Last 7 Days Spending</h3>
+              <div style={{ width: '100%', height: 200 }}>
+                <ResponsiveContainer>
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                    <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                    <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                    <Tooltip formatter={(v) => [`$${v}`, 'Spent']} contentStyle={{ borderRadius: '10px', border: '1px solid #e2e8f0' }} />
+                    <Line type="monotone" dataKey="spending" stroke="#3b82f6" strokeWidth={2} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          );
+        })()}
+
         <div style={card}>
           <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>Payment History</h3>
           {transactions.length === 0 ? (

@@ -13,6 +13,7 @@ export default function ClientJobs() {
   const m = useMobile();
   const [jobs, setJobs] = useState([]);
   const [filter, setFilter] = useState('all');
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -29,11 +30,15 @@ export default function ClientJobs() {
 
   const card = { background: 'white', borderRadius: '14px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9' };
   const statusColor = { open: '#3b82f6', bidding: '#8b5cf6', assigned: '#f59e0b', pickup_confirmed: '#f59e0b', in_transit: '#06b6d4', delivered: '#10b981', confirmed: '#10b981', completed: '#059669', cancelled: '#ef4444' };
-  const filtered = filter === 'all' ? jobs : jobs.filter(j => {
+  const filtered = (filter === 'all' ? jobs : jobs.filter(j => {
     if (filter === 'active') return ['open','bidding','assigned','pickup_confirmed','in_transit'].includes(j.status);
     if (filter === 'completed') return ['confirmed','completed'].includes(j.status);
     if (filter === 'pending') return j.status === 'delivered';
     return true;
+  })).filter(j => {
+    if (!search.trim()) return true;
+    const s = search.toLowerCase();
+    return (j.job_number || '').toLowerCase().includes(s) || (j.item_description || '').toLowerCase().includes(s) || (j.pickup_address || '').toLowerCase().includes(s) || (j.delivery_address || '').toLowerCase().includes(s);
   });
 
   return (
@@ -44,6 +49,8 @@ export default function ClientJobs() {
           <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b' }}>My Jobs ({jobs.length})</h1>
           <a href="/client/jobs/new" style={{ padding: '10px 20px', borderRadius: '10px', background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: 'white', textDecoration: 'none', fontWeight: '600', fontSize: '14px' }}>➕ New Job</a>
         </div>
+
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search jobs..." style={{ width: '100%', padding: '10px 16px', borderRadius: '10px', border: '1px solid #e2e8f0', fontSize: '14px', outline: 'none', background: '#f8fafc', color: '#1e293b', fontFamily: "'Inter', sans-serif", boxSizing: 'border-box', marginBottom: '12px' }} />
 
         <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
           {['all', 'active', 'pending', 'completed'].map(f => (

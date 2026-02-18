@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from './AuthContext';
 import useMobile from './useMobile';
+import NotificationBell from './NotificationBell';
 
 const clientLinks = [
   { label: 'Dashboard', href: '/client/dashboard', icon: '📊' },
@@ -24,6 +25,7 @@ const adminLinks = [
   { label: 'Drivers', href: '/admin/drivers', icon: '🚗' },
   { label: 'Clients', href: '/admin/clients', icon: '🏢' },
   { label: 'Transactions', href: '/admin/transactions', icon: '💳' },
+  { label: 'Analytics', href: '/admin/analytics', icon: '📈' },
   { label: 'Settings', href: '/admin/settings', icon: '⚙️' },
 ];
 
@@ -54,7 +56,10 @@ export default function Sidebar({ active = '', title }) {
             <div style={{ fontSize: '11px', fontWeight: '600', color: roleColor, textTransform: 'uppercase', letterSpacing: '1px' }}>{roleLabel}</div>
           </div>
         </a>
-        {m && <div onClick={() => setOpen(false)} style={{ fontSize: '24px', cursor: 'pointer', color: '#64748b' }}>✕</div>}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {user?.id && <NotificationBell userId={user.id} />}
+          {m && <div onClick={() => setOpen(false)} style={{ fontSize: '24px', cursor: 'pointer', color: '#64748b' }}>✕</div>}
+        </div>
       </div>
 
       {/* Nav Links */}
@@ -107,10 +112,13 @@ export default function Sidebar({ active = '', title }) {
             <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: `linear-gradient(135deg, ${roleColor}, ${roleColor}cc)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: '900', color: 'white', flexShrink: 0 }}>T</div>
             <span style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{displayTitle || 'TCG Express'}</span>
           </div>
-          <div onClick={() => setOpen(true)} style={{ display: 'flex', flexDirection: 'column', gap: '4px', cursor: 'pointer', padding: '6px' }}>
-            <div style={{ width: '20px', height: '2px', background: '#64748b', borderRadius: '2px' }}></div>
-            <div style={{ width: '20px', height: '2px', background: '#64748b', borderRadius: '2px' }}></div>
-            <div style={{ width: '20px', height: '2px', background: '#64748b', borderRadius: '2px' }}></div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {user?.id && <NotificationBell userId={user.id} />}
+            <div onClick={() => setOpen(true)} style={{ display: 'flex', flexDirection: 'column', gap: '4px', cursor: 'pointer', padding: '6px' }}>
+              <div style={{ width: '20px', height: '2px', background: '#64748b', borderRadius: '2px' }}></div>
+              <div style={{ width: '20px', height: '2px', background: '#64748b', borderRadius: '2px' }}></div>
+              <div style={{ width: '20px', height: '2px', background: '#64748b', borderRadius: '2px' }}></div>
+            </div>
           </div>
         </div>
         {/* Spacer */}
