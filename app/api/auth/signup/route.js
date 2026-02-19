@@ -8,6 +8,13 @@ import { sendEmail } from '../../../../lib/email';
 
 const signupLimiter = rateLimit({ interval: 3600000, maxRequests: 5, name: 'signup' });
 
+const ALLOWED_ROLES = ['client', 'driver'];
+const ALLOWED_SIGNUP_FIELDS = [
+  'role', 'contact_name', 'phone', 'company_name', 'company_registration',
+  'billing_address', 'vehicle_type', 'vehicle_plate', 'license_number',
+  'driver_type', 'nric_number', 'business_reg_number',
+];
+
 export async function POST(request) {
   try {
     const { email, password, ...rest } = await request.json();
@@ -17,6 +24,17 @@ export async function POST(request) {
 
     if (password.length < 6) {
       return NextResponse.json({ error: 'Password must be at least 6 characters' }, { status: 400 });
+    }
+
+    // Only allow client and driver signups — admins must be created by existing admins
+    if (rest.role && !ALLOWED_ROLES.includes(rest.role)) {
+      return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
+    }
+
+    // Whitelist allowed fields to prevent injection of is_active, is_verified, etc.
+    const safeFields = {};
+    for (const key of ALLOWED_SIGNUP_FIELDS) {
+      if (rest[key] !== undefined) safeFields[key] = rest[key];
     }
 
     // Rate limit by IP
@@ -46,7 +64,7 @@ export async function POST(request) {
 
     const { data, error } = await supabaseAdmin
       .from('express_users')
-      .insert([{ email, password_hash, verification_code, verification_code_expires, is_verified: false, ...rest }])
+      .insert([{ email, password_hash, verification_code, verification_code_expires, is_verified: false, ...safeFields }])
       .select()
       .single();
 
