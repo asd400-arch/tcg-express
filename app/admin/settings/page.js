@@ -17,6 +17,7 @@ export default function AdminSettings() {
   const [settingsLoading, setSettingsLoading] = useState(true);
   const [categoryRates, setCategoryRates] = useState({});
   const [ratesSaved, setRatesSaved] = useState(false);
+  const [stripeConfigured, setStripeConfigured] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -35,6 +36,12 @@ export default function AdminSettings() {
         try { setCategoryRates(JSON.parse(result.data.category_rates)); } catch {}
       }
     } catch (e) {}
+    // Check Stripe status
+    try {
+      const stripeRes = await fetch('/api/admin/stripe-status');
+      const stripeData = await stripeRes.json();
+      setStripeConfigured(!!stripeData.configured);
+    } catch {}
     setSettingsLoading(false);
   };
 
@@ -142,6 +149,25 @@ export default function AdminSettings() {
             fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
           }}>💾 Save Category Rates</button>
           {ratesSaved && <span style={{ marginLeft: '12px', color: '#10b981', fontSize: '13px', fontWeight: '600' }}>✓ Saved!</span>}
+        </div>
+
+        <div style={card}>
+          <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>Stripe Payments</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+            <span style={{
+              width: '10px', height: '10px', borderRadius: '50%',
+              background: stripeConfigured ? '#10b981' : '#94a3b8',
+              display: 'inline-block',
+            }}></span>
+            <span style={{ fontSize: '14px', fontWeight: '600', color: stripeConfigured ? '#059669' : '#64748b' }}>
+              {stripeConfigured ? 'Connected' : 'Not configured'}
+            </span>
+          </div>
+          <p style={{ fontSize: '13px', color: '#64748b' }}>
+            {stripeConfigured
+              ? 'Stripe is active. Clients will be redirected to Stripe Checkout when accepting bids.'
+              : 'Add STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET to your environment variables to enable real payments. Currently using simulated escrow.'}
+          </p>
         </div>
 
         <div style={card}>

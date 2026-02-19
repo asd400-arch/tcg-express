@@ -29,7 +29,9 @@ export default function DriverMyJobs() {
   const [showRating, setShowRating] = useState(false);
   const [hasReviewedClient, setHasReviewedClient] = useState(false);
   const [clientInfo, setClientInfo] = useState(null);
-  const gps = useGpsTracking(user?.id, selected?.id);
+  const [pickupCoords, setPickupCoords] = useState(null);
+  const [deliveryCoords, setDeliveryCoords] = useState(null);
+  const gps = useGpsTracking(user?.id, selected?.id, pickupCoords, deliveryCoords);
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -42,9 +44,20 @@ export default function DriverMyJobs() {
     setJobs(data || []);
   };
 
+  const geocodeAddress = async (address) => {
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(address)}`);
+      const data = await res.json();
+      if (data && data[0]) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+    } catch {}
+    return null;
+  };
+
   const selectJob = async (job) => {
     setSelected(job);
     setActiveTab('info');
+    setPickupCoords(null);
+    setDeliveryCoords(null);
     // Load dispute data, existing review, and client contact info
     const [disputeRes, reviewRes, clientRes] = await Promise.all([
       supabase.from('express_disputes').select('*').eq('job_id', job.id).in('status', ['open', 'under_review']).maybeSingle(),
@@ -54,6 +67,9 @@ export default function DriverMyJobs() {
     setDispute(disputeRes.data || null);
     setHasReviewedClient((reviewRes.data || []).length > 0);
     setClientInfo(clientRes.data || null);
+    // Geocode pickup/delivery addresses for proximity detection
+    if (job.pickup_address) geocodeAddress(job.pickup_address).then(setPickupCoords);
+    if (job.delivery_address) geocodeAddress(job.delivery_address).then(setDeliveryCoords);
   };
 
   // Auto-start GPS when viewing an in_transit job (handles page refresh)
@@ -64,6 +80,17 @@ export default function DriverMyJobs() {
   }, [selected?.id, selected?.status]);
 
   const updateStatus = async (status) => {
+    // Photo proof enforcement
+    if (status === 'pickup_confirmed' && !selected.pickup_photo) {
+      toast.error('Please upload a pickup photo first');
+      setActiveTab('uploads');
+      return;
+    }
+    if (status === 'delivered' && !selected.delivery_photo) {
+      toast.error('Please upload a delivery photo first');
+      setActiveTab('uploads');
+      return;
+    }
     const updates = { status };
     if (status === 'delivered') updates.completed_at = new Date().toISOString();
     await supabase.from('express_jobs').update(updates).eq('id', selected.id);
@@ -167,14 +194,31 @@ export default function DriverMyJobs() {
             </div>
 
             {/* Status Action - Top Priority */}
-            {statusFlow[selected.status] && (
-              <button onClick={() => updateStatus(statusFlow[selected.status].next)} style={{
-                padding: '16px 28px', borderRadius: '12px', border: 'none', width: '100%', marginBottom: '10px',
-                background: `linear-gradient(135deg, ${statusFlow[selected.status].color}, ${statusFlow[selected.status].color}cc)`,
-                color: 'white', fontSize: '18px', fontWeight: '700', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
-                boxShadow: `0 4px 14px ${statusFlow[selected.status].color}40`,
-              }}>{statusFlow[selected.status].label}</button>
-            )}
+            {statusFlow[selected.status] && (() => {
+              const nextStatus = statusFlow[selected.status].next;
+              const needsPhoto = (nextStatus === 'pickup_confirmed' && !selected.pickup_photo)
+                || (nextStatus === 'delivered' && !selected.delivery_photo);
+              const photoHint = nextStatus === 'pickup_confirmed' ? 'Upload pickup photo first'
+                : nextStatus === 'delivered' ? 'Upload delivery photo first' : null;
+              return (
+                <div style={{ marginBottom: '10px' }}>
+                  <button onClick={() => updateStatus(nextStatus)} style={{
+                    padding: '16px 28px', borderRadius: '12px', border: 'none', width: '100%',
+                    background: needsPhoto
+                      ? `linear-gradient(135deg, ${statusFlow[selected.status].color}80, ${statusFlow[selected.status].color}60)`
+                      : `linear-gradient(135deg, ${statusFlow[selected.status].color}, ${statusFlow[selected.status].color}cc)`,
+                    color: 'white', fontSize: '18px', fontWeight: '700', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
+                    boxShadow: needsPhoto ? 'none' : `0 4px 14px ${statusFlow[selected.status].color}40`,
+                    opacity: needsPhoto ? 0.7 : 1,
+                  }}>{statusFlow[selected.status].label}</button>
+                  {needsPhoto && photoHint && (
+                    <div style={{ textAlign: 'center', fontSize: '12px', color: '#f59e0b', fontWeight: '600', marginTop: '6px' }}>
+                      {photoHint}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* GPS Tracking indicator */}
             {gps.tracking && (
@@ -192,6 +236,28 @@ export default function DriverMyJobs() {
             {gps.error && (
               <div style={{ padding: '10px 16px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', marginBottom: '10px', fontSize: '13px', color: '#dc2626' }}>
                 ⚠️ GPS Error: {gps.error}
+              </div>
+            )}
+
+            {/* Proximity alerts */}
+            {gps.proximity.nearPickup && ['assigned', 'pickup_confirmed'].includes(selected.status) && (
+              <div style={{ padding: '10px 16px', background: '#f0fdf4', border: '1px solid #86efac', borderRadius: '10px', marginBottom: '10px', fontSize: '13px', fontWeight: '600', color: '#059669' }}>
+                You are within {gps.proximity.pickupDistance}m of the pickup location
+              </div>
+            )}
+            {gps.proximity.nearDelivery && ['in_transit'].includes(selected.status) && (
+              <div style={{ padding: '10px 16px', background: '#f0fdf4', border: '1px solid #86efac', borderRadius: '10px', marginBottom: '10px', fontSize: '13px', fontWeight: '600', color: '#059669' }}>
+                You are within {gps.proximity.deliveryDistance}m of the delivery location
+              </div>
+            )}
+            {gps.currentLocation && !gps.proximity.nearPickup && gps.proximity.pickupDistance !== null && ['assigned', 'pickup_confirmed'].includes(selected.status) && (
+              <div style={{ padding: '8px 16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', marginBottom: '10px', fontSize: '12px', color: '#64748b' }}>
+                {(gps.proximity.pickupDistance / 1000).toFixed(1)}km to pickup
+              </div>
+            )}
+            {gps.currentLocation && !gps.proximity.nearDelivery && gps.proximity.deliveryDistance !== null && ['in_transit'].includes(selected.status) && (
+              <div style={{ padding: '8px 16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', marginBottom: '10px', fontSize: '12px', color: '#64748b' }}>
+                {(gps.proximity.deliveryDistance / 1000).toFixed(1)}km to delivery
               </div>
             )}
 

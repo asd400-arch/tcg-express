@@ -2,6 +2,7 @@ import { supabaseAdmin } from '../../../../lib/supabase-server';
 import { NextResponse } from 'next/server';
 import { getSession } from '../../../../lib/auth';
 import { notify } from '../../../../lib/notify';
+import { getStripe } from '../../../../lib/stripe';
 
 export async function POST(req) {
   try {
@@ -56,10 +57,29 @@ export async function POST(req) {
 
     const now = new Date().toISOString();
 
+    // Stripe refund (if real payment was made)
+    let stripeRefundId = null;
+    if (txn.stripe_payment_intent_id) {
+      const stripe = getStripe();
+      if (stripe) {
+        try {
+          const refund = await stripe.refunds.create({
+            payment_intent: txn.stripe_payment_intent_id,
+          });
+          stripeRefundId = refund.id;
+        } catch (stripeErr) {
+          console.error('Stripe refund error:', stripeErr);
+          return NextResponse.json({ error: 'Stripe refund failed' }, { status: 500 });
+        }
+      }
+    }
+
     // Update transaction: refund
+    const txnUpdate = { payment_status: 'refunded', refunded_at: now };
+    if (stripeRefundId) txnUpdate.stripe_refund_id = stripeRefundId;
     const { error: txnUpdateErr } = await supabaseAdmin
       .from('express_transactions')
-      .update({ payment_status: 'refunded', refunded_at: now })
+      .update(txnUpdate)
       .eq('id', txn.id);
 
     if (txnUpdateErr) {

@@ -31,11 +31,24 @@ export default function ClientJobDetail({ params }) {
   const [dispute, setDispute] = useState(null);
   const [showDispute, setShowDispute] = useState(false);
   const [assignedDriver, setAssignedDriver] = useState(null);
+  const [stripeEnabled, setStripeEnabled] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
     if (jobId && user) loadData();
+    // Check Stripe status
+    fetch('/api/admin/stripe-status').then(r => r.json()).then(d => setStripeEnabled(!!d.configured)).catch(() => {});
   }, [jobId, user, loading]);
+
+  // Handle payment=success query param
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('payment') === 'success') {
+      toast.success('Payment successful! Bid accepted.');
+      // Clean up URL
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
 
   // Real-time job status updates
   useEffect(() => {
@@ -98,6 +111,28 @@ export default function ClientJobDetail({ params }) {
   };
 
   const acceptBid = async (bid) => {
+    // If Stripe is enabled, redirect to Stripe Checkout
+    if (stripeEnabled) {
+      try {
+        const res = await fetch('/api/checkout/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jobId, bidId: bid.id, amount: bid.amount }),
+        });
+        const result = await res.json();
+        if (result.sessionUrl) {
+          window.location.href = result.sessionUrl;
+          return;
+        }
+        toast.error(result.error || 'Failed to create checkout');
+        return;
+      } catch (e) {
+        toast.error('Failed to start payment');
+        return;
+      }
+    }
+
+    // Fallback: simulated escrow flow
     let rate = 15;
     try {
       const settingsRes = await fetch('/api/admin/settings');
