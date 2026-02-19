@@ -57,7 +57,7 @@ export default function Sidebar({ active = '', title }) {
         <a href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: `linear-gradient(135deg, ${roleColor}, ${roleColor}cc)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: '900', color: 'white' }}>T</div>
           <div>
-            <div style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b' }}>TCG Express</div>
+            <div style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b' }}>Tech Chain Express</div>
             <div style={{ fontSize: '11px', fontWeight: '600', color: roleColor, textTransform: 'uppercase', letterSpacing: '1px' }}>{roleLabel}</div>
           </div>
         </a>
@@ -115,7 +115,7 @@ export default function Sidebar({ active = '', title }) {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
             <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: `linear-gradient(135deg, ${roleColor}, ${roleColor}cc)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: '900', color: 'white', flexShrink: 0 }}>T</div>
-            <span style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{displayTitle || 'TCG Express'}</span>
+            <span style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{displayTitle || 'Tech Chain Express'}</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             {user?.id && <NotificationBell userId={user.id} />}

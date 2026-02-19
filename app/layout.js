@@ -4,13 +4,13 @@ import { ToastProvider } from './components/Toast';
 import ServiceWorkerRegister from './components/ServiceWorkerRegister';
 
 export const metadata = {
-  title: 'TCG Express | B2B Express Delivery Platform',
+  title: 'Tech Chain Express | B2B Express Delivery Platform',
   description: 'On-demand B2B delivery platform. Post jobs, get bids, track deliveries in real-time.',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'TCG Express',
+    title: 'Tech Chain Express',
   },
 };
 

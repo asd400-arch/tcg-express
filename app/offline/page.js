@@ -15,7 +15,7 @@ export default function OfflinePage() {
         }}>T</div>
         <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', marginBottom: '12px' }}>You're Offline</h1>
         <p style={{ fontSize: '15px', color: '#64748b', lineHeight: '1.6', marginBottom: '24px' }}>
-          It looks like you've lost your internet connection. TCG Express needs an active connection to show live job data and tracking.
+          It looks like you've lost your internet connection. Tech Chain Express needs an active connection to show live job data and tracking.
         </p>
         <button
           onClick={() => window.location.reload()}

@@ -138,7 +138,7 @@ export default function Signup() {
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
           <div style={{ width: '56px', height: '56px', borderRadius: '14px', background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', fontWeight: '900', color: 'white', margin: '0 auto 16px' }}>T</div>
           <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', marginBottom: '6px' }}>Create Account</h1>
-          <p style={{ color: '#64748b', fontSize: '14px' }}>Join TCG Express</p>
+          <p style={{ color: '#64748b', fontSize: '14px' }}>Join Tech Chain Express</p>
         </div>
 
         {/* Step indicators for driver flow */}

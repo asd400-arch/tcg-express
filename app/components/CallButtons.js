@@ -7,7 +7,7 @@ export default function CallButtons({ phone, name, compact }) {
   const cleanPhone = phone.replace(/[\s\-()]/g, '');
   // WhatsApp needs number without + prefix
   const waNumber = cleanPhone.startsWith('+') ? cleanPhone.slice(1) : cleanPhone;
-  const waUrl = `https://wa.me/${waNumber}${name ? `?text=Hi ${encodeURIComponent(name)}, regarding our delivery on TCG Express.` : ''}`;
+  const waUrl = `https://wa.me/${waNumber}${name ? `?text=Hi ${encodeURIComponent(name)}, regarding our delivery on Tech Chain Express.` : ''}`;
 
   const base = {
     display: 'inline-flex', alignItems: 'center', gap: '6px',
