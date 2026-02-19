@@ -44,8 +44,6 @@ export async function POST(request) {
     // Auto-verify driver on approval (admin reviewed KYC, email trust implicit)
     if (safeUpdates.driver_status === 'approved') {
       safeUpdates.is_verified = true;
-      safeUpdates.verification_code = null;
-      safeUpdates.verification_code_expires = null;
     }
 
     const { error } = await supabaseAdmin
