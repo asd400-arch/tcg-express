@@ -62,6 +62,14 @@ export default function Login() {
             Don't have an account? <a href="/signup" style={{ color: '#3b82f6', fontWeight: '600', textDecoration: 'none' }}>Sign Up</a>
           </p>
         </div>
+
+        <div style={{ textAlign: 'center', marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #f1f5f9' }}>
+          <p style={{ color: '#94a3b8', fontSize: '12px' }}>
+            <a href="/terms" style={{ color: '#94a3b8', textDecoration: 'none' }}>Terms of Service</a>
+            {' · '}
+            <a href="/privacy" style={{ color: '#94a3b8', textDecoration: 'none' }}>Privacy Policy</a>
+          </p>
+        </div>
       </div>
     </div>
   );

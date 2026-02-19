@@ -330,6 +330,15 @@ export default function Signup() {
             Already have an account? <a href="/login" style={{ color: '#3b82f6', fontWeight: '600', textDecoration: 'none' }}>Sign In</a>
           </p>
         </div>
+
+        <div style={{ textAlign: 'center', marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #f1f5f9' }}>
+          <p style={{ color: '#94a3b8', fontSize: '12px' }}>
+            By creating an account, you agree to our{' '}
+            <a href="/terms" style={{ color: '#94a3b8', textDecoration: 'underline' }}>Terms of Service</a>
+            {' and '}
+            <a href="/privacy" style={{ color: '#94a3b8', textDecoration: 'underline' }}>Privacy Policy</a>
+          </p>
+        </div>
       </div>
     </div>
   );

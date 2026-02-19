@@ -8,6 +8,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@sentry/nextjs": "^10.39.0",
     "@supabase/supabase-js": "^2.96.0",
     "bcryptjs": "^3.0.3",
     "jose": "^6.1.3",
