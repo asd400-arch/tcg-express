@@ -44,6 +44,24 @@ export async function POST(request) {
       }
     }
 
+    // Validate category_rates
+    if (key === 'category_rates') {
+      try {
+        const rates = typeof value === 'string' ? JSON.parse(value) : value;
+        if (typeof rates !== 'object' || rates === null || Array.isArray(rates)) {
+          return NextResponse.json({ error: 'category_rates must be a JSON object' }, { status: 400 });
+        }
+        for (const [k, v] of Object.entries(rates)) {
+          const num = parseFloat(v);
+          if (isNaN(num) || num < 0 || num > 100000) {
+            return NextResponse.json({ error: `Invalid rate for ${k}: must be 0-100000` }, { status: 400 });
+          }
+        }
+      } catch {
+        return NextResponse.json({ error: 'category_rates must be valid JSON' }, { status: 400 });
+      }
+    }
+
     const { error } = await supabaseAdmin
       .from('express_settings')
       .upsert({ key, value: String(value), updated_at: new Date().toISOString() });

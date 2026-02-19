@@ -9,9 +9,11 @@ import LiveMap from '../../../components/LiveMap';
 import { useToast } from '../../../components/Toast';
 import RatingModal from '../../../components/RatingModal';
 import DisputeModal from '../../../components/DisputeModal';
+import CallButtons from '../../../components/CallButtons';
 import { supabase } from '../../../../lib/supabase';
 import useMobile from '../../../components/useMobile';
 import { use } from 'react';
+import { getCategoryByKey, getEquipmentLabel } from '../../../../lib/constants';
 
 export default function ClientJobDetail({ params }) {
   const resolvedParams = use(params);
@@ -28,6 +30,7 @@ export default function ClientJobDetail({ params }) {
   const [heldTxn, setHeldTxn] = useState(null);
   const [dispute, setDispute] = useState(null);
   const [showDispute, setShowDispute] = useState(false);
+  const [assignedDriver, setAssignedDriver] = useState(null);
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -86,6 +89,12 @@ export default function ClientJobDetail({ params }) {
     setHasReview((reviewRes.data || []).length > 0);
     setHeldTxn(txnRes.data || null);
     setDispute(disputeRes.data || null);
+    // Load assigned driver contact info
+    if (jobRes.data?.assigned_driver_id) {
+      const { data: driverData } = await supabase.from('express_users')
+        .select('contact_name, phone').eq('id', jobRes.data.assigned_driver_id).single();
+      setAssignedDriver(driverData);
+    }
   };
 
   const acceptBid = async (bid) => {
@@ -228,12 +237,23 @@ export default function ClientJobDetail({ params }) {
               <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b', marginBottom: '14px' }}>📋 Item & Preferences</h3>
               <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr 1fr' : '1fr 1fr 1fr', gap: '12px' }}>
                 <div><span style={{ fontSize: '12px', color: '#94a3b8' }}>Description</span><div style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b' }}>{job.item_description}</div></div>
-                <div><span style={{ fontSize: '12px', color: '#94a3b8' }}>Category</span><div style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b', textTransform: 'capitalize' }}>{job.item_category}</div></div>
+                <div><span style={{ fontSize: '12px', color: '#94a3b8' }}>Category</span><div style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b' }}>{getCategoryByKey(job.item_category).icon} {getCategoryByKey(job.item_category).label}</div></div>
                 <div><span style={{ fontSize: '12px', color: '#94a3b8' }}>Urgency</span><div style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b', textTransform: 'capitalize' }}>{job.urgency}</div></div>
                 <div><span style={{ fontSize: '12px', color: '#94a3b8' }}>Budget</span><div style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b' }}>${job.budget_min} - ${job.budget_max}</div></div>
                 <div><span style={{ fontSize: '12px', color: '#94a3b8' }}>Vehicle</span><div style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b', textTransform: 'capitalize' }}>{job.vehicle_required}</div></div>
                 {job.item_weight && <div><span style={{ fontSize: '12px', color: '#94a3b8' }}>Weight</span><div style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b' }}>{job.item_weight} kg</div></div>}
+                {job.manpower_count > 1 && <div><span style={{ fontSize: '12px', color: '#94a3b8' }}>Workers</span><div style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b' }}>{job.manpower_count} workers</div></div>}
               </div>
+              {job.equipment_needed && job.equipment_needed.length > 0 && (
+                <div style={{ marginTop: '12px' }}>
+                  <span style={{ fontSize: '12px', color: '#94a3b8', display: 'block', marginBottom: '6px' }}>Equipment</span>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {job.equipment_needed.map(eq => (
+                      <span key={eq} style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', background: '#eef2ff', color: '#4f46e5' }}>{getEquipmentLabel(eq)}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
               {job.final_amount && (
                 <div style={{ marginTop: '16px', padding: '14px', background: '#f0fdf4', borderRadius: '10px' }}>
                   <div style={{ fontSize: '13px', color: '#64748b' }}>Final Amount</div>
@@ -268,6 +288,20 @@ export default function ClientJobDetail({ params }) {
                 <div style={{ fontSize: '13px', color: '#991b1b', marginBottom: '4px' }}><strong>Reason:</strong> {dispute.reason.replace(/_/g, ' ')}</div>
                 <div style={{ fontSize: '13px', color: '#7f1d1d' }}>{dispute.description}</div>
                 <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '8px' }}>Opened {new Date(dispute.created_at).toLocaleString()}</div>
+              </div>
+            )}
+
+            {/* Contact Driver */}
+            {assignedDriver && job.assigned_driver_id && !['cancelled', 'completed'].includes(job.status) && (
+              <div style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', fontWeight: '700', color: 'white' }}>{assignedDriver.contact_name?.[0] || 'D'}</div>
+                  <div>
+                    <div style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b' }}>{assignedDriver.contact_name}</div>
+                    <div style={{ fontSize: '12px', color: '#64748b' }}>Assigned Driver</div>
+                  </div>
+                </div>
+                <CallButtons phone={assignedDriver.phone} name={assignedDriver.contact_name} compact />
               </div>
             )}
 
@@ -324,6 +358,11 @@ export default function ClientJobDetail({ params }) {
                     </div>
                   </div>
                   {bid.message && <div style={{ fontSize: '13px', color: '#374151', padding: '10px', background: '#f8fafc', borderRadius: '8px', marginBottom: '12px' }}>{bid.message}</div>}
+                  {bid.driver?.phone && (
+                    <div style={{ marginBottom: '12px' }}>
+                      <CallButtons phone={bid.driver.phone} name={bid.driver.contact_name} compact />
+                    </div>
+                  )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: '12px', color: '#94a3b8' }}>{new Date(bid.created_at).toLocaleString()}</span>
                     {bid.status === 'pending' && ['open', 'bidding'].includes(job.status) ? (

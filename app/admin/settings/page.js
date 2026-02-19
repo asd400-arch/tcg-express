@@ -5,6 +5,7 @@ import { useAuth } from '../../components/AuthContext';
 import Sidebar from '../../components/Sidebar';
 import { useToast } from '../../components/Toast';
 import useMobile from '../../components/useMobile';
+import { JOB_CATEGORIES } from '../../../lib/constants';
 
 export default function AdminSettings() {
   const { user, loading } = useAuth();
@@ -14,6 +15,8 @@ export default function AdminSettings() {
   const [commission, setCommission] = useState('15');
   const [saved, setSaved] = useState(false);
   const [settingsLoading, setSettingsLoading] = useState(true);
+  const [categoryRates, setCategoryRates] = useState({});
+  const [ratesSaved, setRatesSaved] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -27,6 +30,9 @@ export default function AdminSettings() {
       const result = await res.json();
       if (result.data?.commission_rate) {
         setCommission(result.data.commission_rate);
+      }
+      if (result.data?.category_rates) {
+        try { setCategoryRates(JSON.parse(result.data.category_rates)); } catch {}
       }
     } catch (e) {}
     setSettingsLoading(false);
@@ -43,6 +49,22 @@ export default function AdminSettings() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
       toast.success('Settings saved');
+    }
+  };
+
+  const saveCategoryRates = async () => {
+    const res = await fetch('/api/admin/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: 'category_rates', value: JSON.stringify(categoryRates) }),
+    });
+    const result = await res.json();
+    if (result.success) {
+      setRatesSaved(true);
+      setTimeout(() => setRatesSaved(false), 2000);
+      toast.success('Category rates saved');
+    } else {
+      toast.error(result.error || 'Failed to save');
     }
   };
 
@@ -76,6 +98,50 @@ export default function AdminSettings() {
             fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
           }}>💾 Save Settings</button>
           {saved && <span style={{ marginLeft: '12px', color: '#10b981', fontSize: '13px', fontWeight: '600' }}>✓ Saved!</span>}
+        </div>
+
+        <div style={card}>
+          <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>Category Rate Card</h3>
+          <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '14px' }}>Preset rates auto-fill the client budget when they select a category.</p>
+
+          <div style={{ marginBottom: '16px' }}>
+            <div style={{ fontSize: '13px', fontWeight: '700', color: '#374151', marginBottom: '10px' }}>Standard Categories</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              {JOB_CATEGORIES.filter(c => c.group === 'standard').map(cat => (
+                <div key={cat.key} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '16px', width: '24px', textAlign: 'center' }}>{cat.icon}</span>
+                  <span style={{ fontSize: '13px', color: '#374151', flex: 1, minWidth: 0 }}>{cat.label}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span style={{ fontSize: '13px', color: '#64748b' }}>$</span>
+                    <input type="number" min="0" max="100000" style={{ ...input, maxWidth: '90px', padding: '8px 10px' }} value={categoryRates[cat.key] || ''} onChange={e => setCategoryRates(prev => ({ ...prev, [cat.key]: e.target.value }))} disabled={settingsLoading} placeholder="—" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ marginBottom: '16px' }}>
+            <div style={{ fontSize: '13px', fontWeight: '700', color: '#7c3aed', marginBottom: '10px' }}>Premium Categories</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '10px' }}>
+              {JOB_CATEGORIES.filter(c => c.group === 'premium').map(cat => (
+                <div key={cat.key} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '16px', width: '24px', textAlign: 'center' }}>{cat.icon}</span>
+                  <span style={{ fontSize: '13px', color: '#374151', flex: 1, minWidth: 0 }}>{cat.label}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span style={{ fontSize: '13px', color: '#64748b' }}>$</span>
+                    <input type="number" min="0" max="100000" style={{ ...input, maxWidth: '90px', padding: '8px 10px' }} value={categoryRates[cat.key] || ''} onChange={e => setCategoryRates(prev => ({ ...prev, [cat.key]: e.target.value }))} disabled={settingsLoading} placeholder="—" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <button onClick={saveCategoryRates} disabled={settingsLoading} style={{
+            padding: '12px 24px', borderRadius: '10px', border: 'none',
+            background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', color: 'white',
+            fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
+          }}>💾 Save Category Rates</button>
+          {ratesSaved && <span style={{ marginLeft: '12px', color: '#10b981', fontSize: '13px', fontWeight: '600' }}>✓ Saved!</span>}
         </div>
 
         <div style={card}>

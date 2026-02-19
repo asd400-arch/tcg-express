@@ -7,6 +7,7 @@ import Spinner from '../../components/Spinner';
 import { useToast } from '../../components/Toast';
 import { supabase } from '../../../lib/supabase';
 import useMobile from '../../components/useMobile';
+import { getCategoryByKey, getEquipmentLabel } from '../../../lib/constants';
 
 export default function DriverJobs() {
   const { user, loading } = useAuth();
@@ -121,7 +122,7 @@ export default function DriverJobs() {
                         <span style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b' }}>{job.item_description}</span>
                         <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '700', background: `${urgencyColor[job.urgency]}15`, color: urgencyColor[job.urgency], textTransform: 'uppercase' }}>{job.urgency}</span>
                       </div>
-                      <div style={{ fontSize: '13px', color: '#64748b' }}>{job.item_category} {job.item_weight ? `• ${job.item_weight}kg` : ''} {job.vehicle_required !== 'any' ? `• ${job.vehicle_required} required` : ''}</div>
+                      <div style={{ fontSize: '13px', color: '#64748b' }}>{getCategoryByKey(job.item_category).icon} {getCategoryByKey(job.item_category).label} {job.item_weight ? `• ${job.item_weight}kg` : ''} {job.vehicle_required !== 'any' ? `• ${job.vehicle_required} required` : ''}</div>
                     </div>
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>
                       <div style={{ fontSize: '16px', fontWeight: '800', color: '#10b981' }}>${job.budget_min} - ${job.budget_max}</div>
@@ -132,6 +133,16 @@ export default function DriverJobs() {
                     <div>📦 <strong>Deliver:</strong> {job.delivery_address}</div>
                   </div>
                   {job.special_requirements && <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '12px' }}>⚠️ {job.special_requirements}</div>}
+                  {(job.equipment_needed?.length > 0 || job.manpower_count > 1) && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' }}>
+                      {(job.equipment_needed || []).map(eq => (
+                        <span key={eq} style={{ padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '600', background: '#eef2ff', color: '#4f46e5' }}>{getEquipmentLabel(eq)}</span>
+                      ))}
+                      {job.manpower_count > 1 && (
+                        <span style={{ padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '600', background: '#fffbeb', color: '#d97706' }}>{job.manpower_count} workers</span>
+                      )}
+                    </div>
+                  )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: '12px', color: '#94a3b8' }}>{new Date(job.created_at).toLocaleString()}</span>
                     {hasBid ? (

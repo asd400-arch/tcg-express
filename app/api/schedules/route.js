@@ -97,6 +97,8 @@ export async function POST(req) {
         budget_max: jobTemplate.budget_max ? parseFloat(jobTemplate.budget_max) : null,
         vehicle_required: jobTemplate.vehicle_required || 'any',
         special_requirements: jobTemplate.special_requirements || null,
+        equipment_needed: jobTemplate.equipment_needed || [],
+        manpower_count: jobTemplate.manpower_count || 1,
         status: 'active',
       }])
       .select()

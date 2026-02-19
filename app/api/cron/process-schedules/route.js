@@ -62,6 +62,8 @@ export async function GET(req) {
             budget_max: schedule.budget_max,
             vehicle_required: schedule.vehicle_required,
             special_requirements: schedule.special_requirements,
+            equipment_needed: schedule.equipment_needed || [],
+            manpower_count: schedule.manpower_count || 1,
             status: 'open',
           }])
           .select()

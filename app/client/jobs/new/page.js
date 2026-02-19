@@ -6,6 +6,7 @@ import Sidebar from '../../../components/Sidebar';
 import { useToast } from '../../../components/Toast';
 import { supabase } from '../../../../lib/supabase';
 import useMobile from '../../../components/useMobile';
+import { JOB_CATEGORIES, EQUIPMENT_OPTIONS } from '../../../../lib/constants';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -46,11 +47,13 @@ export default function NewJob() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(null);
   const [successType, setSuccessType] = useState('job'); // 'job' or 'schedule'
+  const [categoryRates, setCategoryRates] = useState({});
   const [form, setForm] = useState({
     pickup_address: '', pickup_contact: '', pickup_phone: '', pickup_instructions: '',
     delivery_address: '', delivery_contact: '', delivery_phone: '', delivery_instructions: '',
     item_description: '', item_category: 'general', item_weight: '', item_dimensions: '',
     urgency: 'standard', budget_min: '', budget_max: '', vehicle_required: 'any', special_requirements: '',
+    equipment_needed: [], manpower_count: 1,
     pickup_by: '', deliver_by: '',
     // Schedule fields
     schedule_mode: 'now',
@@ -64,6 +67,13 @@ export default function NewJob() {
   useEffect(() => {
     if (!loading && !user) router.push('/login');
     if (!loading && user && user.role !== 'client') router.push('/');
+    if (!loading && user && user.role === 'client') {
+      fetch('/api/admin/settings').then(r => r.json()).then(result => {
+        if (result.data?.category_rates) {
+          try { setCategoryRates(JSON.parse(result.data.category_rates)); } catch {}
+        }
+      }).catch(() => {});
+    }
   }, [user, loading]);
 
   const set = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
@@ -85,6 +95,7 @@ export default function NewJob() {
         item_weight: parseFloat(form.item_weight) || null, item_dimensions: form.item_dimensions,
         urgency: form.urgency, budget_min: parseFloat(form.budget_min) || null, budget_max: parseFloat(form.budget_max) || null,
         vehicle_required: form.vehicle_required, special_requirements: form.special_requirements,
+        equipment_needed: form.equipment_needed, manpower_count: form.manpower_count,
         pickup_by: form.pickup_by || null, deliver_by: form.deliver_by || null,
         status: 'open',
       }]).select().single();
@@ -110,6 +121,7 @@ export default function NewJob() {
           item_weight: form.item_weight, item_dimensions: form.item_dimensions,
           urgency: form.urgency, budget_min: form.budget_min, budget_max: form.budget_max,
           vehicle_required: form.vehicle_required, special_requirements: form.special_requirements,
+          equipment_needed: form.equipment_needed, manpower_count: form.manpower_count,
         };
 
         if (form.schedule_mode === 'recurring') {
@@ -152,6 +164,7 @@ export default function NewJob() {
       delivery_address: '', delivery_contact: '', delivery_phone: '', delivery_instructions: '',
       item_description: '', item_category: 'general', item_weight: '', item_dimensions: '',
       urgency: 'standard', budget_min: '', budget_max: '', vehicle_required: 'any', special_requirements: '',
+      equipment_needed: [], manpower_count: 1,
       pickup_by: '', deliver_by: '',
       schedule_mode: 'now', schedule_date: '', recurrence: 'weekly', recurrence_day: '1', recurrence_time: '09:00', recurrence_end: '',
     });
@@ -241,18 +254,64 @@ export default function NewJob() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
                 <div>
                   <label style={label}>Category</label>
-                  <select style={input} value={form.item_category} onChange={e => set('item_category', e.target.value)}>
-                    <option value="general">General</option>
-                    <option value="documents">Documents</option>
-                    <option value="electronics">Electronics</option>
-                    <option value="fragile">Fragile</option>
-                    <option value="food">Food/Perishable</option>
-                    <option value="heavy">Heavy/Bulky</option>
+                  <select style={input} value={form.item_category} onChange={e => {
+                    const cat = e.target.value;
+                    set('item_category', cat);
+                    if (categoryRates[cat]) {
+                      const rate = parseFloat(categoryRates[cat]);
+                      setForm(prev => ({ ...prev, item_category: cat, budget_min: String(rate), budget_max: String(rate) }));
+                    }
+                  }}>
+                    <optgroup label="Standard">
+                      {JOB_CATEGORIES.filter(c => c.group === 'standard').map(c => (
+                        <option key={c.key} value={c.key}>{c.icon} {c.label}</option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Premium">
+                      {JOB_CATEGORIES.filter(c => c.group === 'premium').map(c => (
+                        <option key={c.key} value={c.key}>{c.icon} {c.label}</option>
+                      ))}
+                    </optgroup>
                   </select>
                 </div>
                 <div><label style={label}>Weight (kg)</label><input type="number" style={input} value={form.item_weight} onChange={e => set('item_weight', e.target.value)} placeholder="0.0" /></div>
               </div>
               <div><label style={label}>Dimensions (L x W x H cm)</label><input style={input} value={form.item_dimensions} onChange={e => set('item_dimensions', e.target.value)} placeholder="30 x 20 x 15" /></div>
+
+              <div style={{ marginTop: '14px' }}>
+                <label style={label}>Equipment Needed</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {EQUIPMENT_OPTIONS.map(eq => {
+                    const selected = form.equipment_needed.includes(eq.key);
+                    return (
+                      <div key={eq.key} onClick={() => {
+                        setForm(prev => ({
+                          ...prev,
+                          equipment_needed: selected
+                            ? prev.equipment_needed.filter(k => k !== eq.key)
+                            : [...prev.equipment_needed, eq.key],
+                        }));
+                      }} style={{
+                        padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600',
+                        border: selected ? '2px solid #4f46e5' : '2px solid #e2e8f0',
+                        background: selected ? '#eef2ff' : 'white',
+                        color: selected ? '#4f46e5' : '#64748b',
+                      }}>
+                        {eq.label}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div style={{ marginTop: '14px' }}>
+                <label style={label}>Manpower (Workers)</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <button type="button" onClick={() => setForm(prev => ({ ...prev, manpower_count: Math.max(1, prev.manpower_count - 1) }))} style={{ width: '36px', height: '36px', borderRadius: '8px', border: '1px solid #e2e8f0', background: 'white', fontSize: '18px', cursor: 'pointer', color: '#374151' }}>−</button>
+                  <span style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b', minWidth: '30px', textAlign: 'center' }}>{form.manpower_count}</span>
+                  <button type="button" onClick={() => setForm(prev => ({ ...prev, manpower_count: Math.min(20, prev.manpower_count + 1) }))} style={{ width: '36px', height: '36px', borderRadius: '8px', border: '1px solid #e2e8f0', background: 'white', fontSize: '18px', cursor: 'pointer', color: '#374151' }}>+</button>
+                </div>
+              </div>
             </div>
             <div style={{ display: 'flex', gap: '10px' }}>
               <button onClick={() => setStep(1)} style={{ padding: '13px 24px', borderRadius: '10px', border: '1px solid #e2e8f0', background: 'white', color: '#64748b', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>← Back</button>
