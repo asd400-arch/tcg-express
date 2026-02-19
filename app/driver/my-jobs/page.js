@@ -10,6 +10,7 @@ import useGpsTracking from '../../components/useGpsTracking';
 import { useToast } from '../../components/Toast';
 import DisputeModal from '../../components/DisputeModal';
 import RatingModal from '../../components/RatingModal';
+import CallButtons from '../../components/CallButtons';
 import { supabase } from '../../../lib/supabase';
 import useMobile from '../../components/useMobile';
 
@@ -27,6 +28,7 @@ export default function DriverMyJobs() {
   const [showDispute, setShowDispute] = useState(false);
   const [showRating, setShowRating] = useState(false);
   const [hasReviewedClient, setHasReviewedClient] = useState(false);
+  const [clientInfo, setClientInfo] = useState(null);
   const gps = useGpsTracking(user?.id, selected?.id);
 
   useEffect(() => {
@@ -43,13 +45,15 @@ export default function DriverMyJobs() {
   const selectJob = async (job) => {
     setSelected(job);
     setActiveTab('info');
-    // Load dispute data and check for existing driver review
-    const [disputeRes, reviewRes] = await Promise.all([
+    // Load dispute data, existing review, and client contact info
+    const [disputeRes, reviewRes, clientRes] = await Promise.all([
       supabase.from('express_disputes').select('*').eq('job_id', job.id).in('status', ['open', 'under_review']).maybeSingle(),
       supabase.from('express_reviews').select('id').eq('job_id', job.id).eq('reviewer_role', 'driver').limit(1),
+      supabase.from('express_users').select('contact_name, phone').eq('id', job.client_id).single(),
     ]);
     setDispute(disputeRes.data || null);
     setHasReviewedClient((reviewRes.data || []).length > 0);
+    setClientInfo(clientRes.data || null);
   };
 
   // Auto-start GPS when viewing an in_transit job (handles page refresh)
@@ -220,6 +224,21 @@ export default function DriverMyJobs() {
                     {selected.delivery_instructions && <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>📝 {selected.delivery_instructions}</div>}
                   </div>
                 </div>
+
+                {/* Contact Client */}
+                {clientInfo && !['cancelled', 'completed'].includes(selected.status) && (
+                  <div style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'linear-gradient(135deg, #f59e0b, #d97706)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', fontWeight: '700', color: 'white' }}>{clientInfo.contact_name?.[0] || 'C'}</div>
+                      <div>
+                        <div style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b' }}>{clientInfo.contact_name}</div>
+                        <div style={{ fontSize: '12px', color: '#64748b' }}>Client</div>
+                      </div>
+                    </div>
+                    <CallButtons phone={clientInfo.phone} name={clientInfo.contact_name} compact />
+                  </div>
+                )}
+
                 <div style={{ ...card, display: 'flex', justifyContent: 'space-around', textAlign: 'center' }}>
                   <div><div style={{ fontSize: '12px', color: '#94a3b8' }}>Total</div><div style={{ fontSize: '20px', fontWeight: '800', color: '#1e293b' }}>${selected.final_amount}</div></div>
                   <div><div style={{ fontSize: '12px', color: '#94a3b8' }}>Commission ({selected.commission_rate}%)</div><div style={{ fontSize: '20px', fontWeight: '800', color: '#ef4444' }}>-${selected.commission_amount}</div></div>

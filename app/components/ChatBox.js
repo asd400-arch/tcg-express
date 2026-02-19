@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { useToast } from './Toast';
+import CallButtons from './CallButtons';
 import { supabase } from '../../lib/supabase';
 
 export default function ChatBox({ jobId, userId, receiverId, userRole }) {
@@ -8,12 +9,16 @@ export default function ChatBox({ jobId, userId, receiverId, userRole }) {
   const [messages, setMessages] = useState([]);
   const [newMsg, setNewMsg] = useState('');
   const [sending, setSending] = useState(false);
+  const [receiver, setReceiver] = useState(null);
   const scrollRef = useRef(null);
   const channelRef = useRef(null);
 
   useEffect(() => {
     if (!jobId) return;
     loadMessages();
+    if (receiverId) {
+      supabase.from('express_users').select('contact_name, phone, role').eq('id', receiverId).single().then(({ data }) => setReceiver(data));
+    }
 
     // Real-time subscription
     const channel = supabase
@@ -77,11 +82,16 @@ export default function ChatBox({ jobId, userId, receiverId, userRole }) {
 
   return (
     <div style={{ background: 'white', borderRadius: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9', overflow: 'hidden' }}>
-      <div style={{ padding: '14px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <span style={{ fontSize: '16px' }}>💬</span>
-        <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b', margin: 0 }}>Messages</h3>
-        <span style={{ fontSize: '12px', color: '#94a3b8' }}>• Real-time</span>
-        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', animation: 'pulse 2s infinite' }}></span>
+      <div style={{ padding: '14px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '16px' }}>💬</span>
+          <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b', margin: 0 }}>
+            {receiver ? receiver.contact_name : 'Messages'}
+          </h3>
+          <span style={{ fontSize: '12px', color: '#94a3b8' }}>• Real-time</span>
+          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', animation: 'pulse 2s infinite' }}></span>
+        </div>
+        {receiver?.phone && <CallButtons phone={receiver.phone} name={receiver.contact_name} compact />}
       </div>
 
       <div ref={scrollRef} style={{ height: '350px', overflowY: 'auto', padding: '16px', background: '#fafbfc' }}>

@@ -19,3 +19,31 @@ input:focus,textarea:focus,select:focus{border-color:#3b82f6 !important;box-shad
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
 @keyframes spin{to{transform:rotate(360deg)}}
 .fade-in{animation:fadeIn 0.3s ease-out}
+
+/* Map overhaul animations */
+@keyframes markerPulse{
+  0%{transform:scale(1);opacity:0.6}
+  50%{transform:scale(1.8);opacity:0}
+  100%{transform:scale(1);opacity:0}
+}
+@keyframes arrivalPulse{
+  0%{transform:scale(1);opacity:0.5}
+  50%{transform:scale(2.2);opacity:0}
+  100%{transform:scale(1);opacity:0}
+}
+@keyframes routeDash{
+  to{stroke-dashoffset:-20}
+}
+@keyframes fadeInScale{
+  from{opacity:0;transform:scale(0.8)}
+  to{opacity:1;transform:scale(1)}
+}
+@keyframes stepComplete{
+  0%{transform:scale(0.5);opacity:0}
+  60%{transform:scale(1.2)}
+  100%{transform:scale(1);opacity:1}
+}
+@keyframes vehicleBob{
+  0%,100%{transform:translateY(0)}
+  50%{transform:translateY(-2px)}
+}
