@@ -9,8 +9,10 @@ const clientLinks = [
   { label: 'Dashboard', href: '/client/dashboard', icon: '📊' },
   { label: 'New Job', href: '/client/jobs/new', icon: '➕' },
   { label: 'My Jobs', href: '/client/jobs', icon: '📦' },
+  { label: 'Wallet', href: '/client/wallet', icon: '💰' },
   { label: 'Schedules', href: '/client/schedules', icon: '📅' },
   { label: 'Transactions', href: '/client/transactions', icon: '💳' },
+  { label: 'Help', href: '/client/help', icon: '❓' },
   { label: 'Settings', href: '/client/settings', icon: '⚙️' },
 ];
 
@@ -28,9 +30,11 @@ const adminLinks = [
   { label: 'Disputes', href: '/admin/disputes', icon: '⚖️' },
   { label: 'Drivers', href: '/admin/drivers', icon: '🚗' },
   { label: 'Clients', href: '/admin/clients', icon: '🏢' },
+  { label: 'Coupons', href: '/admin/coupons', icon: '🎟️' },
+  { label: 'Banners', href: '/admin/banners', icon: '📢' },
+  { label: 'Support', href: '/admin/support', icon: '💬' },
   { label: 'Transactions', href: '/admin/transactions', icon: '💳' },
   { label: 'Analytics', href: '/admin/analytics', icon: '📈' },
-  { label: 'Profile', href: '/admin/profile', icon: '👤' },
   { label: 'Settings', href: '/admin/settings', icon: '⚙️' },
 ];
 

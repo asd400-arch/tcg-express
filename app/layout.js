@@ -2,6 +2,7 @@ import './globals.css';
 import { AuthProvider } from './components/AuthContext';
 import { ToastProvider } from './components/Toast';
 import ServiceWorkerRegister from './components/ServiceWorkerRegister';
+import SupportChat from './components/SupportChat';
 
 export const metadata = {
   title: 'Tech Chain Express | B2B Express Delivery Platform',
@@ -35,6 +36,7 @@ export default function RootLayout({ children }) {
         <AuthProvider>
           <ToastProvider>
             {children}
+            <SupportChat />
           </ToastProvider>
         </AuthProvider>
         <ServiceWorkerRegister />

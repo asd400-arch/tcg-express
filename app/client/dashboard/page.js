@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../../components/AuthContext';
 import Sidebar from '../../components/Sidebar';
 import Spinner from '../../components/Spinner';
+import PromoBanner from '../../components/PromoBanner';
 import { supabase } from '../../../lib/supabase';
 import useMobile from '../../components/useMobile';
 
@@ -49,6 +50,7 @@ export default function ClientDashboard() {
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>
       <Sidebar active="Dashboard" />
       <div style={{ flex: 1, padding: m ? '20px 16px' : '30px', overflowX: 'hidden' }}>
+        <PromoBanner />
         <div style={{ marginBottom: '25px' }}>
           <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', marginBottom: '4px' }}>Welcome, {user.contact_name}</h1>
           <p style={{ color: '#64748b', fontSize: '14px' }}>{user.company_name || 'Your delivery dashboard'}</p>

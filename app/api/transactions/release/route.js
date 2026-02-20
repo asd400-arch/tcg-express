@@ -53,6 +53,42 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Failed to release payment' }, { status: 500 });
     }
 
+    // Award loyalty points: 5% of total amount (100 points = $1)
+    try {
+      const pointsEarned = Math.floor(parseFloat(txn.total_amount) * 5); // 5% * 100
+      if (pointsEarned > 0) {
+        let { data: wallet } = await supabaseAdmin
+          .from('express_wallets')
+          .select('*')
+          .eq('user_id', session.userId)
+          .single();
+
+        if (!wallet) {
+          const { data: w } = await supabaseAdmin
+            .from('express_wallets')
+            .insert([{ user_id: session.userId }])
+            .select()
+            .single();
+          wallet = w;
+        }
+
+        const newPoints = (wallet.points || 0) + pointsEarned;
+        await supabaseAdmin.from('express_wallets')
+          .update({ points: newPoints, updated_at: new Date().toISOString() })
+          .eq('user_id', session.userId);
+
+        await supabaseAdmin.from('express_wallet_transactions').insert([{
+          user_id: session.userId,
+          type: 'points_earn',
+          amount: '0',
+          points_amount: pointsEarned,
+          points_after: newPoints,
+          description: `Points earned for completed delivery`,
+          reference_id: jobId,
+        }]);
+      }
+    } catch {}
+
     return NextResponse.json({ data: updated });
   } catch (err) {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
