@@ -21,10 +21,10 @@ export async function POST(request, { params }) {
     if (bidErr || !bid) return NextResponse.json({ error: 'Bid not found' }, { status: 404 });
     if (bid.status !== 'pending') return NextResponse.json({ error: 'Bid is no longer pending' }, { status: 400 });
 
-    // Verify job belongs to this client
+    // Verify job belongs to this client + get full job info
     const { data: job, error: jobErr } = await supabaseAdmin
       .from('express_jobs')
-      .select('id, client_id, job_number, status')
+      .select('id, client_id, job_number, status, pickup_address, delivery_address, item_description')
       .eq('id', bid.job_id)
       .single();
 
@@ -33,6 +33,14 @@ export async function POST(request, { params }) {
     if (!['open', 'bidding'].includes(job.status)) {
       return NextResponse.json({ error: 'Job is no longer accepting bids' }, { status: 400 });
     }
+
+    // Fetch driver and client info for detailed notifications
+    const [driverRes, clientRes] = await Promise.all([
+      supabaseAdmin.from('express_users').select('contact_name, phone, vehicle_type, vehicle_plate, driver_rating').eq('id', bid.driver_id).single(),
+      supabaseAdmin.from('express_users').select('contact_name, phone, email, company_name').eq('id', session.userId).single(),
+    ]);
+    const driver = driverRes.data;
+    const client = clientRes.data;
 
     // Get commission rate
     let rate = 15;
@@ -92,15 +100,36 @@ export async function POST(request, { params }) {
       held_at: new Date().toISOString(),
     }]);
 
-    // Notify driver
+    // Notify driver with client details
     try {
+      const clientInfo = client
+        ? `\nClient: ${client.contact_name}${client.phone ? ` (${client.phone})` : ''}${client.company_name ? ` - ${client.company_name}` : ''}`
+        : '';
+      const jobInfo = `\nPickup: ${job.pickup_address || 'N/A'}\nDelivery: ${job.delivery_address || 'N/A'}`;
+
       await notify(bid.driver_id, {
         type: 'job',
         category: 'bid_activity',
-        title: 'Bid accepted!',
-        message: `Your bid of $${parseFloat(bid.amount).toFixed(2)} on job ${job.job_number} has been accepted`,
+        title: `Job ${job.job_number} assigned to you!`,
+        message: `Your bid of $${parseFloat(bid.amount).toFixed(2)} has been accepted.${clientInfo}${jobInfo}`,
         referenceId: bid.job_id,
         url: '/driver/my-jobs',
+      });
+    } catch {}
+
+    // Notify client with driver details
+    try {
+      const driverInfo = driver
+        ? `\nDriver: ${driver.contact_name}${driver.phone ? ` (${driver.phone})` : ''}${driver.vehicle_type ? `\nVehicle: ${driver.vehicle_type}` : ''}${driver.vehicle_plate ? ` (${driver.vehicle_plate})` : ''}${driver.driver_rating ? `\nRating: ${driver.driver_rating}/5` : ''}`
+        : '';
+
+      await notify(session.userId, {
+        type: 'job',
+        category: 'job_updates',
+        title: `Driver assigned for ${job.job_number}`,
+        message: `${driver?.contact_name || 'A driver'} has been assigned to your delivery ($${parseFloat(bid.amount).toFixed(2)}).${driverInfo}`,
+        referenceId: bid.job_id,
+        url: `/client/jobs/${bid.job_id}`,
       });
     } catch {}
 

@@ -73,15 +73,27 @@ export async function POST(request, { params }) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Notify the other party
+  // Notify the other party with detailed status messages
   try {
     const notifyTarget = session.role === 'driver' ? job.client_id : job.assigned_driver_id;
     if (notifyTarget) {
+      const statusMessages = {
+        pickup_confirmed: { title: `Pickup confirmed - ${job.job_number}`, message: 'Driver has picked up your item and is heading to the delivery address.' },
+        in_transit: { title: `In transit - ${job.job_number}`, message: 'Your delivery is on the way! Track it in real-time.' },
+        delivered: { title: `Delivered - ${job.job_number}`, message: 'Your item has been delivered. Please confirm the delivery.' },
+        confirmed: { title: `Confirmed - ${job.job_number}`, message: 'Delivery has been confirmed. Payment released to driver.' },
+        completed: { title: `Completed - ${job.job_number}`, message: 'Job is now complete. Thank you for using TechChain Express!' },
+      };
+      const msg = statusMessages[normalizedStatus] || {
+        title: `Job ${job.job_number || ''} updated`,
+        message: `Status: ${normalizedStatus.replace(/_/g, ' ')}`,
+      };
+
       await notify(notifyTarget, {
         type: 'status_update',
-        category: 'job_updates',
-        title: `Job ${job.job_number || ''} status updated`,
-        message: `Status changed to: ${normalizedStatus.replace(/_/g, ' ')}`,
+        category: 'delivery_status',
+        title: msg.title,
+        message: msg.message,
         referenceId: id,
       });
     }

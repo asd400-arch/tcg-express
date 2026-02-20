@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../../lib/supabase-server';
 import { getSession } from '../../../../lib/auth';
+import { notify } from '../../../../lib/notify';
 
 // Pay for a job using wallet balance + optional points
 export async function POST(request) {
@@ -212,6 +213,36 @@ export async function POST(request) {
       });
     });
   }
+
+  // Send notifications to driver and client
+  try {
+    const [driverRes, clientRes] = await Promise.all([
+      supabaseAdmin.from('express_users').select('contact_name, phone, vehicle_type, vehicle_plate, driver_rating').eq('id', bid.driver_id).single(),
+      supabaseAdmin.from('express_users').select('contact_name, phone, company_name').eq('id', session.userId).single(),
+    ]);
+    const driver = driverRes.data;
+    const client = clientRes.data;
+
+    // Notify driver with client info
+    const clientInfo = client ? `\nClient: ${client.contact_name}${client.phone ? ` (${client.phone})` : ''}` : '';
+    await notify(bid.driver_id, {
+      type: 'job',
+      category: 'bid_activity',
+      title: `Job ${job.job_number} assigned to you!`,
+      message: `Your bid of $${parseFloat(bid.amount).toFixed(2)} has been accepted.${clientInfo}`,
+      referenceId: jobId,
+    });
+
+    // Notify client with driver info
+    const driverInfo = driver ? `\nDriver: ${driver.contact_name}${driver.phone ? ` (${driver.phone})` : ''}${driver.vehicle_plate ? `\nVehicle: ${driver.vehicle_plate}` : ''}` : '';
+    await notify(session.userId, {
+      type: 'job',
+      category: 'job_updates',
+      title: `Driver assigned for ${job.job_number}`,
+      message: `${driver?.contact_name || 'A driver'} has been assigned ($${parseFloat(bid.amount).toFixed(2)}).${driverInfo}`,
+      referenceId: jobId,
+    });
+  } catch {}
 
   return NextResponse.json({
     success: true,
