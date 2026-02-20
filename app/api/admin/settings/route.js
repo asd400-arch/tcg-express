@@ -44,6 +44,18 @@ export async function POST(request) {
       }
     }
 
+    // Validate fare_table
+    if (key === 'fare_table') {
+      try {
+        const table = typeof value === 'string' ? JSON.parse(value) : value;
+        if (typeof table !== 'object' || table === null || Array.isArray(table)) {
+          return NextResponse.json({ error: 'fare_table must be a JSON object' }, { status: 400 });
+        }
+      } catch {
+        return NextResponse.json({ error: 'fare_table must be valid JSON' }, { status: 400 });
+      }
+    }
+
     // Validate category_rates
     if (key === 'category_rates') {
       try {
