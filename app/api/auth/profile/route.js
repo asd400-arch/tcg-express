@@ -21,14 +21,16 @@ function validateNotificationPreferences(prefs) {
   return true;
 }
 
-export async function POST(request) {
+async function handleProfileUpdate(request) {
   try {
     const session = getSession(request);
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { updates } = await request.json();
+    const body = await request.json();
+    // Support both { updates: {...} } (web) and flat body (mobile)
+    const updates = body.updates || body;
     if (!updates || typeof updates !== 'object') {
       return NextResponse.json({ error: 'updates required' }, { status: 400 });
     }
@@ -80,4 +82,12 @@ export async function POST(request) {
   } catch (err) {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
+}
+
+export async function POST(request) {
+  return handleProfileUpdate(request);
+}
+
+export async function PUT(request) {
+  return handleProfileUpdate(request);
 }

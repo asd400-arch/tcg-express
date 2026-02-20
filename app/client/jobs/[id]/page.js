@@ -132,41 +132,22 @@ export default function ClientJobDetail({ params }) {
       }
     }
 
-    // Fallback: simulated escrow flow
-    let rate = 15;
+    // Fallback: server-side accept bid (handles escrow, notifications, commission)
     try {
-      const settingsRes = await fetch('/api/admin/settings');
-      const settingsData = await settingsRes.json();
-      if (settingsData.data?.commission_rate) {
-        rate = parseFloat(settingsData.data.commission_rate);
+      const res = await fetch(`/api/bids/${bid.id}/accept`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        toast.error(result.error || 'Failed to accept bid');
+        return;
       }
-    } catch (e) {}
-    const commission = parseFloat(bid.amount) * (rate / 100);
-    const payout = parseFloat(bid.amount) - commission;
-    await supabase.from('express_bids').update({ status: 'accepted' }).eq('id', bid.id);
-    await supabase.from('express_bids').update({ status: 'rejected' }).eq('job_id', jobId).neq('id', bid.id);
-    await supabase.from('express_jobs').update({
-      status: 'assigned', assigned_driver_id: bid.driver_id, assigned_bid_id: bid.id,
-      final_amount: bid.amount, commission_rate: rate, commission_amount: commission.toFixed(2), driver_payout: payout.toFixed(2),
-    }).eq('id', jobId);
-    // Create held transaction (escrow)
-    await supabase.from('express_transactions').insert([{
-      job_id: jobId, client_id: user.id, driver_id: bid.driver_id,
-      total_amount: bid.amount, commission_amount: commission.toFixed(2), driver_payout: payout.toFixed(2),
-      payment_status: 'held', held_at: new Date().toISOString(),
-    }]);
-    // Notify driver (in-app + email + push via unified endpoint)
-    fetch('/api/notify', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: bid.driver_id, type: 'job', category: 'bid_activity',
-        title: 'Bid accepted!', message: `Your bid of $${bid.amount} has been accepted`,
-        emailTemplate: 'bid_accepted', emailData: { jobNumber: job.job_number, amount: bid.amount, pickupAddress: job.pickup_address },
-        url: '/driver/my-jobs',
-      }),
-    }).catch(() => {});
-    toast.success('Bid accepted — payment held in escrow');
-    loadData();
+      toast.success('Bid accepted — payment held in escrow');
+      loadData();
+    } catch (e) {
+      toast.error('Failed to accept bid');
+    }
   };
 
   const confirmDelivery = async () => {

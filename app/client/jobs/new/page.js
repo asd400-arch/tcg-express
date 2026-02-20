@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../components/AuthContext';
 import Sidebar from '../../../components/Sidebar';
@@ -12,6 +12,55 @@ import {
   BASIC_EQUIPMENT, SPECIAL_EQUIPMENT,
   calculateFare, getSizeTierFromWeight, getSizeTierFromVolume, getHigherSizeTier, getAutoManpower,
 } from '../../../../lib/fares';
+
+function AddressAutocomplete({ value, onChange, placeholder, inputStyle }) {
+  const [suggestions, setSuggestions] = useState([]);
+  const [show, setShow] = useState(false);
+  const debounceRef = useRef(null);
+
+  const search = useCallback(async (q) => {
+    if (!q || q.trim().length < 3) { setSuggestions([]); setShow(false); return; }
+    try {
+      const res = await fetch(`/api/address/search?q=${encodeURIComponent(q.trim())}`);
+      const data = await res.json();
+      setSuggestions(data.results || []);
+      setShow((data.results || []).length > 0);
+    } catch { setSuggestions([]); }
+  }, []);
+
+  const handleChange = (e) => {
+    const val = e.target.value;
+    onChange(val);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => search(val), 400);
+  };
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <input
+        style={inputStyle}
+        value={value}
+        onChange={handleChange}
+        onFocus={() => { if (suggestions.length > 0) setShow(true); }}
+        onBlur={() => setTimeout(() => setShow(false), 200)}
+        placeholder={placeholder}
+      />
+      {show && suggestions.length > 0 && (
+        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', borderRadius: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.12)', border: '1px solid #e2e8f0', zIndex: 50, maxHeight: '240px', overflow: 'auto', marginTop: '4px' }}>
+          {suggestions.map((s, i) => (
+            <div key={i} onClick={() => { onChange(s.address); setShow(false); }}
+              style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: i < suggestions.length - 1 ? '1px solid #f1f5f9' : 'none', fontSize: '13px', color: '#1e293b' }}
+              onMouseEnter={e => e.target.style.background = '#f8fafc'}
+              onMouseLeave={e => e.target.style.background = 'white'}>
+              <div style={{ fontWeight: '500' }}>{s.address}</div>
+              {(s.building || s.postal) && <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>{[s.building, s.postal ? `S(${s.postal})` : ''].filter(Boolean).join(' · ')}</div>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -301,7 +350,7 @@ export default function NewJob() {
           <div>
             <div style={card}>
               <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>📍 Pickup Location</h3>
-              <div style={{ marginBottom: '14px' }}><label style={label}>Pickup Address *</label><input style={input} value={form.pickup_address} onChange={e => set('pickup_address', e.target.value)} placeholder="Full address" /></div>
+              <div style={{ marginBottom: '14px' }}><label style={label}>Pickup Address *</label><AddressAutocomplete inputStyle={input} value={form.pickup_address} onChange={v => set('pickup_address', v)} placeholder="Search address or postal code" /></div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
                 <div><label style={label}>Contact Name</label><input style={input} value={form.pickup_contact} onChange={e => set('pickup_contact', e.target.value)} placeholder="Name" /></div>
                 <div><label style={label}>Phone</label><input style={input} value={form.pickup_phone} onChange={e => set('pickup_phone', e.target.value)} placeholder="+65 xxxx xxxx" /></div>
@@ -310,7 +359,7 @@ export default function NewJob() {
             </div>
             <div style={card}>
               <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>📦 Delivery Location</h3>
-              <div style={{ marginBottom: '14px' }}><label style={label}>Delivery Address *</label><input style={input} value={form.delivery_address} onChange={e => set('delivery_address', e.target.value)} placeholder="Full address" /></div>
+              <div style={{ marginBottom: '14px' }}><label style={label}>Delivery Address *</label><AddressAutocomplete inputStyle={input} value={form.delivery_address} onChange={v => set('delivery_address', v)} placeholder="Search address or postal code" /></div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
                 <div><label style={label}>Contact Name</label><input style={input} value={form.delivery_contact} onChange={e => set('delivery_contact', e.target.value)} placeholder="Name" /></div>
                 <div><label style={label}>Phone</label><input style={input} value={form.delivery_phone} onChange={e => set('delivery_phone', e.target.value)} placeholder="+65 xxxx xxxx" /></div>

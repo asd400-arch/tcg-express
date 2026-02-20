@@ -107,9 +107,9 @@ export async function POST(request) {
       const notifications = drivers.map(d => ({
         user_id: d.id,
         type: 'new_job',
-        title: 'New Job Available',
-        message: `New ${jobData.item_category} delivery: ${itemDescription.substring(0, 80)}`,
-        data: JSON.stringify({ job_id: data.id, job_number: data.job_number }),
+        title: `New Job: ${itemDescription.substring(0, 60)}`,
+        body: `New ${jobData.item_category} delivery available. Job #${data.job_number}`,
+        reference_id: String(data.id),
         is_read: false,
       }));
       await supabaseAdmin.from('express_notifications').insert(notifications);
