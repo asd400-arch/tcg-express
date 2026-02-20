@@ -57,8 +57,11 @@ export async function middleware(request) {
     return NextResponse.next();
   }
 
-  // Read session cookie
-  const token = request.cookies.get('session')?.value;
+  // Read session from cookie or Authorization header (mobile)
+  const cookieToken = request.cookies.get('session')?.value;
+  const authHeader = request.headers.get('authorization');
+  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  const token = cookieToken || bearerToken;
   const session = token ? await verifySession(token) : null;
 
   const isApiRoute = pathname.startsWith('/api/');

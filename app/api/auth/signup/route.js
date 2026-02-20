@@ -64,7 +64,15 @@ export async function POST(request) {
 
     const { data, error } = await supabaseAdmin
       .from('express_users')
-      .insert([{ email, password_hash, verification_code, verification_code_expires, is_verified: false, ...safeFields }])
+      .insert([{
+        email,
+        password_hash,
+        verification_code,
+        verification_code_expires,
+        is_verified: false,
+        phone: '',
+        ...safeFields,
+      }])
       .select()
       .single();
 
@@ -84,7 +92,7 @@ export async function POST(request) {
 
     // Set session cookie for all roles (drivers need it for KYC upload flow)
     const token = await createSession(data);
-    const response = NextResponse.json({ data: safeUser, requiresVerification: true });
+    const response = NextResponse.json({ data: safeUser, token, requiresVerification: true });
     setSessionCookie(response, token);
     return response;
   } catch (err) {

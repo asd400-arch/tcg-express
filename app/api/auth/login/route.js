@@ -53,7 +53,7 @@ export async function POST(request) {
     // Create session and set cookie
     const token = await createSession(user);
     const { password_hash, ...safeUser } = user;
-    const response = NextResponse.json({ data: safeUser });
+    const response = NextResponse.json({ data: safeUser, token });
     setSessionCookie(response, token);
     return response;
   } catch (err) {

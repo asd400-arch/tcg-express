@@ -15,7 +15,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Stripe not configured' }, { status: 503 });
     }
 
-    const { jobId, bidId, amount } = await request.json();
+    const { jobId, bidId, amount, platform } = await request.json();
     if (!jobId || !bidId || !amount) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
@@ -54,6 +54,26 @@ export async function POST(request) {
 
     const amountInCents = Math.round(parseFloat(amount) * 100);
 
+    // Mobile: create PaymentIntent for native Payment Sheet
+    if (platform === 'mobile') {
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amountInCents,
+        currency: 'sgd',
+        metadata: {
+          jobId,
+          bidId,
+          clientId: session.userId,
+          driverId: bid.driver_id,
+        },
+      });
+
+      return NextResponse.json({
+        clientSecret: paymentIntent.client_secret,
+        publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+      });
+    }
+
+    // Web: create Checkout Session (redirect-based)
     const origin = request.headers.get('origin') || request.headers.get('referer')?.replace(/\/[^/]*$/, '') || '';
 
     const checkoutSession = await stripe.checkout.sessions.create({

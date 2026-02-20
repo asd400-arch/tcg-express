@@ -25,9 +25,10 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
   }
 
-  if (event.type === 'checkout.session.completed') {
-    const session = event.data.object;
-    const { jobId, bidId, clientId, driverId } = session.metadata;
+  // Handle both checkout.session.completed (web) and payment_intent.succeeded (mobile)
+  if (event.type === 'checkout.session.completed' || event.type === 'payment_intent.succeeded') {
+    const eventObject = event.data.object;
+    const { jobId, bidId, clientId, driverId } = eventObject.metadata;
 
     if (!jobId || !bidId) {
       return NextResponse.json({ received: true });
@@ -49,7 +50,10 @@ export async function POST(request) {
         .select('amount')
         .eq('id', bidId)
         .single();
-      const amount = parseFloat(bid?.amount || session.amount_total / 100);
+      const fallbackAmount = event.type === 'checkout.session.completed'
+        ? eventObject.amount_total / 100
+        : eventObject.amount / 100;
+      const amount = parseFloat(bid?.amount || fallbackAmount);
       const commission = amount * (rate / 100);
       const payout = amount - commission;
 
@@ -69,6 +73,9 @@ export async function POST(request) {
       }).eq('id', jobId);
 
       // Create transaction with Stripe IDs
+      const stripePaymentIntentId = event.type === 'checkout.session.completed'
+        ? eventObject.payment_intent
+        : eventObject.id;
       await supabaseAdmin.from('express_transactions').insert([{
         job_id: jobId,
         client_id: clientId,
@@ -78,8 +85,8 @@ export async function POST(request) {
         driver_payout: payout.toFixed(2),
         payment_status: 'held',
         held_at: new Date().toISOString(),
-        stripe_checkout_session_id: session.id,
-        stripe_payment_intent_id: session.payment_intent,
+        stripe_checkout_session_id: event.type === 'checkout.session.completed' ? eventObject.id : null,
+        stripe_payment_intent_id: stripePaymentIntentId,
       }]);
 
       // Get job number for notification
@@ -102,8 +109,6 @@ export async function POST(request) {
       console.error('Webhook processing error:', err);
     }
   }
-
-  // checkout.session.expired - no action needed
 
   return NextResponse.json({ received: true });
 }
