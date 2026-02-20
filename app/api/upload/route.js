@@ -14,10 +14,16 @@ export async function POST(request) {
 
     const formData = await request.formData();
     const file = formData.get('file');
-    const uploadPath = formData.get('path');
+    let uploadPath = formData.get('path');
 
-    if (!file || !uploadPath) {
-      return NextResponse.json({ error: 'Missing file or path' }, { status: 400 });
+    if (!file) {
+      return NextResponse.json({ error: 'Missing file' }, { status: 400 });
+    }
+
+    // Auto-generate path if not provided
+    if (!uploadPath) {
+      const ext = file.name?.split('.').pop() || 'jpg';
+      uploadPath = `jobs/${session.userId}/${Date.now()}.${ext}`;
     }
 
     // Validate path prefix

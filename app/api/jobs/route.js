@@ -94,5 +94,29 @@ export async function POST(request) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Notify all active drivers about the new job
+  try {
+    const { data: drivers } = await supabaseAdmin
+      .from('express_users')
+      .select('id')
+      .eq('role', 'driver')
+      .eq('is_active', true);
+
+    if (drivers && drivers.length > 0) {
+      const notifications = drivers.map(d => ({
+        user_id: d.id,
+        type: 'new_job',
+        title: 'New Job Available',
+        message: `New ${jobData.item_category} delivery: ${itemDescription.substring(0, 80)}`,
+        data: JSON.stringify({ job_id: data.id, job_number: data.job_number }),
+        is_read: false,
+      }));
+      await supabaseAdmin.from('express_notifications').insert(notifications);
+    }
+  } catch {
+    // Don't fail the job creation if notifications fail
+  }
+
   return NextResponse.json({ data });
 }

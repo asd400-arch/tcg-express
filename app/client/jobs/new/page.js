@@ -6,8 +6,12 @@ import Sidebar from '../../../components/Sidebar';
 import { useToast } from '../../../components/Toast';
 import { supabase } from '../../../../lib/supabase';
 import useMobile from '../../../components/useMobile';
-import { JOB_CATEGORIES, EQUIPMENT_OPTIONS } from '../../../../lib/constants';
-import { SIZE_TIERS, URGENCY_MULTIPLIERS, ADDON_OPTIONS, calculateFare, getSizeTierFromWeight } from '../../../../lib/fares';
+import { JOB_CATEGORIES } from '../../../../lib/constants';
+import {
+  SIZE_TIERS, WEIGHT_RANGES, URGENCY_MULTIPLIERS, ADDON_OPTIONS,
+  BASIC_EQUIPMENT, SPECIAL_EQUIPMENT,
+  calculateFare, getSizeTierFromWeight, getSizeTierFromVolume, getHigherSizeTier, getAutoManpower,
+} from '../../../../lib/fares';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -47,14 +51,13 @@ export default function NewJob() {
   const [form, setForm] = useState({
     pickup_address: '', pickup_contact: '', pickup_phone: '', pickup_instructions: '',
     delivery_address: '', delivery_contact: '', delivery_phone: '', delivery_instructions: '',
-    item_description: '', item_category: 'general', item_weight: '', item_dimensions: '',
+    item_description: '', item_category: 'general',
+    weight_range: '', dim_l: '', dim_w: '', dim_h: '',
     urgency: 'standard', budget_min: '', budget_max: '', vehicle_required: 'any', special_requirements: '',
-    equipment_needed: [], manpower_count: 1,
+    basic_equipment: [], special_equipment: [], manpower_count: 1, manpower_auto: true,
     pickup_by: '', deliver_by: '',
-    // Fare fields
     size_tier: '',
     addons: {},
-    // Schedule fields
     schedule_mode: 'now',
     schedule_date: '',
     recurrence: 'weekly',
@@ -75,14 +78,34 @@ export default function NewJob() {
     return { ...prev, addons: next };
   });
 
-  // Auto-detect size tier from weight
-  const suggestedSize = useMemo(() => getSizeTierFromWeight(form.item_weight), [form.item_weight]);
-  const effectiveSize = form.size_tier || suggestedSize || '';
+  // Weight range logic
+  const weightRange = useMemo(() => WEIGHT_RANGES.find(r => r.key === form.weight_range), [form.weight_range]);
+  const midWeight = weightRange?.midWeight || 0;
+  const weightSizeTier = weightRange?.sizeTier || null;
+
+  // Volume logic
+  const volumeSizeTier = useMemo(() => getSizeTierFromVolume(form.dim_l, form.dim_w, form.dim_h), [form.dim_l, form.dim_w, form.dim_h]);
+  const volumeCm3 = (parseFloat(form.dim_l) || 0) * (parseFloat(form.dim_w) || 0) * (parseFloat(form.dim_h) || 0);
+
+  // Use higher of weight vs volume tier
+  const autoSizeTier = useMemo(() => getHigherSizeTier(weightSizeTier, volumeSizeTier), [weightSizeTier, volumeSizeTier]);
+  const effectiveSize = form.size_tier || autoSizeTier || '';
+
+  // Auto-manpower
+  useEffect(() => {
+    if (form.manpower_auto && midWeight > 0) {
+      const auto = getAutoManpower(midWeight);
+      const next = { ...form, manpower_count: auto };
+      if (auto > 1) next.addons = { ...form.addons, extra_manpower: auto - 1 };
+      else { const a = { ...form.addons }; delete a.extra_manpower; next.addons = a; }
+      setForm(prev => ({ ...prev, manpower_count: auto, addons: next.addons }));
+    }
+  }, [midWeight, form.manpower_auto]);
 
   // Real-time fare calculation
   const fare = useMemo(
-    () => calculateFare({ sizeTier: effectiveSize, urgency: form.urgency, addons: form.addons }),
-    [effectiveSize, form.urgency, form.addons]
+    () => calculateFare({ sizeTier: effectiveSize, urgency: form.urgency, addons: form.addons, basicEquipCount: form.basic_equipment.length }),
+    [effectiveSize, form.urgency, form.addons, form.basic_equipment.length]
   );
 
   // Styles
@@ -109,9 +132,10 @@ export default function NewJob() {
       });
     }
 
-    // Use fare-based budget if user didn't manually set
     const budgetMin = parseFloat(form.budget_min) || fare?.total || null;
     const budgetMax = parseFloat(form.budget_max) || fare?.total || null;
+    const allEquipment = [...form.basic_equipment, ...form.special_equipment];
+    const dimensions = (form.dim_l && form.dim_w && form.dim_h) ? `${form.dim_l}x${form.dim_w}x${form.dim_h}cm` : null;
 
     if (form.schedule_mode === 'now') {
       setSubmitting(true);
@@ -120,10 +144,10 @@ export default function NewJob() {
         pickup_address: form.pickup_address, pickup_contact: form.pickup_contact, pickup_phone: form.pickup_phone, pickup_instructions: form.pickup_instructions,
         delivery_address: form.delivery_address, delivery_contact: form.delivery_contact, delivery_phone: form.delivery_phone, delivery_instructions: form.delivery_instructions,
         item_description: form.item_description, item_category: form.item_category,
-        item_weight: parseFloat(form.item_weight) || null, item_dimensions: form.item_dimensions,
+        item_weight: midWeight || null, item_dimensions: dimensions,
         urgency: form.urgency, budget_min: budgetMin, budget_max: budgetMax,
         vehicle_required: form.vehicle_required, special_requirements: specialReqs || null,
-        equipment_needed: form.equipment_needed, manpower_count: form.manpower_count,
+        equipment_needed: allEquipment, manpower_count: form.manpower_count,
         pickup_by: form.pickup_by || null, deliver_by: form.deliver_by || null,
         status: 'open',
       }]).select().single();
@@ -175,9 +199,11 @@ export default function NewJob() {
     setForm({
       pickup_address: '', pickup_contact: '', pickup_phone: '', pickup_instructions: '',
       delivery_address: '', delivery_contact: '', delivery_phone: '', delivery_instructions: '',
-      item_description: '', item_category: 'general', item_weight: '', item_dimensions: '',
+      item_description: '', item_category: 'general',
+      weight_range: '', dim_l: '', dim_w: '', dim_h: '',
       urgency: 'standard', budget_min: '', budget_max: '', vehicle_required: 'any', special_requirements: '',
-      equipment_needed: [], manpower_count: 1, pickup_by: '', deliver_by: '',
+      basic_equipment: [], special_equipment: [], manpower_count: 1, manpower_auto: true,
+      pickup_by: '', deliver_by: '',
       size_tier: '', addons: {},
       schedule_mode: 'now', schedule_date: '', recurrence: 'weekly', recurrence_day: '1', recurrence_time: '09:00', recurrence_end: '',
     });
@@ -301,45 +327,77 @@ export default function NewJob() {
             <div style={card}>
               <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>📋 Item Details</h3>
               <div style={{ marginBottom: '14px' }}><label style={label}>Description *</label><input style={input} value={form.item_description} onChange={e => set('item_description', e.target.value)} placeholder="What are you sending?" /></div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
-                <div>
-                  <label style={label}>Category</label>
-                  <select style={input} value={form.item_category} onChange={e => set('item_category', e.target.value)}>
-                    <optgroup label="Standard">
-                      {JOB_CATEGORIES.filter(c => c.group === 'standard').map(c => (
-                        <option key={c.key} value={c.key}>{c.icon} {c.label}</option>
-                      ))}
-                    </optgroup>
-                    <optgroup label="Premium">
-                      {JOB_CATEGORIES.filter(c => c.group === 'premium').map(c => (
-                        <option key={c.key} value={c.key}>{c.icon} {c.label}</option>
-                      ))}
-                    </optgroup>
-                  </select>
-                </div>
-                <div>
-                  <label style={label}>Weight (kg)</label>
-                  <input type="number" style={input} value={form.item_weight} onChange={e => {
-                    set('item_weight', e.target.value);
-                    const auto = getSizeTierFromWeight(e.target.value);
-                    if (auto && !form.size_tier) set('size_tier', auto);
-                  }} placeholder="0.0" />
-                </div>
+              <div style={{ marginBottom: '14px' }}>
+                <label style={label}>Category</label>
+                <select style={input} value={form.item_category} onChange={e => set('item_category', e.target.value)}>
+                  <optgroup label="Standard">
+                    {JOB_CATEGORIES.filter(c => c.group === 'standard').map(c => (
+                      <option key={c.key} value={c.key}>{c.icon} {c.label}</option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Premium">
+                    {JOB_CATEGORIES.filter(c => c.group === 'premium').map(c => (
+                      <option key={c.key} value={c.key}>{c.icon} {c.label}</option>
+                    ))}
+                  </optgroup>
+                </select>
               </div>
-              <div style={{ marginBottom: '14px' }}><label style={label}>Dimensions (L x W x H cm)</label><input style={input} value={form.item_dimensions} onChange={e => set('item_dimensions', e.target.value)} placeholder="30 x 20 x 15" /></div>
             </div>
+
+            {/* Weight Range Dropdown */}
+            <div style={card}>
+              <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '14px' }}>⚖️ Weight Range</h3>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {WEIGHT_RANGES.map(range => {
+                  const active = form.weight_range === range.key;
+                  return (
+                    <div key={range.key} onClick={() => { set('weight_range', active ? '' : range.key); set('manpower_auto', true); }} style={{
+                      padding: '10px 18px', borderRadius: '10px', cursor: 'pointer', fontSize: '14px', fontWeight: '600',
+                      border: active ? '2px solid #3b82f6' : '2px solid #e2e8f0',
+                      background: active ? '#eff6ff' : 'white',
+                      color: active ? '#3b82f6' : '#1e293b',
+                    }}>{range.label}</div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Dimensions */}
+            <div style={card}>
+              <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '6px' }}>📐 Dimensions (cm)</h3>
+              <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '12px' }}>Enter L x W x H for auto volume calculation</p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr auto 1fr', gap: '8px', alignItems: 'center' }}>
+                <input type="number" style={{ ...input, textAlign: 'center' }} value={form.dim_l} onChange={e => set('dim_l', e.target.value)} placeholder="L" />
+                <span style={{ color: '#94a3b8', fontWeight: '700' }}>x</span>
+                <input type="number" style={{ ...input, textAlign: 'center' }} value={form.dim_w} onChange={e => set('dim_w', e.target.value)} placeholder="W" />
+                <span style={{ color: '#94a3b8', fontWeight: '700' }}>x</span>
+                <input type="number" style={{ ...input, textAlign: 'center' }} value={form.dim_h} onChange={e => set('dim_h', e.target.value)} placeholder="H" />
+              </div>
+              {volumeCm3 > 0 && (
+                <p style={{ fontSize: '13px', color: '#3b82f6', fontWeight: '500', marginTop: '8px' }}>
+                  Volume: {(volumeCm3 / 1000).toFixed(1)}L {volumeSizeTier ? `→ ${SIZE_TIERS.find(s => s.key === volumeSizeTier)?.label}` : ''}
+                </p>
+              )}
+            </div>
+
+            {/* Auto Size Tier */}
+            {autoSizeTier && (
+              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '12px 16px', marginBottom: '20px', textAlign: 'center' }}>
+                <span style={{ fontSize: '14px', fontWeight: '600', color: '#16a34a' }}>
+                  Auto size: {SIZE_TIERS.find(s => s.key === autoSizeTier)?.icon} {SIZE_TIERS.find(s => s.key === autoSizeTier)?.label}
+                  {weightSizeTier && volumeSizeTier && weightSizeTier !== volumeSizeTier ? ' (higher of weight/volume)' : ''}
+                </span>
+              </div>
+            )}
 
             {/* Size Tier */}
             <div style={card}>
-              <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '6px' }}>📏 Size Tier</h3>
-              {suggestedSize && !form.size_tier && (
-                <p style={{ fontSize: '13px', color: '#22c55e', fontWeight: '500', marginBottom: '10px' }}>Auto-detected from weight: {SIZE_TIERS.find(t => t.key === suggestedSize)?.label}</p>
-              )}
+              <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '6px' }}>📏 Size Tier {autoSizeTier ? '(Override)' : ''}</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {SIZE_TIERS.map(tier => {
-                  const active = form.size_tier === tier.key || (!form.size_tier && suggestedSize === tier.key);
+                  const active = form.size_tier === tier.key || (!form.size_tier && autoSizeTier === tier.key);
                   return (
-                    <div key={tier.key} onClick={() => set('size_tier', tier.key)} style={{
+                    <div key={tier.key} onClick={() => set('size_tier', form.size_tier === tier.key ? '' : tier.key)} style={{
                       display: 'flex', alignItems: 'center', padding: '14px 16px', borderRadius: '10px', cursor: 'pointer',
                       border: active ? '2px solid #3b82f6' : '2px solid #e2e8f0',
                       background: active ? '#eff6ff' : 'white',
@@ -374,10 +432,81 @@ export default function NewJob() {
               </div>
             </div>
 
-            {/* Add-ons */}
+            {/* Manpower */}
+            <div style={card}>
+              <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '14px' }}>👷 Manpower</h3>
+              {form.manpower_auto && midWeight > 0 && (
+                <p style={{ fontSize: '13px', color: '#22c55e', fontWeight: '500', marginBottom: '10px' }}>
+                  Auto-assigned: {form.manpower_count} worker{form.manpower_count > 1 ? 's' : ''} (based on {weightRange?.label} weight)
+                </p>
+              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <button type="button" onClick={() => { const n = Math.max(1, form.manpower_count - 1); set('manpower_count', n); set('manpower_auto', false); if (n > 1) setAddon('extra_manpower', n - 1); else setAddon('extra_manpower', 0); }} style={{ width: '36px', height: '36px', borderRadius: '8px', border: '1px solid #e2e8f0', background: 'white', fontSize: '18px', cursor: 'pointer', color: '#374151' }}>−</button>
+                <span style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', minWidth: '40px', textAlign: 'center' }}>{form.manpower_count}</span>
+                <button type="button" onClick={() => { const n = Math.min(20, form.manpower_count + 1); set('manpower_count', n); set('manpower_auto', false); if (n > 1) setAddon('extra_manpower', n - 1); else setAddon('extra_manpower', 0); }} style={{ width: '36px', height: '36px', borderRadius: '8px', border: '1px solid #e2e8f0', background: 'white', fontSize: '18px', cursor: 'pointer', color: '#374151' }}>+</button>
+                <span style={{ fontSize: '13px', color: '#64748b' }}>worker{form.manpower_count > 1 ? 's' : ''}</span>
+                {form.manpower_count > 1 && <span style={{ fontSize: '12px', color: '#3b82f6' }}>+${(form.manpower_count - 1) * 30}</span>}
+              </div>
+            </div>
+
+            {/* Basic Equipment ($20/each) */}
+            <div style={card}>
+              <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '14px' }}>🔧 Basic Equipment ($20/each)</h3>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {BASIC_EQUIPMENT.map(eq => {
+                  const selected = form.basic_equipment.includes(eq.key);
+                  return (
+                    <div key={eq.key} onClick={() => {
+                      const next = selected ? form.basic_equipment.filter(k => k !== eq.key) : [...form.basic_equipment, eq.key];
+                      set('basic_equipment', next);
+                    }} style={{
+                      padding: '10px 16px', borderRadius: '10px', cursor: 'pointer', fontSize: '13px', fontWeight: '600',
+                      border: selected ? '2px solid #3b82f6' : '2px solid #e2e8f0',
+                      background: selected ? '#eff6ff' : 'white',
+                      color: selected ? '#3b82f6' : '#64748b',
+                      display: 'flex', alignItems: 'center', gap: '6px',
+                    }}>
+                      <span>{eq.icon}</span> {eq.label} <span style={{ fontSize: '11px' }}>+$20</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Special Equipment (Driver quote) */}
+            <div style={card}>
+              <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '6px' }}>🏗️ Special Equipment</h3>
+              <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '12px' }}>Driver will provide separate quote for these</p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {SPECIAL_EQUIPMENT.map(eq => {
+                  const selected = form.special_equipment.includes(eq.key);
+                  return (
+                    <div key={eq.key} onClick={() => {
+                      const next = selected ? form.special_equipment.filter(k => k !== eq.key) : [...form.special_equipment, eq.key];
+                      set('special_equipment', next);
+                    }} style={{
+                      padding: '10px 16px', borderRadius: '10px', cursor: 'pointer', fontSize: '13px', fontWeight: '600',
+                      border: selected ? '2px solid #f59e0b' : '2px solid #e2e8f0',
+                      background: selected ? '#fef3c7' : 'white',
+                      color: selected ? '#92400e' : '#64748b',
+                      display: 'flex', alignItems: 'center', gap: '6px',
+                    }}>
+                      <span>{eq.icon}</span> {eq.label}
+                    </div>
+                  );
+                })}
+              </div>
+              {form.special_equipment.length > 0 && (
+                <div style={{ background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '10px', marginTop: '10px', textAlign: 'center' }}>
+                  <span style={{ fontSize: '13px', color: '#92400e', fontWeight: '500' }}>Driver will submit separate equipment costs in their bid</span>
+                </div>
+              )}
+            </div>
+
+            {/* Other Add-ons (excluding extra_manpower which is handled by manpower section) */}
             <div style={card}>
               <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '14px' }}>🛠️ Add-ons</h3>
-              {ADDON_OPTIONS.map(opt => {
+              {ADDON_OPTIONS.filter(opt => opt.key !== 'extra_manpower').map(opt => {
                 const qty = form.addons[opt.key] || 0;
                 const active = qty > 0;
                 return (
@@ -410,39 +539,6 @@ export default function NewJob() {
                   </div>
                 );
               })}
-            </div>
-
-            {/* Equipment */}
-            <div style={card}>
-              <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '14px' }}>🔧 Equipment Needed</h3>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                {EQUIPMENT_OPTIONS.map(eq => {
-                  const selected = form.equipment_needed.includes(eq.key);
-                  return (
-                    <div key={eq.key} onClick={() => {
-                      const next = selected ? form.equipment_needed.filter(k => k !== eq.key) : [...form.equipment_needed, eq.key];
-                      set('equipment_needed', next);
-                      setAddon('equipment_fee', next.length);
-                    }} style={{
-                      padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600',
-                      border: selected ? '2px solid #4f46e5' : '2px solid #e2e8f0',
-                      background: selected ? '#eef2ff' : 'white',
-                      color: selected ? '#4f46e5' : '#64748b',
-                    }}>
-                      {eq.label}
-                    </div>
-                  );
-                })}
-              </div>
-              <div style={{ marginTop: '14px' }}>
-                <label style={label}>Manpower (Workers)</label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <button type="button" onClick={() => { const n = Math.max(1, form.manpower_count - 1); set('manpower_count', n); if (n > 1) setAddon('extra_manpower', n - 1); else setAddon('extra_manpower', 0); }} style={{ width: '36px', height: '36px', borderRadius: '8px', border: '1px solid #e2e8f0', background: 'white', fontSize: '18px', cursor: 'pointer', color: '#374151' }}>−</button>
-                  <span style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b', minWidth: '30px', textAlign: 'center' }}>{form.manpower_count}</span>
-                  <button type="button" onClick={() => { const n = Math.min(20, form.manpower_count + 1); set('manpower_count', n); if (n > 1) setAddon('extra_manpower', n - 1); else setAddon('extra_manpower', 0); }} style={{ width: '36px', height: '36px', borderRadius: '8px', border: '1px solid #e2e8f0', background: 'white', fontSize: '18px', cursor: 'pointer', color: '#374151' }}>+</button>
-                  {form.manpower_count > 1 && <span style={{ fontSize: '12px', color: '#64748b' }}>+${(form.manpower_count - 1) * 30} ({form.manpower_count - 1} extra)</span>}
-                </div>
-              </div>
             </div>
 
             {/* Fare Breakdown */}
