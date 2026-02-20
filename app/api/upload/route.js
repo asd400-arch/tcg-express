@@ -3,7 +3,19 @@ import { supabaseAdmin } from '../../../lib/supabase-server';
 import { getSession } from '../../../lib/auth';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-const ALLOWED_PREFIXES = ['jobs/', 'chat/', 'kyc/'];
+const ALLOWED_PREFIXES = ['jobs/', 'chat/', 'kyc/', 'delivery/'];
+
+async function ensureBucket() {
+  const { data: buckets } = await supabaseAdmin.storage.listBuckets();
+  const exists = buckets?.some(b => b.id === 'express-uploads');
+  if (!exists) {
+    await supabaseAdmin.storage.createBucket('express-uploads', {
+      public: true,
+      allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+      fileSizeLimit: MAX_FILE_SIZE,
+    });
+  }
+}
 
 export async function POST(request) {
   try {
@@ -20,9 +32,13 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Missing file' }, { status: 400 });
     }
 
+    // Detect content type
+    const contentType = file.type || 'image/jpeg';
+
     // Auto-generate path if not provided
     if (!uploadPath) {
-      const ext = file.name?.split('.').pop() || 'jpg';
+      const nameParts = (file.name || 'photo.jpg').split('.');
+      const ext = nameParts.length > 1 ? nameParts.pop() : 'jpg';
       uploadPath = `jobs/${session.userId}/${Date.now()}.${ext}`;
     }
 
@@ -39,19 +55,16 @@ export async function POST(request) {
     // Convert to buffer for upload
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    let result = await supabaseAdmin.storage
-      .from('express-uploads')
-      .upload(uploadPath, buffer, { contentType: file.type, upsert: true });
+    // Ensure bucket exists
+    await ensureBucket();
 
-    if (result.error) {
-      // Try creating bucket if it doesn't exist
-      await supabaseAdmin.storage.createBucket('express-uploads', { public: true });
-      result = await supabaseAdmin.storage
-        .from('express-uploads')
-        .upload(uploadPath, buffer, { contentType: file.type, upsert: true });
-      if (result.error) {
-        return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
-      }
+    const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
+      .from('express-uploads')
+      .upload(uploadPath, buffer, { contentType, upsert: true });
+
+    if (uploadError) {
+      console.error('Upload error:', uploadError);
+      return NextResponse.json({ error: `Upload failed: ${uploadError.message}` }, { status: 500 });
     }
 
     const { data: urlData } = supabaseAdmin.storage
@@ -60,6 +73,7 @@ export async function POST(request) {
 
     return NextResponse.json({ url: urlData.publicUrl });
   } catch (err) {
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+    console.error('Upload server error:', err);
+    return NextResponse.json({ error: `Server error: ${err.message}` }, { status: 500 });
   }
 }
