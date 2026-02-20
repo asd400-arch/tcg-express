@@ -41,12 +41,33 @@ export async function POST(request) {
 
   const body = await request.json();
 
+  // Build special_requirements JSON: merge fare data + special instructions
+  const fareInfo = {};
+  if (body.size_tier) fareInfo.size_tier = body.size_tier;
+  if (body.addons) fareInfo.addons = body.addons;
+  if (body.estimated_fare != null) fareInfo.estimated_fare = parseFloat(body.estimated_fare);
+
+  let specialReqs = body.special_instructions || body.special_requirements || '';
+  if (Object.keys(fareInfo).length > 0) {
+    // Store fare data as JSON alongside any text instructions
+    specialReqs = JSON.stringify({
+      ...(specialReqs ? { notes: specialReqs } : {}),
+      ...fareInfo,
+    });
+  }
+
+  // Build item description from title + description
+  let itemDescription = body.title || body.item_description || '';
+  if (body.title && body.description) {
+    itemDescription = `${body.title} - ${body.description}`;
+  }
+
   // Map mobile field names to database column names
   const jobData = {
     client_id: session.userId,
     status: 'open',
     item_category: body.category || body.item_category || 'general',
-    item_description: body.title || body.item_description || '',
+    item_description: itemDescription,
     pickup_address: body.pickup_address || '',
     delivery_address: body.delivery_address || '',
     pickup_contact: body.pickup_contact || '',
@@ -55,12 +76,9 @@ export async function POST(request) {
     delivery_phone: body.delivery_phone || '',
     item_weight: body.weight != null ? parseFloat(body.weight) : (body.item_weight != null ? parseFloat(body.item_weight) : null),
     item_dimensions: body.dimensions || body.item_dimensions || null,
-    special_requirements: body.special_instructions || body.special_requirements || null,
+    special_requirements: specialReqs || null,
     equipment_needed: body.equipment_needed || [],
     urgency: body.urgency || 'standard',
-    size_tier: body.size_tier || null,
-    addons: body.addons || null,
-    estimated_fare: body.estimated_fare != null ? parseFloat(body.estimated_fare) : null,
     budget_min: body.budget != null ? parseFloat(body.budget) : (body.budget_min != null ? parseFloat(body.budget_min) : null),
     budget_max: body.budget != null ? parseFloat(body.budget) : (body.budget_max != null ? parseFloat(body.budget_max) : null),
     pickup_by: body.pickup_date || body.pickup_by || null,
@@ -68,11 +86,6 @@ export async function POST(request) {
     manpower_count: body.manpower_count || 1,
     vehicle_required: body.vehicle_required || 'any',
   };
-
-  // Add description as separate field if both title and description provided
-  if (body.title && body.description) {
-    jobData.item_description = body.description ? `${body.title} - ${body.description}` : body.title;
-  }
 
   const { data, error } = await supabaseAdmin
     .from('express_jobs')
