@@ -21,6 +21,10 @@ export default function DriverSettings() {
   const [licenseNumber, setLicenseNumber] = useState('');
   const [nricNumber, setNricNumber] = useState('');
   const [businessRegNumber, setBusinessRegNumber] = useState('');
+  const [isEvVehicle, setIsEvVehicle] = useState(false);
+  const [preferredNavApp, setPreferredNavApp] = useState('google_maps');
+  const [autoNavigate, setAutoNavigate] = useState(true);
+  const [nearbyJobAlerts, setNearbyJobAlerts] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const [currentPassword, setCurrentPassword] = useState('');
@@ -41,13 +45,17 @@ export default function DriverSettings() {
       setLicenseNumber(user.license_number || '');
       setNricNumber(user.nric_number || '');
       setBusinessRegNumber(user.business_reg_number || '');
+      setIsEvVehicle(user.is_ev_vehicle || false);
+      setPreferredNavApp(user.preferred_nav_app || 'google_maps');
+      setAutoNavigate(user.auto_navigate !== false);
+      setNearbyJobAlerts(user.nearby_job_alerts !== false);
     }
   }, [user, loading]);
 
   const saveProfile = async () => {
     setSaving(true);
     try {
-      const updates = { contact_name: contactName, phone, vehicle_type: vehicleType, vehicle_plate: vehiclePlate, license_number: licenseNumber, nric_number: nricNumber };
+      const updates = { contact_name: contactName, phone, vehicle_type: vehicleType, vehicle_plate: vehiclePlate, license_number: licenseNumber, nric_number: nricNumber, is_ev_vehicle: isEvVehicle, preferred_nav_app: preferredNavApp, auto_navigate: autoNavigate, nearby_job_alerts: nearbyJobAlerts };
       if (user.driver_type === 'company') {
         updates.business_reg_number = businessRegNumber;
       }
@@ -177,11 +185,14 @@ export default function DriverSettings() {
               <label style={label}>Vehicle Type</label>
               <select value={vehicleType} onChange={e => setVehicleType(e.target.value)} style={selectStyle}>
                 <option value="">Select vehicle type</option>
-                <option value="motorcycle">Motorcycle</option>
-                <option value="car">Car</option>
-                <option value="van">Van</option>
-                <option value="truck">Truck</option>
-                <option value="lorry">Lorry</option>
+                <option value="motorcycle">🏍️ Motorcycle</option>
+                <option value="car">🚗 Car</option>
+                <option value="mpv">🚙 MPV</option>
+                <option value="van_1_7m">🚐 1.7m Van</option>
+                <option value="van_2_4m">🚐 2.4m Van</option>
+                <option value="lorry_10ft">🚚 10ft Lorry</option>
+                <option value="lorry_14ft">🚚 14ft Lorry</option>
+                <option value="lorry_24ft">🚛 24ft Lorry</option>
               </select>
             </div>
             <div>
@@ -191,6 +202,69 @@ export default function DriverSettings() {
             <div>
               <label style={label}>License Number</label>
               <input type="text" value={licenseNumber} onChange={e => setLicenseNumber(e.target.value)} placeholder="Driver license number" style={input} />
+            </div>
+            <div style={{ padding: '14px', borderRadius: '10px', background: isEvVehicle ? '#f0fdf4' : '#f8fafc', border: isEvVehicle ? '1px solid #86efac' : '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '20px' }}>⚡</span>
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>Electric Vehicle (EV)</div>
+                  <div style={{ fontSize: '11px', color: '#64748b' }}>My vehicle is fully electric</div>
+                </div>
+              </div>
+              <div onClick={() => setIsEvVehicle(!isEvVehicle)} style={{
+                width: '44px', height: '24px', borderRadius: '12px', cursor: 'pointer', position: 'relative',
+                background: isEvVehicle ? '#16a34a' : '#cbd5e1', transition: 'background 0.2s',
+              }}>
+                <div style={{
+                  width: '20px', height: '20px', borderRadius: '10px', background: 'white', position: 'absolute', top: '2px',
+                  left: isEvVehicle ? '22px' : '2px', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                }} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Navigation & Geo-fencing Preferences */}
+        <div style={card}>
+          <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>Navigation & Alerts</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div>
+              <label style={label}>Preferred Navigation App</label>
+              <select value={preferredNavApp} onChange={e => setPreferredNavApp(e.target.value)} style={input}>
+                <option value="google_maps">Google Maps</option>
+                <option value="waze">Waze</option>
+                <option value="apple_maps">Apple Maps</option>
+              </select>
+            </div>
+            <div style={{ padding: '14px', borderRadius: '10px', background: '#f8fafc', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>Auto-Navigate</div>
+                <div style={{ fontSize: '11px', color: '#64748b' }}>Auto-launch navigation after completing a job</div>
+              </div>
+              <div onClick={() => setAutoNavigate(!autoNavigate)} style={{
+                width: '44px', height: '24px', borderRadius: '12px', cursor: 'pointer', position: 'relative',
+                background: autoNavigate ? '#3b82f6' : '#cbd5e1', transition: 'background 0.2s',
+              }}>
+                <div style={{
+                  width: '20px', height: '20px', borderRadius: '10px', background: 'white', position: 'absolute', top: '2px',
+                  left: autoNavigate ? '22px' : '2px', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                }} />
+              </div>
+            </div>
+            <div style={{ padding: '14px', borderRadius: '10px', background: '#f8fafc', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>Nearby Job Alerts</div>
+                <div style={{ fontSize: '11px', color: '#64748b' }}>Get notified of nearby available jobs while delivering</div>
+              </div>
+              <div onClick={() => setNearbyJobAlerts(!nearbyJobAlerts)} style={{
+                width: '44px', height: '24px', borderRadius: '12px', cursor: 'pointer', position: 'relative',
+                background: nearbyJobAlerts ? '#3b82f6' : '#cbd5e1', transition: 'background 0.2s',
+              }}>
+                <div style={{
+                  width: '20px', height: '20px', borderRadius: '10px', background: 'white', position: 'absolute', top: '2px',
+                  left: nearbyJobAlerts ? '22px' : '2px', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                }} />
+              </div>
             </div>
           </div>
         </div>

@@ -162,8 +162,8 @@ export default function ClientJobDetail({ params }) {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         userId: job.assigned_driver_id, type: 'delivery', category: 'delivery_status',
-        title: 'Delivery confirmed!', message: `Delivery for ${job.job_number} confirmed. Payout: $${job.driver_payout}`,
-        emailTemplate: 'delivery_confirmed', emailData: { jobNumber: job.job_number, payout: job.driver_payout },
+        title: 'Delivery confirmed!', message: `Delivery for ${job.job_number} confirmed. Payout: $${job.driver_payout || job.final_amount || '—'}`,
+        emailTemplate: 'delivery_confirmed', emailData: { jobNumber: job.job_number, payout: job.driver_payout || job.final_amount || '—' },
         url: '/driver/my-jobs',
       }),
     }).catch(() => {});
@@ -209,7 +209,7 @@ export default function ClientJobDetail({ params }) {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>
-      <Sidebar active="My Jobs" />
+      <Sidebar active="My Deliveries" />
       <div style={{ flex: 1, padding: m ? '20px 16px' : '30px', overflowX: 'hidden' }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>

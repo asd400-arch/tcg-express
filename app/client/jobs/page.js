@@ -43,11 +43,11 @@ export default function ClientJobs() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>
-      <Sidebar active="My Jobs" />
+      <Sidebar active="My Deliveries" />
       <div style={{ flex: 1, padding: m ? '20px 16px' : '30px', overflowX: 'hidden' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-          <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b' }}>My Jobs ({jobs.length})</h1>
-          <a href="/client/jobs/new" style={{ padding: '10px 20px', borderRadius: '10px', background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: 'white', textDecoration: 'none', fontWeight: '600', fontSize: '14px' }}>➕ New Job</a>
+          <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b' }}>My Deliveries ({jobs.length})</h1>
+          <a href="/client/jobs/new" style={{ padding: '10px 20px', borderRadius: '10px', background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: 'white', textDecoration: 'none', fontWeight: '600', fontSize: '14px' }}>➕ New Delivery</a>
         </div>
 
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search jobs..." style={{ width: '100%', padding: '10px 16px', borderRadius: '10px', border: '1px solid #e2e8f0', fontSize: '14px', outline: 'none', background: '#f8fafc', color: '#1e293b', fontFamily: "'Inter', sans-serif", boxSizing: 'border-box', marginBottom: '12px' }} />
@@ -79,7 +79,11 @@ export default function ClientJobs() {
                   <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>📍 {job.pickup_address} → {job.delivery_address}</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  {job.final_amount && <div style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b' }}>${job.final_amount}</div>}
+                  {job.final_amount ? (
+                    <div style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b' }}>${job.final_amount}</div>
+                  ) : job.budget_min ? (
+                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#94a3b8' }}>${job.budget_min}–${job.budget_max || job.budget_min}</div>
+                  ) : null}
                   <div style={{ fontSize: '12px', color: '#94a3b8' }}>{new Date(job.created_at).toLocaleDateString()}</div>
                 </div>
               </a>

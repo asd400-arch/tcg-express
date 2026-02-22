@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from './AuthContext';
 import useMobile from './useMobile';
@@ -7,11 +7,9 @@ import NotificationBell from './NotificationBell';
 
 const clientLinks = [
   { label: 'Dashboard', href: '/client/dashboard', icon: '📊' },
-  { label: 'New Job', href: '/client/jobs/new', icon: '➕' },
-  { label: 'My Jobs', href: '/client/jobs', icon: '📦' },
-  { label: 'Wallet', href: '/client/wallet', icon: '💰' },
-  { label: 'Schedules', href: '/client/schedules', icon: '📅' },
-  { label: 'Transactions', href: '/client/transactions', icon: '💳' },
+  { label: 'New Delivery', href: '/client/jobs/new', icon: '➕' },
+  { label: 'My Deliveries', href: '/client/jobs', icon: '📦' },
+  { label: 'Wallet', href: '/client/wallet', icon: '👛' },
   { label: 'Help', href: '/client/help', icon: '❓' },
   { label: 'Settings', href: '/client/settings', icon: '⚙️' },
 ];
@@ -21,6 +19,8 @@ const driverLinks = [
   { label: 'Available Jobs', href: '/driver/jobs', icon: '🔍' },
   { label: 'My Jobs', href: '/driver/my-jobs', icon: '📦' },
   { label: 'Earnings', href: '/driver/earnings', icon: '💰' },
+  { label: 'Wallet', href: '/driver/wallet', icon: '👛' },
+  { label: 'Help', href: '/driver/help', icon: '❓' },
   { label: 'Settings', href: '/driver/settings', icon: '⚙️' },
 ];
 
@@ -31,6 +31,9 @@ const adminLinks = [
   { label: 'Drivers', href: '/admin/drivers', icon: '🚗' },
   { label: 'Clients', href: '/admin/clients', icon: '🏢' },
   { label: 'Coupons', href: '/admin/coupons', icon: '🎟️' },
+  { label: 'Warehouse', href: '/admin/warehouse', icon: '🏭' },
+  { label: 'Corp Premium', href: '/admin/corp-premium', icon: '🏆' },
+  { label: 'Geo Zones', href: '/admin/geo-zones', icon: '🗺️' },
   { label: 'Banners', href: '/admin/banners', icon: '📢' },
   { label: 'Support', href: '/admin/support', icon: '💬' },
   { label: 'Transactions', href: '/admin/transactions', icon: '💳' },
@@ -43,7 +46,22 @@ export default function Sidebar({ active = '', title }) {
   const router = useRouter();
   const m = useMobile();
   const [open, setOpen] = useState(false);
+  const [walletBalance, setWalletBalance] = useState(null);
   const displayTitle = title || active;
+
+  // Fetch wallet balance for badge
+  useEffect(() => {
+    if (user && (user.role === 'client' || user.role === 'driver')) {
+      fetch('/api/wallet')
+        .then(res => res.json())
+        .then(result => {
+          if (result.data?.wallet?.balance != null) {
+            setWalletBalance(parseFloat(result.data.wallet.balance));
+          }
+        })
+        .catch(() => {});
+    }
+  }, [user]);
 
   const links = user?.role === 'admin' ? adminLinks : user?.role === 'driver' ? driverLinks : clientLinks;
   const roleColor = user?.role === 'admin' ? '#ef4444' : user?.role === 'driver' ? '#10b981' : '#3b82f6';
@@ -61,7 +79,7 @@ export default function Sidebar({ active = '', title }) {
         <a href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: `linear-gradient(135deg, ${roleColor}, ${roleColor}cc)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: '900', color: 'white' }}>T</div>
           <div>
-            <div style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b' }}>Tech Chain Express</div>
+            <div style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b' }}>TCG Express</div>
             <div style={{ fontSize: '11px', fontWeight: '600', color: roleColor, textTransform: 'uppercase', letterSpacing: '1px' }}>{roleLabel}</div>
           </div>
         </a>
@@ -83,7 +101,15 @@ export default function Sidebar({ active = '', title }) {
             transition: 'all 0.2s',
           }}>
             <span style={{ fontSize: '18px' }}>{link.icon}</span>
-            {link.label}
+            <span style={{ flex: 1 }}>{link.label}</span>
+            {link.label === 'Wallet' && walletBalance > 0 && (
+              <span style={{
+                fontSize: '11px', fontWeight: '700',
+                padding: '2px 8px', borderRadius: '10px',
+                background: active === 'Wallet' ? `${roleColor}20` : '#f1f5f9',
+                color: active === 'Wallet' ? roleColor : '#475569',
+              }}>${walletBalance.toFixed(2)}</span>
+            )}
           </a>
         ))}
       </div>
@@ -119,7 +145,7 @@ export default function Sidebar({ active = '', title }) {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
             <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: `linear-gradient(135deg, ${roleColor}, ${roleColor}cc)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: '900', color: 'white', flexShrink: 0 }}>T</div>
-            <span style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{displayTitle || 'Tech Chain Express'}</span>
+            <span style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{displayTitle || 'TCG Express'}</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             {user?.id && <NotificationBell userId={user.id} />}

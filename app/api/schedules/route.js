@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../../../lib/supabase-server';
 import { NextResponse } from 'next/server';
 import { getSession } from '../../../lib/auth';
+import { VALID_VEHICLE_KEYS } from '../../../lib/fares';
 
 const VALID_TYPES = ['once', 'weekly', 'biweekly', 'monthly'];
 const REQUIRED_FIELDS = ['pickup_address', 'delivery_address', 'item_description'];
@@ -68,6 +69,15 @@ export async function POST(req) {
     // Validate ends_at is after next_run_at if provided
     if (ends_at && new Date(ends_at) <= runDate) {
       return NextResponse.json({ error: 'End date must be after the first run date' }, { status: 400 });
+    }
+
+    // Validate vehicle_required against valid keys
+    const vr = jobTemplate.vehicle_required || 'any';
+    if (vr !== 'any' && !VALID_VEHICLE_KEYS.includes(vr)) {
+      const legacyKeys = ['van', 'truck', 'lorry'];
+      if (!legacyKeys.includes(vr)) {
+        return NextResponse.json({ error: 'Invalid vehicle type' }, { status: 400 });
+      }
     }
 
     const { data, error } = await supabaseAdmin

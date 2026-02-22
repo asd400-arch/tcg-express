@@ -39,7 +39,7 @@ export default function DriverEarnings() {
     const [txnRes, bidsRes, jobsRes] = await Promise.all([
       supabase.from('express_transactions').select('*, job:job_id(job_number, item_description)').eq('driver_id', user.id).order('created_at', { ascending: false }),
       supabase.from('express_bids').select('id, status').eq('driver_id', user.id),
-      supabase.from('express_jobs').select('id, status, created_at, completed_at').eq('driver_id', user.id),
+      supabase.from('express_jobs').select('id, status, created_at, completed_at').eq('assigned_driver_id', user.id),
     ]);
     setTransactions(txnRes.data || []);
     setBids(bidsRes.data || []);

@@ -38,8 +38,38 @@ const VEHICLE_CONFIG = {
       <line x1="14" y1="6" x2="14" y2="13" stroke="white" stroke-width="1" opacity="0.6"/>
     </svg>`,
   },
+  mpv: {
+    color: '#06b6d4',
+    svg: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M3 14l1.5-1l1.5-4h5l2-3h5l2 3l1 1v4h-2a2 2 0 0 1-4 0H8a2 2 0 0 1-4 0H2v-2l1 2z" stroke="white" stroke-width="1.3" stroke-linejoin="round"/>
+      <circle cx="6.5" cy="16.5" r="1.5" fill="white"/>
+      <circle cx="17.5" cy="16.5" r="1.5" fill="white"/>
+      <line x1="9" y1="9" x2="9" y2="13" stroke="white" stroke-width="1" opacity="0.6"/>
+      <line x1="14" y1="6" x2="14" y2="13" stroke="white" stroke-width="1" opacity="0.6"/>
+    </svg>`,
+  },
   van: {
     color: '#8b5cf6',
+    svg: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M2 8h14v9H2z" stroke="white" stroke-width="1.3" stroke-linejoin="round"/>
+      <path d="M16 11h4l2 3v3h-6V11z" stroke="white" stroke-width="1.3" stroke-linejoin="round"/>
+      <circle cx="6" cy="17" r="2" fill="white"/>
+      <circle cx="18.5" cy="17" r="2" fill="white"/>
+      <line x1="19" y1="11" x2="19" y2="14" stroke="white" stroke-width="1" opacity="0.6"/>
+    </svg>`,
+  },
+  van_1_7m: {
+    color: '#8b5cf6',
+    svg: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M2 8h14v9H2z" stroke="white" stroke-width="1.3" stroke-linejoin="round"/>
+      <path d="M16 11h4l2 3v3h-6V11z" stroke="white" stroke-width="1.3" stroke-linejoin="round"/>
+      <circle cx="6" cy="17" r="2" fill="white"/>
+      <circle cx="18.5" cy="17" r="2" fill="white"/>
+      <line x1="19" y1="11" x2="19" y2="14" stroke="white" stroke-width="1" opacity="0.6"/>
+    </svg>`,
+  },
+  van_2_4m: {
+    color: '#7c3aed',
     svg: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M2 8h14v9H2z" stroke="white" stroke-width="1.3" stroke-linejoin="round"/>
       <path d="M16 11h4l2 3v3h-6V11z" stroke="white" stroke-width="1.3" stroke-linejoin="round"/>
@@ -60,6 +90,39 @@ const VEHICLE_CONFIG = {
   },
   lorry: {
     color: '#ef4444',
+    svg: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="8" y="4" width="15" height="13" rx="1.5" stroke="white" stroke-width="1.3"/>
+      <path d="M1 8h7v9H1z" stroke="white" stroke-width="1.3" stroke-linejoin="round"/>
+      <path d="M1 8l2-2h3l2 2" stroke="white" stroke-width="1.3" stroke-linejoin="round"/>
+      <circle cx="4.5" cy="17" r="2" fill="white"/>
+      <circle cx="15" cy="17" r="2" fill="white"/>
+      <circle cx="20" cy="17" r="2" fill="white"/>
+    </svg>`,
+  },
+  lorry_10ft: {
+    color: '#ef4444',
+    svg: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="8" y="4" width="15" height="13" rx="1.5" stroke="white" stroke-width="1.3"/>
+      <path d="M1 8h7v9H1z" stroke="white" stroke-width="1.3" stroke-linejoin="round"/>
+      <path d="M1 8l2-2h3l2 2" stroke="white" stroke-width="1.3" stroke-linejoin="round"/>
+      <circle cx="4.5" cy="17" r="2" fill="white"/>
+      <circle cx="15" cy="17" r="2" fill="white"/>
+      <circle cx="20" cy="17" r="2" fill="white"/>
+    </svg>`,
+  },
+  lorry_14ft: {
+    color: '#dc2626',
+    svg: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="8" y="4" width="15" height="13" rx="1.5" stroke="white" stroke-width="1.3"/>
+      <path d="M1 8h7v9H1z" stroke="white" stroke-width="1.3" stroke-linejoin="round"/>
+      <path d="M1 8l2-2h3l2 2" stroke="white" stroke-width="1.3" stroke-linejoin="round"/>
+      <circle cx="4.5" cy="17" r="2" fill="white"/>
+      <circle cx="15" cy="17" r="2" fill="white"/>
+      <circle cx="20" cy="17" r="2" fill="white"/>
+    </svg>`,
+  },
+  lorry_24ft: {
+    color: '#991b1b',
     svg: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg">
       <rect x="8" y="4" width="15" height="13" rx="1.5" stroke="white" stroke-width="1.3"/>
       <path d="M1 8h7v9H1z" stroke="white" stroke-width="1.3" stroke-linejoin="round"/>

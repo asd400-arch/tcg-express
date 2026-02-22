@@ -189,8 +189,8 @@ export default function ClientTrackPage({ params }) {
   if (loading || !user || !job) return <Spinner />;
 
   const statusColor = { assigned: '#f59e0b', pickup_confirmed: '#f59e0b', in_transit: '#06b6d4', delivered: '#10b981', confirmed: '#10b981', completed: '#059669' };
-  const vehicleColor = { motorcycle: '#f59e0b', car: '#3b82f6', van: '#8b5cf6', truck: '#10b981', lorry: '#ef4444' };
-  const vehicleEmoji = { motorcycle: '🏍️', car: '🚗', van: '🚐', truck: '🚚', lorry: '🚛' };
+  const vehicleColor = { motorcycle: '#f59e0b', car: '#3b82f6', mpv: '#06b6d4', van: '#8b5cf6', van_1_7m: '#8b5cf6', van_2_4m: '#7c3aed', truck: '#10b981', lorry: '#ef4444', lorry_10ft: '#ef4444', lorry_14ft: '#dc2626', lorry_24ft: '#991b1b' };
+  const vehicleEmoji = { motorcycle: '🏍️', car: '🚗', mpv: '🚙', van: '🚐', van_1_7m: '🚐', van_2_4m: '🚐', truck: '🚚', lorry: '🚛', lorry_10ft: '🚚', lorry_14ft: '🚚', lorry_24ft: '🚛' };
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: '#0f172a' }}>

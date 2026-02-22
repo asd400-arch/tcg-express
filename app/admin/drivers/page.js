@@ -109,13 +109,13 @@ export default function AdminDrivers() {
             <div key={d.id} style={card}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
                 <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
-                  <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: '700', color: '#64748b' }}>{d.contact_name[0]}</div>
+                  <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: '700', color: '#64748b' }}>{(d.contact_name || 'D')[0]}</div>
                   <div>
                     <div style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b' }}>{d.contact_name}</div>
                     <div style={{ fontSize: '13px', color: '#64748b' }}>{d.email} • {d.phone}</div>
                     <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>{d.vehicle_type} • {d.vehicle_plate} • License: {d.license_number}</div>
                     {d.nric_number && <div style={{ fontSize: '12px', color: '#94a3b8' }}>NRIC: {d.nric_number}{d.business_reg_number ? ` • BRN: ${d.business_reg_number}` : ''}</div>}
-                    <div style={{ fontSize: '12px', color: '#94a3b8' }}>⭐ {d.driver_rating} • {d.total_deliveries} deliveries • Joined {new Date(d.created_at).toLocaleDateString()}</div>
+                    <div style={{ fontSize: '12px', color: '#94a3b8' }}>⭐ {d.driver_rating || '—'} • {d.total_deliveries || 0} deliveries • Joined {new Date(d.created_at).toLocaleDateString()}</div>
                   </div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>

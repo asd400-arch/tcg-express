@@ -13,7 +13,7 @@ export default function PrivacyPage() {
         <h1 style={{ fontSize: '28px', fontWeight: '800', color: '#1e293b', marginTop: '16px', marginBottom: '8px' }}>Privacy Policy</h1>
         <p style={{ fontSize: '13px', color: '#94a3b8', marginBottom: '24px' }}>Last updated: 19 February 2026</p>
 
-        <p style={p}>Tech Chain Global Pte Ltd (&quot;Company&quot;, &quot;we&quot;, &quot;us&quot;) operates the Tech Chain Express platform (&quot;Platform&quot;). This Privacy Policy describes how we collect, use, store, and protect your personal data when you use our Platform.</p>
+        <p style={p}>Tech Chain Global Pte Ltd (&quot;Company&quot;, &quot;we&quot;, &quot;us&quot;) operates the TCG Express platform (&quot;Platform&quot;). This Privacy Policy describes how we collect, use, store, and protect your personal data when you use our Platform.</p>
 
         <h2 style={h2}>1. Data We Collect</h2>
         <p style={p}><strong>Account Information:</strong> Name, email address, phone number, company name, and account credentials.</p>

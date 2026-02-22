@@ -31,17 +31,41 @@ export default function DriverMyJobs() {
   const [clientInfo, setClientInfo] = useState(null);
   const [pickupCoords, setPickupCoords] = useState(null);
   const [deliveryCoords, setDeliveryCoords] = useState(null);
+  const [queue, setQueue] = useState([]);
+  const [queueLoading, setQueueLoading] = useState(false);
   const gps = useGpsTracking(user?.id, selected?.id, pickupCoords, deliveryCoords);
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
     if (!loading && user && user.role !== 'driver') router.push('/');
-    if (user && user.role === 'driver') loadJobs();
+    if (user && user.role === 'driver') { loadJobs(); loadQueue(); }
   }, [user, loading]);
 
   const loadJobs = async () => {
     const { data } = await supabase.from('express_jobs').select('*').eq('assigned_driver_id', user.id).order('created_at', { ascending: false });
     setJobs(data || []);
+  };
+
+  const loadQueue = async () => {
+    setQueueLoading(true);
+    try {
+      const res = await fetch('/api/driver/queue');
+      const result = await res.json();
+      setQueue(result.data || []);
+    } catch { setQueue([]); }
+    setQueueLoading(false);
+  };
+
+  const completeQueueItem = async (queueItemId) => {
+    const res = await fetch('/api/driver/queue', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'complete', queue_item_id: queueItemId }),
+    });
+    const result = await res.json();
+    if (result.nextJob) {
+      toast.success('Next job auto-advanced to active!');
+    }
+    loadQueue();
   };
 
   const geocodeAddress = async (address) => {
@@ -91,23 +115,31 @@ export default function DriverMyJobs() {
       setActiveTab('uploads');
       return;
     }
-    const updates = { status };
-    if (status === 'delivered') updates.completed_at = new Date().toISOString();
-    await supabase.from('express_jobs').update(updates).eq('id', selected.id);
-    // Auto-start GPS on in_transit, auto-stop on delivered
-    if (status === 'in_transit') gps.startTracking();
-    if (status === 'delivered') gps.stopTracking();
-    // Notify client about status change (in-app + push via unified endpoint)
-    fetch('/api/notify', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: selected.client_id, type: 'job', category: 'delivery_status',
-        title: 'Job status updated', message: `${selected.job_number} is now ${status.replace(/_/g, ' ')}`,
-        url: `/client/jobs/${selected.id}`,
-      }),
-    }).catch(() => {});
-    setSelected({ ...selected, ...updates });
-    loadJobs();
+    try {
+      const res = await fetch(`/api/jobs/${selected.id}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        toast.error(result.error || 'Failed to update status');
+        return;
+      }
+      // Auto-start GPS on in_transit, auto-stop on delivered
+      if (status === 'in_transit') gps.startTracking();
+      if (status === 'delivered') {
+        gps.stopTracking();
+        // Auto-complete queue item and advance next job
+        const queueItem = queue.find(q => q.job_id === selected.id && ['active', 'picked_up'].includes(q.status));
+        if (queueItem) await completeQueueItem(queueItem.id);
+      }
+      setSelected({ ...selected, ...(result.data || { status }) });
+      loadJobs();
+      loadQueue();
+    } catch (e) {
+      toast.error('Failed to update status');
+    }
   };
 
   const handleFileUpload = async (e, type) => {
@@ -138,6 +170,14 @@ export default function DriverMyJobs() {
     in_transit: { next: 'delivered', label: '✅ Mark Delivered', color: '#10b981' },
   };
 
+  const expressCount = queue.filter(q => q.job?.delivery_mode !== 'save_mode').length;
+  const saveCount = queue.filter(q => q.job?.delivery_mode === 'save_mode').length;
+  const hasSaveMode = saveCount > 0;
+  const maxSlots = hasSaveMode ? 8 : 3;
+  const totalQueued = queue.length;
+
+  const navLink = (address) => `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`;
+
   const filtered = jobs.filter(j => {
     if (filter === 'active') return ['assigned','pickup_confirmed','in_transit','delivered','disputed'].includes(j.status);
     if (filter === 'cancelled') return j.status === 'cancelled';
@@ -152,7 +192,70 @@ export default function DriverMyJobs() {
       <div style={{ flex: 1, padding: m ? '20px 16px' : '30px', overflowX: 'hidden' }}>
         {!selected ? (
           <>
-            <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', marginBottom: '20px' }}>📦 My Jobs</h1>
+            <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', marginBottom: '20px' }}>My Jobs</h1>
+
+            {/* Queue Panel */}
+            {queue.length > 0 && (
+              <div style={{ ...card, background: 'linear-gradient(135deg, #f0fdf4, #ecfdf5)', border: '1px solid #bbf7d0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                  <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#059669', margin: 0 }}>Active Queue</h3>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    {expressCount > 0 && (
+                      <span style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '700', background: '#06b6d420', color: '#0891b2' }}>
+                        {expressCount}/{hasSaveMode ? '—' : '3'} Express
+                      </span>
+                    )}
+                    {saveCount > 0 && (
+                      <span style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '700', background: '#10b98120', color: '#059669' }}>
+                        {saveCount}/8 SaveMode
+                      </span>
+                    )}
+                    <span style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '700', background: '#64748b15', color: '#64748b' }}>
+                      {totalQueued}/{maxSlots} slots
+                    </span>
+                  </div>
+                </div>
+                {/* Capacity bar */}
+                <div style={{ height: '6px', background: '#d1fae5', borderRadius: '3px', marginBottom: '14px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${Math.min((totalQueued / maxSlots) * 100, 100)}%`, background: totalQueued >= maxSlots ? '#ef4444' : '#10b981', borderRadius: '3px', transition: 'width 0.3s' }} />
+                </div>
+                {/* Queue items */}
+                {queue.map((item, idx) => {
+                  const job = item.job || {};
+                  const isActive = item.status === 'active' || item.status === 'picked_up';
+                  const badge = isActive ? { label: 'ACTIVE', bg: '#10b98120', color: '#059669' }
+                    : idx === 1 || (idx === 0 && !isActive) ? { label: 'NEXT UP', bg: '#f59e0b20', color: '#d97706' }
+                    : { label: 'QUEUED', bg: '#64748b15', color: '#64748b' };
+                  return (
+                    <div key={item.id} onClick={() => selectJob(job)} style={{
+                      display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px',
+                      background: isActive ? 'white' : '#f8faf9', borderRadius: '10px', marginBottom: idx < queue.length - 1 ? '8px' : 0,
+                      cursor: 'pointer', border: isActive ? '1px solid #10b981' : '1px solid transparent',
+                    }}>
+                      <div style={{
+                        width: '28px', height: '28px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        background: isActive ? '#10b981' : '#e2e8f0', color: isActive ? 'white' : '#64748b',
+                        fontSize: '13px', fontWeight: '800', flexShrink: 0,
+                      }}>{item.queue_position}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b' }}>{job.job_number || '—'}</span>
+                          <span style={{ padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: '700', background: badge.bg, color: badge.color }}>{badge.label}</span>
+                          {job.delivery_mode === 'save_mode' && (
+                            <span style={{ padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: '700', background: '#8b5cf620', color: '#7c3aed' }}>SAVE</span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {job.pickup_address || '—'} → {job.delivery_address || '—'}
+                        </div>
+                      </div>
+                      <div style={{ fontSize: '14px', fontWeight: '800', color: '#059669', flexShrink: 0 }}>${job.driver_payout || job.final_amount || '—'}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
               {['active', 'completed', 'cancelled'].map(f => (
                 <button key={f} onClick={() => setFilter(f)} style={{
@@ -177,7 +280,7 @@ export default function DriverMyJobs() {
                     <div style={{ fontSize: '13px', color: '#374151' }}>{job.item_description}</div>
                     <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>📍 {job.pickup_address} → {job.delivery_address}</div>
                   </div>
-                  <div style={{ fontSize: '18px', fontWeight: '800', color: '#059669' }}>${job.driver_payout || job.final_amount}</div>
+                  <div style={{ fontSize: '18px', fontWeight: '800', color: '#059669' }}>${job.driver_payout || job.final_amount || '—'}</div>
                 </div>
               </div>
             ))}
@@ -282,12 +385,26 @@ export default function DriverMyJobs() {
                     <div style={{ fontSize: '14px', color: '#374151' }}>{selected.pickup_address}</div>
                     {selected.pickup_contact && <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>👤 {selected.pickup_contact} {selected.pickup_phone}</div>}
                     {selected.pickup_instructions && <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>📝 {selected.pickup_instructions}</div>}
+                    {['assigned', 'pickup_confirmed'].includes(selected.status) && selected.pickup_address && (
+                      <a href={navLink(selected.pickup_address)} target="_blank" rel="noopener noreferrer" style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '10px', padding: '8px 14px',
+                        borderRadius: '8px', background: '#3b82f6', color: 'white', fontSize: '12px', fontWeight: '600',
+                        textDecoration: 'none',
+                      }}>🧭 Navigate to Pickup</a>
+                    )}
                   </div>
                   <div style={card}>
                     <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b', marginBottom: '10px' }}>📦 Delivery</h3>
                     <div style={{ fontSize: '14px', color: '#374151' }}>{selected.delivery_address}</div>
                     {selected.delivery_contact && <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>👤 {selected.delivery_contact} {selected.delivery_phone}</div>}
                     {selected.delivery_instructions && <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>📝 {selected.delivery_instructions}</div>}
+                    {selected.status === 'in_transit' && selected.delivery_address && (
+                      <a href={navLink(selected.delivery_address)} target="_blank" rel="noopener noreferrer" style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '10px', padding: '8px 14px',
+                        borderRadius: '8px', background: '#10b981', color: 'white', fontSize: '12px', fontWeight: '600',
+                        textDecoration: 'none',
+                      }}>🧭 Navigate to Delivery</a>
+                    )}
                   </div>
                 </div>
 
@@ -306,9 +423,9 @@ export default function DriverMyJobs() {
                 )}
 
                 <div style={{ ...card, display: 'flex', justifyContent: 'space-around', textAlign: 'center' }}>
-                  <div><div style={{ fontSize: '12px', color: '#94a3b8' }}>Total</div><div style={{ fontSize: '20px', fontWeight: '800', color: '#1e293b' }}>${selected.final_amount}</div></div>
-                  <div><div style={{ fontSize: '12px', color: '#94a3b8' }}>Commission ({selected.commission_rate}%)</div><div style={{ fontSize: '20px', fontWeight: '800', color: '#ef4444' }}>-${selected.commission_amount}</div></div>
-                  <div><div style={{ fontSize: '12px', color: '#94a3b8' }}>Your Payout</div><div style={{ fontSize: '20px', fontWeight: '800', color: '#059669' }}>${selected.driver_payout}</div></div>
+                  <div><div style={{ fontSize: '12px', color: '#94a3b8' }}>Total</div><div style={{ fontSize: '20px', fontWeight: '800', color: '#1e293b' }}>${selected.final_amount || '—'}</div></div>
+                  <div><div style={{ fontSize: '12px', color: '#94a3b8' }}>Commission ({selected.commission_rate || 0}%)</div><div style={{ fontSize: '20px', fontWeight: '800', color: '#ef4444' }}>-${selected.commission_amount || '0'}</div></div>
+                  <div><div style={{ fontSize: '12px', color: '#94a3b8' }}>Your Payout</div><div style={{ fontSize: '20px', fontWeight: '800', color: '#059669' }}>${selected.driver_payout || '—'}</div></div>
                 </div>
 
                 {/* Dispute info card */}

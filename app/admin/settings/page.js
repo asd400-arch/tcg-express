@@ -173,7 +173,7 @@ export default function AdminSettings() {
         <div style={card}>
           <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>Platform Info</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#64748b', fontSize: '14px' }}>Platform</span><span style={{ fontWeight: '600', color: '#1e293b', fontSize: '14px' }}>Tech Chain Express</span></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#64748b', fontSize: '14px' }}>Platform</span><span style={{ fontWeight: '600', color: '#1e293b', fontSize: '14px' }}>TCG Express</span></div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#64748b', fontSize: '14px' }}>Version</span><span style={{ fontWeight: '600', color: '#1e293b', fontSize: '14px' }}>1.0.0</span></div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#64748b', fontSize: '14px' }}>Stack</span><span style={{ fontWeight: '600', color: '#1e293b', fontSize: '14px' }}>Next.js + Supabase</span></div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#64748b', fontSize: '14px' }}>Market</span><span style={{ fontWeight: '600', color: '#1e293b', fontSize: '14px' }}>Singapore + SEA</span></div>

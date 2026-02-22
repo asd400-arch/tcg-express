@@ -43,23 +43,29 @@ export default function DriverJobs() {
     if (!bidAmount || !selectedJob) return;
     if (parseFloat(bidAmount) <= 0) { toast.error('Bid amount must be greater than 0'); return; }
     setBidding(true);
-    const { error } = await supabase.from('express_bids').insert([{
-      job_id: selectedJob.id, driver_id: user.id,
-      amount: parseFloat(bidAmount), estimated_time: bidTime, message: bidMsg,
-    }]);
-    if (error) { toast.error('Error: ' + error.message); setBidding(false); return; }
-    await supabase.from('express_jobs').update({ status: 'bidding' }).eq('id', selectedJob.id).eq('status', 'open');
-    // Notify client about new bid (in-app + push via unified endpoint)
-    fetch('/api/notify', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: selectedJob.client_id, type: 'bid', category: 'bid_activity',
-        title: 'New bid received', message: `A driver bid $${parseFloat(bidAmount).toFixed(2)} on ${selectedJob.item_description}`,
-        url: `/client/jobs/${selectedJob.id}`,
-      }),
-    }).catch(() => {});
-    setBidding(false); setSelectedJob(null); setBidAmount(''); setBidTime(''); setBidMsg('');
-    loadData();
+    try {
+      const res = await fetch('/api/bids', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          job_id: selectedJob.id,
+          amount: parseFloat(bidAmount),
+          message: bidMsg || null,
+        }),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        toast.error(result.error || 'Failed to submit bid');
+        setBidding(false);
+        return;
+      }
+      toast.success('Bid submitted!');
+      setBidding(false); setSelectedJob(null); setBidAmount(''); setBidTime(''); setBidMsg('');
+      loadData();
+    } catch (e) {
+      toast.error('Failed to submit bid');
+      setBidding(false);
+    }
   };
 
   if (loading || !user) return <Spinner />;

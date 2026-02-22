@@ -69,7 +69,7 @@ export default function AdminClients() {
             <div key={c.id} style={card}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                 <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
-                  <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#dbeafe', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: '700', color: '#3b82f6' }}>{(c.company_name || c.contact_name)[0]}</div>
+                  <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#dbeafe', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: '700', color: '#3b82f6' }}>{((c.company_name || c.contact_name) || 'C')[0]}</div>
                   <div>
                     <div style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b' }}>{c.company_name || c.contact_name}</div>
                     <div style={{ fontSize: '13px', color: '#64748b' }}>{c.contact_name} • {c.email} • {c.phone}</div>

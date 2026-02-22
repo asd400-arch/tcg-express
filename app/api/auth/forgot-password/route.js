@@ -41,7 +41,7 @@ export async function POST(request) {
 
     await sendEmail(
       user.email,
-      'Tech Chain Express — Password Reset Code',
+      'TCG Express — Password Reset Code',
       `<div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto;">
         <h2 style="color: #1e293b;">Password Reset</h2>
         <p>Hi ${user.contact_name || 'there'},</p>
@@ -50,7 +50,7 @@ export async function POST(request) {
           <span style="font-size: 32px; font-weight: 700; letter-spacing: 6px; color: #3b82f6;">${code}</span>
         </div>
         <p style="color: #64748b; font-size: 14px;">This code expires in 15 minutes. If you didn't request this, you can ignore this email.</p>
-        <p style="color: #94a3b8; font-size: 12px;">— Tech Chain Express</p>
+        <p style="color: #94a3b8; font-size: 12px;">— TCG Express</p>
       </div>`
     );
 

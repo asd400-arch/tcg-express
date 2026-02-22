@@ -16,6 +16,7 @@ export default function DriverDashboard() {
   const [stats, setStats] = useState({ active: 0, completed: 0, earnings: 0, rating: 5.0 });
   const [recentReviews, setRecentReviews] = useState([]);
   const [dataLoading, setDataLoading] = useState(true);
+  const [evStats, setEvStats] = useState({ monthSavings: 0, totalCo2: 0 });
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -42,6 +43,22 @@ export default function DriverDashboard() {
       earnings: totalEarnings,
       rating: user.driver_rating || 5.0,
     });
+
+    // Calculate EV stats if driver is EV-certified
+    if (user.is_ev_vehicle) {
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      const completedJobs = mj.filter(x => ['confirmed', 'completed'].includes(x.status));
+      // Monthly commission savings: difference between 15% and 10% on this month's jobs
+      const monthJobs = completedJobs.filter(j => j.completed_at && j.completed_at >= monthStart);
+      const monthSavings = monthJobs.reduce((sum, j) => {
+        const amount = parseFloat(j.final_amount) || 0;
+        return sum + (amount * 0.05); // 5% saving (15% - 10%)
+      }, 0);
+      // Total CO2 saved from all EV deliveries
+      const totalCo2 = completedJobs.reduce((sum, j) => sum + (parseFloat(j.co2_saved_kg) || 0), 0);
+      setEvStats({ monthSavings, totalCo2 });
+    }
     setDataLoading(false);
   };
 
@@ -57,8 +74,47 @@ export default function DriverDashboard() {
       <div style={{ flex: 1, padding: m ? '20px 16px' : '30px', overflowX: 'hidden' }}>
         <div style={{ marginBottom: '25px' }}>
           <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', marginBottom: '4px' }}>Hi, {user.contact_name} 🚗</h1>
-          <p style={{ color: '#64748b', fontSize: '14px' }}>{user.vehicle_type} • {user.vehicle_plate}</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+            <p style={{ color: '#64748b', fontSize: '14px', margin: 0 }}>{user.vehicle_type} • {user.vehicle_plate}</p>
+            <span style={{
+              padding: '2px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '700',
+              background: user.is_ev_vehicle ? '#dcfce7' : '#f1f5f9',
+              color: user.is_ev_vehicle ? '#16a34a' : '#64748b',
+            }}>
+              {user.is_ev_vehicle ? 'EV Partner • 10% Commission' : 'Standard • 15% Commission'}
+            </span>
+          </div>
         </div>
+
+        {/* EV Savings Card */}
+        {user.is_ev_vehicle && (
+          <div style={{
+            ...card, marginBottom: '25px',
+            background: 'linear-gradient(135deg, #f0fdf4, #dcfce7)',
+            border: '1px solid #bbf7d0',
+          }}>
+            <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#16a34a', marginBottom: '14px' }}>
+              EV Partner Benefits
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr 1fr' : '1fr 1fr 1fr', gap: '14px' }}>
+              <div style={{ background: 'white', borderRadius: '10px', padding: '14px', textAlign: 'center' }}>
+                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '500', marginBottom: '4px' }}>Commission Rate</div>
+                <div style={{ fontSize: '22px', fontWeight: '800', color: '#16a34a' }}>10%</div>
+                <div style={{ fontSize: '10px', color: '#94a3b8' }}>vs 15% standard</div>
+              </div>
+              <div style={{ background: 'white', borderRadius: '10px', padding: '14px', textAlign: 'center' }}>
+                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '500', marginBottom: '4px' }}>Saved This Month</div>
+                <div style={{ fontSize: '22px', fontWeight: '800', color: '#16a34a' }}>${evStats.monthSavings.toFixed(2)}</div>
+                <div style={{ fontSize: '10px', color: '#94a3b8' }}>from lower commission</div>
+              </div>
+              <div style={{ background: 'white', borderRadius: '10px', padding: '14px', textAlign: 'center', ...(m ? { gridColumn: 'span 2' } : {}) }}>
+                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '500', marginBottom: '4px' }}>CO2 Prevented</div>
+                <div style={{ fontSize: '22px', fontWeight: '800', color: '#16a34a' }}>{evStats.totalCo2.toFixed(1)} kg</div>
+                <div style={{ fontSize: '10px', color: '#94a3b8' }}>total from EV deliveries</div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Stats */}
         <div style={{ display: 'grid', gridTemplateColumns: m ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: '16px', marginBottom: '30px' }}>

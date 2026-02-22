@@ -52,7 +52,7 @@ export default function ClientDashboard() {
       <div style={{ flex: 1, padding: m ? '20px 16px' : '30px', overflowX: 'hidden' }}>
         <PromoBanner />
         <div style={{ marginBottom: '25px' }}>
-          <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', marginBottom: '4px' }}>Welcome, {user.contact_name}</h1>
+          <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', marginBottom: '4px' }}>Welcome, {user.contact_name || 'there'}</h1>
           <p style={{ color: '#64748b', fontSize: '14px' }}>{user.company_name || 'Your delivery dashboard'}</p>
         </div>
 
@@ -62,7 +62,7 @@ export default function ClientDashboard() {
             { label: 'Active', value: stats.active, color: '#f59e0b', icon: '🚚' },
             { label: 'Completed', value: stats.completed, color: '#10b981', icon: '✅' },
             { label: 'Pending Confirm', value: stats.pending, color: '#8b5cf6', icon: '⏳' },
-            { label: 'Your Rating', value: (user.client_rating || 5.0).toFixed(1), color: '#f59e0b', icon: '⭐' },
+            { label: 'Your Rating', value: (user.client_rating != null ? user.client_rating : 5.0).toFixed(1), color: '#f59e0b', icon: '⭐' },
           ].map((s, i) => (
             <div key={i} style={card}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>

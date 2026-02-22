@@ -36,19 +36,19 @@ export async function POST(request, { params }) {
 
     // Fetch driver and client info for detailed notifications
     const [driverRes, clientRes] = await Promise.all([
-      supabaseAdmin.from('express_users').select('contact_name, phone, vehicle_type, vehicle_plate, driver_rating').eq('id', bid.driver_id).single(),
+      supabaseAdmin.from('express_users').select('contact_name, phone, vehicle_type, vehicle_plate, driver_rating, is_ev_vehicle').eq('id', bid.driver_id).single(),
       supabaseAdmin.from('express_users').select('contact_name, phone, email, company_name').eq('id', session.userId).single(),
     ]);
     const driver = driverRes.data;
     const client = clientRes.data;
 
-    // Get commission rate
-    let rate = 15;
+    // Get commission rate - EV drivers get reduced rate (10% vs 15%)
+    let rate = driver?.is_ev_vehicle ? 10 : 15;
     try {
       const { data: settings } = await supabaseAdmin
         .from('express_settings')
         .select('value')
-        .eq('key', 'commission_rate')
+        .eq('key', driver?.is_ev_vehicle ? 'ev_commission_rate' : 'commission_rate')
         .single();
       if (settings?.value) rate = parseFloat(settings.value);
     } catch {}

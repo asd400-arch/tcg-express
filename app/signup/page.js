@@ -2,6 +2,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../components/AuthContext';
+import TermsModal from '../components/TermsModal';
+import { VEHICLE_MODES } from '../../lib/fares';
 
 export default function Signup() {
   const { signup } = useAuth();
@@ -9,11 +11,15 @@ export default function Signup() {
   const [step, setStep] = useState(1);
   const [role, setRole] = useState('');
   const [driverType, setDriverType] = useState('');
-  const [form, setForm] = useState({ email: '', password: '', confirm: '', contact_name: '', phone: '', company_name: '', vehicle_type: '', vehicle_plate: '', license_number: '', nric_number: '', business_reg_number: '' });
+  const [form, setForm] = useState({ email: '', password: '', confirm: '', first_name: '', last_name: '', phone: '', company_name: '', vehicle_type: '', vehicle_plate: '', license_number: '', nric_number: '', business_reg_number: '', is_ev_vehicle: false });
   const [files, setFiles] = useState({ nric_front: null, nric_back: null, license_photo: null, vehicle_insurance: null, business_reg_cert: null });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [tcAccepted, setTcAccepted] = useState(false);
+  const [driverTcAccepted, setDriverTcAccepted] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [termsHighlightSection, setTermsHighlightSection] = useState(null);
 
   const set = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
   const setFile = (k, file) => setFiles(prev => ({ ...prev, [k]: file }));
@@ -49,7 +55,7 @@ export default function Signup() {
     setLoading(true);
     try {
       // Phase 1: Create user with text fields
-      const userData = { email: form.email, password: form.password, contact_name: form.contact_name, phone: form.phone, role };
+      const userData = { email: form.email, password: form.password, contact_name: `${form.first_name} ${form.last_name}`.trim(), phone: form.phone, role };
       if (role === 'client') {
         userData.company_name = form.company_name;
       }
@@ -60,6 +66,7 @@ export default function Signup() {
         userData.driver_status = 'pending';
         userData.driver_type = driverType;
         userData.nric_number = form.nric_number;
+        userData.is_ev_vehicle = form.is_ev_vehicle;
         if (driverType === 'company') {
           userData.company_name = form.company_name;
           userData.business_reg_number = form.business_reg_number;
@@ -138,7 +145,7 @@ export default function Signup() {
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
           <div style={{ width: '56px', height: '56px', borderRadius: '14px', background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', fontWeight: '900', color: 'white', margin: '0 auto 16px' }}>T</div>
           <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', marginBottom: '6px' }}>Create Account</h1>
-          <p style={{ color: '#64748b', fontSize: '14px' }}>Join Tech Chain Express</p>
+          <p style={{ color: '#64748b', fontSize: '14px' }}>Join TCG Express</p>
         </div>
 
         {/* Step indicators for driver flow */}
@@ -208,13 +215,17 @@ export default function Signup() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 <div style={{ display: 'flex', gap: '14px' }}>
                   <div style={{ flex: 1 }}>
-                    <label style={label}>Full Name *</label>
-                    <input style={input} value={form.contact_name} onChange={e => set('contact_name', e.target.value)} placeholder="Your name" required />
+                    <label style={label}>First Name *</label>
+                    <input style={input} value={form.first_name} onChange={e => set('first_name', e.target.value)} placeholder="First name" required />
                   </div>
                   <div style={{ flex: 1 }}>
-                    <label style={label}>Phone *</label>
-                    <input style={input} value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="+65 xxxx xxxx" required />
+                    <label style={label}>Last Name *</label>
+                    <input style={input} value={form.last_name} onChange={e => set('last_name', e.target.value)} placeholder="Last name" required />
                   </div>
+                </div>
+                <div>
+                  <label style={label}>Phone *</label>
+                  <input style={input} value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="+65 xxxx xxxx" required />
                 </div>
                 {role === 'driver' && (
                   <div>
@@ -243,10 +254,9 @@ export default function Signup() {
                       <label style={label}>Vehicle Type *</label>
                       <select style={input} value={form.vehicle_type} onChange={e => set('vehicle_type', e.target.value)} required>
                         <option value="">Select</option>
-                        <option value="motorcycle">Motorcycle</option>
-                        <option value="car">Car</option>
-                        <option value="van">Van</option>
-                        <option value="truck">Truck</option>
+                        {VEHICLE_MODES.filter(v => v.key !== 'special').map(v => (
+                          <option key={v.key} value={v.key}>{v.icon} {v.label}</option>
+                        ))}
                       </select>
                     </div>
                     <div style={{ flex: 1 }}>
@@ -257,6 +267,24 @@ export default function Signup() {
                   <div>
                     <label style={label}>License Number *</label>
                     <input style={input} value={form.license_number} onChange={e => set('license_number', e.target.value)} placeholder="License number" required />
+                  </div>
+                  <div style={{ padding: '14px', borderRadius: '10px', background: form.is_ev_vehicle ? '#f0fdf4' : '#f8fafc', border: form.is_ev_vehicle ? '1px solid #86efac' : '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ fontSize: '20px' }}>⚡</span>
+                      <div>
+                        <div style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>Electric Vehicle (EV)</div>
+                        <div style={{ fontSize: '11px', color: '#64748b' }}>My vehicle is fully electric</div>
+                      </div>
+                    </div>
+                    <div onClick={() => set('is_ev_vehicle', !form.is_ev_vehicle)} style={{
+                      width: '44px', height: '24px', borderRadius: '12px', cursor: 'pointer', position: 'relative',
+                      background: form.is_ev_vehicle ? '#16a34a' : '#cbd5e1', transition: 'background 0.2s',
+                    }}>
+                      <div style={{
+                        width: '20px', height: '20px', borderRadius: '10px', background: 'white', position: 'absolute', top: '2px',
+                        left: form.is_ev_vehicle ? '22px' : '2px', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                      }} />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -317,10 +345,34 @@ export default function Signup() {
               </div>
             </div>
 
+            {/* T&C Checkboxes */}
+            {role === 'client' && (
+              <div style={{ padding: '14px', borderRadius: '10px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer', fontSize: '13px', color: '#374151', lineHeight: '1.5' }}>
+                  <input type="checkbox" checked={tcAccepted} onChange={e => setTcAccepted(e.target.checked)} style={{ marginTop: '3px', accentColor: '#3b82f6' }} />
+                  <span>
+                    I agree to the{' '}
+                    <span onClick={(e) => { e.preventDefault(); setTermsHighlightSection(null); setShowTermsModal(true); }} style={{ color: '#3b82f6', fontWeight: '600', cursor: 'pointer', textDecoration: 'underline' }}>Terms and Conditions</span>
+                  </span>
+                </label>
+              </div>
+            )}
+            {role === 'driver' && (
+              <div style={{ padding: '14px', borderRadius: '10px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer', fontSize: '13px', color: '#374151', lineHeight: '1.5' }}>
+                  <input type="checkbox" checked={driverTcAccepted} onChange={e => setDriverTcAccepted(e.target.checked)} style={{ marginTop: '3px', accentColor: '#3b82f6' }} />
+                  <span>
+                    I agree to the{' '}
+                    <span onClick={(e) => { e.preventDefault(); setTermsHighlightSection(null); setShowTermsModal(true); }} style={{ color: '#3b82f6', fontWeight: '600', cursor: 'pointer', textDecoration: 'underline' }}>Driver Partner Terms and Conditions</span>
+                  </span>
+                </label>
+              </div>
+            )}
+
             {error && <div style={{ padding: '10px 14px', borderRadius: '8px', background: '#fef2f2', color: '#dc2626', fontSize: '13px' }}>{error}</div>}
             <div style={{ display: 'flex', gap: '10px' }}>
               <button type="button" onClick={() => { if (role === 'driver') setStep(2); else { setStep(1); setRole(''); } }} style={{ flex: 1, padding: '13px', borderRadius: '10px', border: '1px solid #e2e8f0', background: 'white', color: '#64748b', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>← Back</button>
-              <button type="submit" disabled={loading} style={{ flex: 2, padding: '13px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: 'white', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif", opacity: loading ? 0.7 : 1 }}>{loading ? (role === 'driver' ? 'Uploading documents...' : 'Creating...') : 'Create Account'}</button>
+              <button type="submit" disabled={loading || (role === 'client' && !tcAccepted) || (role === 'driver' && !driverTcAccepted)} style={{ flex: 2, padding: '13px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: 'white', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif", opacity: (loading || (role === 'client' && !tcAccepted) || (role === 'driver' && !driverTcAccepted)) ? 0.5 : 1 }}>{loading ? (role === 'driver' ? 'Uploading documents...' : 'Creating...') : 'Create Account'}</button>
             </div>
           </form>
         )}
@@ -331,14 +383,7 @@ export default function Signup() {
           </p>
         </div>
 
-        <div style={{ textAlign: 'center', marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #f1f5f9' }}>
-          <p style={{ color: '#94a3b8', fontSize: '12px' }}>
-            By creating an account, you agree to our{' '}
-            <a href="/terms" style={{ color: '#94a3b8', textDecoration: 'underline' }}>Terms of Service</a>
-            {' and '}
-            <a href="/privacy" style={{ color: '#94a3b8', textDecoration: 'underline' }}>Privacy Policy</a>
-          </p>
-        </div>
+        {showTermsModal && <TermsModal onClose={() => setShowTermsModal(false)} highlightSection={termsHighlightSection} />}
       </div>
     </div>
   );

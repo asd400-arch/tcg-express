@@ -13,6 +13,7 @@ const ALLOWED_SIGNUP_FIELDS = [
   'role', 'contact_name', 'phone', 'company_name', 'company_registration',
   'billing_address', 'vehicle_type', 'vehicle_plate', 'license_number',
   'driver_type', 'nric_number', 'business_reg_number',
+  'is_ev_vehicle', 'ev_vehicle_type',
 ];
 
 export async function POST(request) {
@@ -83,8 +84,8 @@ export async function POST(request) {
     // Send verification email
     await sendEmail(
       email,
-      'Verify your email - Tech Chain Express',
-      `<h2>Email Verification</h2><p>Your verification code is:</p><div style="font-size:32px;font-weight:700;letter-spacing:6px;text-align:center;padding:20px;background:#f8fafc;border-radius:10px;margin:16px 0">${verification_code}</div><p>This code expires in 15 minutes.</p><p>If you did not sign up for Tech Chain Express, please ignore this email.</p>`
+      'Verify your email - TCG Express',
+      `<h2>Email Verification</h2><p>Your verification code is:</p><div style="font-size:32px;font-weight:700;letter-spacing:6px;text-align:center;padding:20px;background:#f8fafc;border-radius:10px;margin:16px 0">${verification_code}</div><p>This code expires in 15 minutes.</p><p>If you did not sign up for TCG Express, please ignore this email.</p>`
     );
 
     // Strip sensitive fields before returning

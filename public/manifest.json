@@ -1,6 +1,6 @@
 {
-  "name": "Tech Chain Express",
-  "short_name": "Tech Chain Express",
+  "name": "TCG Express",
+  "short_name": "TCG Express",
   "description": "B2B Express Delivery Platform — Post jobs, get bids, track deliveries in real-time.",
   "start_url": "/",
   "display": "standalone",

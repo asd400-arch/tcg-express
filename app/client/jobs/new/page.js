@@ -9,8 +9,10 @@ import useMobile from '../../../components/useMobile';
 import { JOB_CATEGORIES } from '../../../../lib/constants';
 import {
   SIZE_TIERS, WEIGHT_RANGES, URGENCY_MULTIPLIERS, ADDON_OPTIONS,
-  BASIC_EQUIPMENT, SPECIAL_EQUIPMENT,
+  BASIC_EQUIPMENT, SPECIAL_EQUIPMENT, VEHICLE_MODES, autoSelectVehicle, getVehicleModeIndex,
   calculateFare, getSizeTierFromWeight, getSizeTierFromVolume, getHigherSizeTier, getAutoManpower,
+  EV_EMISSION_FACTORS, EV_DISCOUNT_RATE, calculateCO2Saved, calculateGreenPoints, calculateEvDiscount,
+  SAVE_MODE_WINDOWS, SAVE_MODE_GREEN_POINTS, DIMENSION_PRESETS,
 } from '../../../../lib/fares';
 
 function AddressAutocomplete({ value, onChange, placeholder, inputStyle }) {
@@ -93,10 +95,14 @@ export default function NewJob() {
   const router = useRouter();
   const toast = useToast();
   const m = useMobile();
+  const [jobType, setJobType] = useState('spot');
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(null);
   const [successType, setSuccessType] = useState('job');
+  const [isEvSelected, setIsEvSelected] = useState(false);
+  const [deliveryMode, setDeliveryMode] = useState('express');
+  const [saveModeWindow, setSaveModeWindow] = useState(null);
   const [form, setForm] = useState({
     pickup_address: '', pickup_contact: '', pickup_phone: '', pickup_instructions: '',
     delivery_address: '', delivery_contact: '', delivery_phone: '', delivery_instructions: '',
@@ -140,6 +146,24 @@ export default function NewJob() {
   const autoSizeTier = useMemo(() => getHigherSizeTier(weightSizeTier, volumeSizeTier), [weightSizeTier, volumeSizeTier]);
   const effectiveSize = form.size_tier || autoSizeTier || '';
 
+  // Auto vehicle mode from weight + dimensions
+  const autoVehicleMode = useMemo(
+    () => autoSelectVehicle(midWeight, form.dim_l, form.dim_w, form.dim_h),
+    [midWeight, form.dim_l, form.dim_w, form.dim_h]
+  );
+  const effectiveVehicleMode = form.vehicle_required !== 'any' ? form.vehicle_required : autoVehicleMode;
+
+  // Reset manual vehicle selection if it's now below auto-selected (upgrade only)
+  useEffect(() => {
+    if (form.vehicle_required !== 'any' && autoVehicleMode && autoVehicleMode !== 'special') {
+      const autoIdx = getVehicleModeIndex(autoVehicleMode);
+      const manualIdx = getVehicleModeIndex(form.vehicle_required);
+      if (manualIdx >= 0 && manualIdx < autoIdx) {
+        set('vehicle_required', 'any');
+      }
+    }
+  }, [autoVehicleMode]);
+
   // Auto-manpower
   useEffect(() => {
     if (form.manpower_auto && midWeight > 0) {
@@ -151,10 +175,25 @@ export default function NewJob() {
     }
   }, [midWeight, form.manpower_auto]);
 
+  // EV CO2 estimates (using 15km average Singapore delivery distance)
+  const estimatedDistanceKm = 15;
+  const evCo2Saved = useMemo(
+    () => isEvSelected ? calculateCO2Saved(effectiveVehicleMode, estimatedDistanceKm) : 0,
+    [isEvSelected, effectiveVehicleMode]
+  );
+  const evGreenPoints = useMemo(() => calculateGreenPoints(evCo2Saved), [evCo2Saved]);
+
+  // SaveMode discount
+  const activeSaveModeDiscount = useMemo(() => {
+    if (deliveryMode !== 'save_mode' || !saveModeWindow) return 0;
+    const w = SAVE_MODE_WINDOWS.find(sw => sw.hours === saveModeWindow);
+    return w ? w.discount : 0;
+  }, [deliveryMode, saveModeWindow]);
+
   // Real-time fare calculation
   const fare = useMemo(
-    () => calculateFare({ sizeTier: effectiveSize, urgency: form.urgency, addons: form.addons, basicEquipCount: form.basic_equipment.length }),
-    [effectiveSize, form.urgency, form.addons, form.basic_equipment.length]
+    () => calculateFare({ sizeTier: effectiveSize, vehicleMode: effectiveVehicleMode, urgency: form.urgency, addons: form.addons, basicEquipCount: form.basic_equipment.length, isEvSelected, saveModeDiscount: activeSaveModeDiscount }),
+    [effectiveSize, effectiveVehicleMode, form.urgency, form.addons, form.basic_equipment.length, isEvSelected, activeSaveModeDiscount]
   );
 
   // Styles
@@ -188,18 +227,32 @@ export default function NewJob() {
 
     if (form.schedule_mode === 'now') {
       setSubmitting(true);
-      const { data, error } = await supabase.from('express_jobs').insert([{
+      const jobInsert = {
         client_id: user.id,
         pickup_address: form.pickup_address, pickup_contact: form.pickup_contact, pickup_phone: form.pickup_phone, pickup_instructions: form.pickup_instructions,
         delivery_address: form.delivery_address, delivery_contact: form.delivery_contact, delivery_phone: form.delivery_phone, delivery_instructions: form.delivery_instructions,
         item_description: form.item_description, item_category: form.item_category,
         item_weight: midWeight || null, item_dimensions: dimensions,
         urgency: form.urgency, budget_min: budgetMin, budget_max: budgetMax,
-        vehicle_required: form.vehicle_required, special_requirements: specialReqs || null,
+        vehicle_required: effectiveVehicleMode || 'any', special_requirements: specialReqs || null,
         equipment_needed: allEquipment, manpower_count: form.manpower_count,
         pickup_by: form.pickup_by || null, deliver_by: form.deliver_by || null,
         status: 'open',
-      }]).select().single();
+        job_type: jobType,
+        delivery_mode: deliveryMode,
+      };
+      if (deliveryMode === 'save_mode' && saveModeWindow) {
+        const deadline = new Date();
+        deadline.setHours(deadline.getHours() + saveModeWindow);
+        jobInsert.save_mode_window = saveModeWindow;
+        jobInsert.save_mode_deadline = deadline.toISOString();
+      }
+      if (isEvSelected) {
+        jobInsert.is_ev_selected = true;
+        jobInsert.co2_saved_kg = evCo2Saved || null;
+        jobInsert.green_points_earned = evGreenPoints || null;
+      }
+      const { data, error } = await supabase.from('express_jobs').insert([jobInsert]).select().single();
       setSubmitting(false);
       if (error) { toast.error('Error: ' + error.message); return; }
       setSuccessType('job');
@@ -219,7 +272,7 @@ export default function NewJob() {
           item_description: form.item_description, item_category: form.item_category,
           item_weight: form.item_weight, item_dimensions: form.item_dimensions,
           urgency: form.urgency, budget_min: form.budget_min, budget_max: form.budget_max,
-          vehicle_required: form.vehicle_required, special_requirements: specialReqs || form.special_requirements,
+          vehicle_required: effectiveVehicleMode || 'any', special_requirements: specialReqs || form.special_requirements,
           equipment_needed: form.equipment_needed, manpower_count: form.manpower_count,
         };
         if (form.schedule_mode === 'recurring') {
@@ -245,6 +298,10 @@ export default function NewJob() {
     setSuccess(null);
     setSuccessType('job');
     setStep(1);
+    setIsEvSelected(false);
+    setDeliveryMode('express');
+    setSaveModeWindow(null);
+    setJobType('spot');
     setForm({
       pickup_address: '', pickup_contact: '', pickup_phone: '', pickup_instructions: '',
       delivery_address: '', delivery_contact: '', delivery_phone: '', delivery_instructions: '',
@@ -264,7 +321,7 @@ export default function NewJob() {
     const isSchedule = successType === 'schedule';
     return (
       <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>
-        <Sidebar active="New Job" />
+        <Sidebar active="New Delivery" />
         <div style={{ flex: 1, padding: m ? '20px 16px' : '30px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ ...card, maxWidth: '480px', textAlign: 'center', padding: '40px' }}>
             <div style={{ fontSize: '48px', marginBottom: '16px' }}>{isSchedule ? '📅' : '🎉'}</div>
@@ -300,7 +357,7 @@ export default function NewJob() {
       <div style={{ ...card, border: '2px solid #3b82f6', background: '#fafcff' }}>
         <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#3b82f6', marginBottom: '14px' }}>💰 Fare Estimate</h3>
         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: '14px' }}>
-          <span style={{ color: '#64748b' }}>Base fare ({SIZE_TIERS.find(t => t.key === effectiveSize)?.label})</span>
+          <span style={{ color: '#64748b' }}>Base fare ({VEHICLE_MODES.find(v => v.key === effectiveVehicleMode)?.label || SIZE_TIERS.find(t => t.key === effectiveSize)?.label || '-'})</span>
           <span style={{ fontWeight: '600', color: '#1e293b' }}>${fare.baseFare.toFixed(2)}</span>
         </div>
         {fare.multiplier > 1 && (
@@ -315,6 +372,18 @@ export default function NewJob() {
             <span style={{ fontWeight: '600', color: '#1e293b' }}>+${a.cost.toFixed(2)}</span>
           </div>
         ))}
+        {fare.evDiscount > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: '14px' }}>
+            <span style={{ color: '#16a34a', fontWeight: '500' }}>⚡ EV Discount (8%)</span>
+            <span style={{ fontWeight: '600', color: '#16a34a' }}>-${fare.evDiscount.toFixed(2)}</span>
+          </div>
+        )}
+        {fare.saveModeDiscount > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: '14px' }}>
+            <span style={{ color: '#8b5cf6', fontWeight: '500' }}>SaveMode ({saveModeWindow}hr window)</span>
+            <span style={{ fontWeight: '600', color: '#8b5cf6' }}>-${fare.saveModeDiscount.toFixed(2)}</span>
+          </div>
+        )}
         <div style={{ height: '1px', background: '#3b82f6', opacity: 0.2, margin: '10px 0' }} />
         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0' }}>
           <span style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b' }}>Estimated Total</span>
@@ -331,9 +400,31 @@ export default function NewJob() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>
-      <Sidebar active="New Job" />
+      <Sidebar active="New Delivery" />
       <div style={{ flex: 1, padding: m ? '20px 16px' : '30px', maxWidth: '720px' }}>
-        <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', marginBottom: '20px' }}>➕ New Delivery Job</h1>
+        <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>➕ New Delivery Job</h1>
+
+        {/* Job Type Tabs */}
+        <div style={{ display: 'flex', gap: '4px', marginBottom: '20px', background: '#f1f5f9', borderRadius: '12px', padding: '4px' }}>
+          {[
+            { key: 'spot', label: 'Spot Delivery', icon: '🚚' },
+            { key: 'regular', label: 'Scheduled', icon: '📅' },
+            { key: 'rfq', label: 'RFQ', icon: '📋' },
+          ].map(tab => (
+            <div key={tab.key} onClick={() => {
+              if (tab.key === 'rfq') { router.push('/client/rfq'); return; }
+              setJobType(tab.key);
+              if (tab.key === 'regular') { setStep(1); }
+            }} style={{
+              flex: 1, padding: '10px 8px', borderRadius: '10px', textAlign: 'center', cursor: 'pointer',
+              background: jobType === tab.key ? 'white' : 'transparent',
+              boxShadow: jobType === tab.key ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+            }}>
+              <span style={{ fontSize: '16px' }}>{tab.icon}</span>
+              <div style={{ fontSize: '12px', fontWeight: '600', color: jobType === tab.key ? '#1e293b' : '#64748b', marginTop: '2px' }}>{tab.label}</div>
+            </div>
+          ))}
+        </div>
 
         {/* Steps indicator */}
         <div style={{ display: 'flex', gap: '8px', marginBottom: '25px' }}>
@@ -414,7 +505,23 @@ export default function NewJob() {
             {/* Dimensions */}
             <div style={card}>
               <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '6px' }}>📐 Dimensions (cm)</h3>
-              <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '12px' }}>Enter L x W x H for auto volume calculation</p>
+              <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '12px' }}>Pick a preset or enter L x W x H manually</p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '14px' }}>
+                {DIMENSION_PRESETS.map(p => {
+                  const active = form.dim_l === String(p.l) && form.dim_w === String(p.w) && form.dim_h === String(p.h);
+                  return (
+                    <div key={p.key} onClick={() => { set('dim_l', String(p.l)); set('dim_w', String(p.w)); set('dim_h', String(p.h)); if (p.weightKey && !form.weight_range) set('weight_range', p.weightKey); }} style={{
+                      padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: '600',
+                      border: active ? '2px solid #3b82f6' : '1px solid #e2e8f0',
+                      background: active ? '#eff6ff' : 'white',
+                      color: active ? '#3b82f6' : '#64748b',
+                      display: 'flex', alignItems: 'center', gap: '4px',
+                    }}>
+                      <span>{p.icon}</span> {p.label}
+                    </div>
+                  );
+                })}
+              </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr auto 1fr', gap: '8px', alignItems: 'center' }}>
                 <input type="number" style={{ ...input, textAlign: 'center' }} value={form.dim_l} onChange={e => set('dim_l', e.target.value)} placeholder="L" />
                 <span style={{ color: '#94a3b8', fontWeight: '700' }}>x</span>
@@ -439,25 +546,142 @@ export default function NewJob() {
               </div>
             )}
 
-            {/* Size Tier */}
+            {/* Vehicle Mode */}
             <div style={card}>
-              <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '6px' }}>📏 Size Tier {autoSizeTier ? '(Override)' : ''}</h3>
+              <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '6px' }}>🚛 Vehicle Type {autoVehicleMode ? '(Auto-selected)' : ''}</h3>
+              {autoVehicleMode && autoVehicleMode !== 'special' && (
+                <p style={{ fontSize: '13px', color: '#3b82f6', fontWeight: '500', marginBottom: '10px' }}>
+                  Auto: {VEHICLE_MODES.find(v => v.key === autoVehicleMode)?.icon} {VEHICLE_MODES.find(v => v.key === autoVehicleMode)?.label} (based on weight & dimensions)
+                </p>
+              )}
+              {autoVehicleMode === 'special' && (
+                <p style={{ fontSize: '13px', color: '#f59e0b', fontWeight: '600', marginBottom: '10px' }}>
+                  Exceeds standard vehicle capacity — custom quote required
+                </p>
+              )}
+              {autoVehicleMode && autoVehicleMode !== 'special' && (
+                <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '10px' }}>You can upgrade to a larger vehicle but not downgrade below the auto-selected size.</p>
+              )}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {SIZE_TIERS.map(tier => {
-                  const active = form.size_tier === tier.key || (!form.size_tier && autoSizeTier === tier.key);
+                {VEHICLE_MODES.filter(v => v.key !== 'special').map(mode => {
+                  const autoIdx = getVehicleModeIndex(autoVehicleMode);
+                  const modeIdx = getVehicleModeIndex(mode.key);
+                  const isBelowAuto = autoVehicleMode && autoVehicleMode !== 'special' && modeIdx < autoIdx;
+                  const isAuto = autoVehicleMode === mode.key && form.vehicle_required === 'any';
+                  const isManual = form.vehicle_required === mode.key;
+                  const active = isManual || isAuto;
                   return (
-                    <div key={tier.key} onClick={() => set('size_tier', form.size_tier === tier.key ? '' : tier.key)} style={{
-                      display: 'flex', alignItems: 'center', padding: '14px 16px', borderRadius: '10px', cursor: 'pointer',
+                    <div key={mode.key} onClick={() => { if (isBelowAuto) return; set('vehicle_required', form.vehicle_required === mode.key ? 'any' : mode.key); }} style={{
+                      display: 'flex', alignItems: 'center', padding: '14px 16px', borderRadius: '10px',
+                      cursor: isBelowAuto ? 'not-allowed' : 'pointer',
+                      opacity: isBelowAuto ? 0.4 : 1,
                       border: active ? '2px solid #3b82f6' : '2px solid #e2e8f0',
-                      background: active ? '#eff6ff' : 'white',
+                      background: active ? '#eff6ff' : isBelowAuto ? '#f8fafc' : 'white',
                     }}>
-                      <span style={{ fontSize: '22px', marginRight: '12px' }}>{tier.icon}</span>
-                      <span style={{ flex: 1, fontSize: '14px', fontWeight: '600', color: active ? '#3b82f6' : '#1e293b' }}>{tier.label}</span>
-                      <span style={{ fontSize: '18px', fontWeight: '700', color: active ? '#3b82f6' : '#64748b' }}>${tier.baseFare}</span>
+                      <span style={{ fontSize: '22px', marginRight: '12px' }}>{mode.icon}</span>
+                      <div style={{ flex: 1 }}>
+                        <span style={{ fontSize: '14px', fontWeight: '600', color: active ? '#3b82f6' : '#1e293b' }}>{mode.label}</span>
+                        <span style={{ fontSize: '11px', color: '#94a3b8', marginLeft: '8px' }}>{mode.maxWeight}kg · {mode.maxL}x{mode.maxW}x{mode.maxH}cm</span>
+                      </div>
+                      <span style={{ fontSize: '16px', fontWeight: '700', color: active ? '#3b82f6' : '#64748b' }}>${mode.baseFare}</span>
+                      {isAuto && !isManual && <span style={{ fontSize: '10px', color: '#3b82f6', fontWeight: '600', marginLeft: '6px' }}>AUTO</span>}
+                      {isBelowAuto && <span style={{ fontSize: '10px', color: '#ef4444', fontWeight: '600', marginLeft: '6px' }}>TOO SMALL</span>}
                     </div>
                   );
                 })}
               </div>
+            </div>
+
+            {/* EV Option */}
+            {effectiveVehicleMode && effectiveVehicleMode !== 'special' && EV_EMISSION_FACTORS[effectiveVehicleMode] && (
+              <div style={{ ...card, border: isEvSelected ? '2px solid #16a34a' : '2px solid #e2e8f0', background: isEvSelected ? '#f0fdf4' : 'white' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: isEvSelected ? '14px' : '0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '22px' }}>⚡</span>
+                    <div>
+                      <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', margin: 0 }}>EV Delivery</h3>
+                      <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0' }}>Request an electric vehicle for greener delivery</p>
+                    </div>
+                  </div>
+                  <div onClick={() => setIsEvSelected(!isEvSelected)} style={{
+                    width: '48px', height: '26px', borderRadius: '13px', cursor: 'pointer', position: 'relative', transition: 'background 0.2s',
+                    background: isEvSelected ? '#16a34a' : '#cbd5e1',
+                  }}>
+                    <div style={{
+                      width: '22px', height: '22px', borderRadius: '11px', background: 'white', position: 'absolute', top: '2px',
+                      left: isEvSelected ? '24px' : '2px', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                    }} />
+                  </div>
+                </div>
+                {isEvSelected && (
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    <div style={{ flex: 1, minWidth: '120px', background: '#dcfce7', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '20px', fontWeight: '700', color: '#16a34a' }}>{evCo2Saved.toFixed(1)}kg</div>
+                      <div style={{ fontSize: '11px', color: '#15803d', fontWeight: '600' }}>CO2 Saved</div>
+                    </div>
+                    <div style={{ flex: 1, minWidth: '120px', background: '#dcfce7', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '20px', fontWeight: '700', color: '#16a34a' }}>{evGreenPoints}</div>
+                      <div style={{ fontSize: '11px', color: '#15803d', fontWeight: '600' }}>Green Points</div>
+                    </div>
+                    <div style={{ flex: 1, minWidth: '120px', background: '#dcfce7', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '20px', fontWeight: '700', color: '#16a34a' }}>8%</div>
+                      <div style={{ fontSize: '11px', color: '#15803d', fontWeight: '600' }}>Fare Discount</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Delivery Mode: Express vs SaveMode */}
+            <div style={card}>
+              <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '6px' }}>🚀 Delivery Mode</h3>
+              <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '14px' }}>SaveMode groups deliveries to save you money</p>
+              <div style={{ display: 'flex', gap: '10px', marginBottom: deliveryMode === 'save_mode' ? '16px' : '0' }}>
+                <div onClick={() => { setDeliveryMode('express'); setSaveModeWindow(null); }} style={{
+                  flex: 1, padding: '16px', borderRadius: '12px', cursor: 'pointer', textAlign: 'center',
+                  border: deliveryMode === 'express' ? '2px solid #3b82f6' : '2px solid #e2e8f0',
+                  background: deliveryMode === 'express' ? '#eff6ff' : 'white',
+                }}>
+                  <div style={{ fontSize: '22px', marginBottom: '4px' }}>⚡</div>
+                  <div style={{ fontSize: '14px', fontWeight: '700', color: deliveryMode === 'express' ? '#3b82f6' : '#1e293b' }}>Express</div>
+                  <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Direct delivery</div>
+                </div>
+                <div onClick={() => { setDeliveryMode('save_mode'); if (!saveModeWindow) setSaveModeWindow(4); }} style={{
+                  flex: 1, padding: '16px', borderRadius: '12px', cursor: 'pointer', textAlign: 'center',
+                  border: deliveryMode === 'save_mode' ? '2px solid #8b5cf6' : '2px solid #e2e8f0',
+                  background: deliveryMode === 'save_mode' ? '#f5f3ff' : 'white',
+                }}>
+                  <div style={{ fontSize: '22px', marginBottom: '4px' }}>💜</div>
+                  <div style={{ fontSize: '14px', fontWeight: '700', color: deliveryMode === 'save_mode' ? '#8b5cf6' : '#1e293b' }}>SaveMode</div>
+                  <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Up to 30% off</div>
+                </div>
+              </div>
+              {deliveryMode === 'save_mode' && (
+                <div>
+                  <label style={{ ...label, marginTop: '4px' }}>Delivery Window</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                    {SAVE_MODE_WINDOWS.map(w => {
+                      const active = saveModeWindow === w.hours;
+                      return (
+                        <div key={w.hours} onClick={() => setSaveModeWindow(w.hours)} style={{
+                          padding: '12px 6px', borderRadius: '10px', cursor: 'pointer', textAlign: 'center',
+                          border: active ? '2px solid #8b5cf6' : '2px solid #e2e8f0',
+                          background: active ? '#f5f3ff' : 'white',
+                        }}>
+                          <div style={{ fontSize: '15px', fontWeight: '700', color: active ? '#8b5cf6' : '#1e293b' }}>{w.label}</div>
+                          <div style={{ fontSize: '13px', fontWeight: '700', color: '#8b5cf6', marginTop: '2px' }}>{w.desc}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: '10px', padding: '12px', marginTop: '12px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '18px' }}>🌱</span>
+                    <div style={{ fontSize: '13px', color: '#6d28d9' }}>
+                      <span style={{ fontWeight: '600' }}>+{SAVE_MODE_GREEN_POINTS} Green Points</span> for choosing consolidated delivery
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Urgency */}
@@ -628,14 +852,17 @@ export default function NewJob() {
             <div style={card}>
               <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>⚙️ Other Preferences</h3>
               <div style={{ marginBottom: '14px' }}>
-                <label style={label}>Vehicle Required</label>
-                <select style={input} value={form.vehicle_required} onChange={e => set('vehicle_required', e.target.value)}>
-                  <option value="any">Any Vehicle</option>
-                  <option value="motorcycle">Motorcycle</option>
-                  <option value="car">Car</option>
-                  <option value="van">Van</option>
-                  <option value="truck">Truck</option>
-                </select>
+                <label style={label}>Vehicle Type</label>
+                <div style={{ ...input, background: '#eff6ff', border: '1px solid #93c5fd', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>{VEHICLE_MODES.find(v => v.key === effectiveVehicleMode)?.icon || '🚛'}</span>
+                  <span style={{ fontWeight: '600', color: '#1e293b' }}>
+                    {effectiveVehicleMode === 'special' ? 'Custom quote required'
+                      : VEHICLE_MODES.find(v => v.key === effectiveVehicleMode)?.label || effectiveVehicleMode || 'Any'}
+                  </span>
+                  {autoVehicleMode === effectiveVehicleMode && form.vehicle_required === 'any' && (
+                    <span style={{ fontSize: '11px', color: '#3b82f6', fontWeight: '600' }}>(auto)</span>
+                  )}
+                </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
                 <div><label style={label}>Pickup By</label><input type="datetime-local" style={input} value={form.pickup_by} onChange={e => set('pickup_by', e.target.value)} /></div>

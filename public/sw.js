@@ -83,14 +83,14 @@ self.addEventListener('fetch', (event) => {
 
 // Push notification handler
 self.addEventListener('push', (event) => {
-  let data = { title: 'Tech Chain Express', body: 'You have a new notification' };
+  let data = { title: 'TCG Express', body: 'You have a new notification' };
   try {
     data = event.data.json();
   } catch (e) {
     // fallback to defaults
   }
   event.waitUntil(
-    self.registration.showNotification(data.title || 'Tech Chain Express', {
+    self.registration.showNotification(data.title || 'TCG Express', {
       body: data.body || '',
       icon: '/icons/icon-192.svg',
       badge: '/icons/icon-192.svg',

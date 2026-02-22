@@ -86,7 +86,7 @@ export default function AdminDashboard() {
       <div style={{ flex: 1, padding: m ? '20px 16px' : '30px', overflowX: 'hidden' }}>
         <div style={{ marginBottom: '25px' }}>
           <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', marginBottom: '4px' }}>Admin Dashboard</h1>
-          <p style={{ color: '#64748b', fontSize: '14px' }}>Tech Chain Express Platform Overview</p>
+          <p style={{ color: '#64748b', fontSize: '14px' }}>TCG Express Platform Overview</p>
         </div>
 
         {/* Stats */}
