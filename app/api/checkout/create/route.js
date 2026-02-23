@@ -74,7 +74,10 @@ export async function POST(request) {
     }
 
     // Web: create Checkout Session (redirect-based)
-    const origin = request.headers.get('origin') || request.headers.get('referer')?.replace(/\/[^/]*$/, '') || '';
+    const origin = request.headers.get('origin')
+      || (request.headers.get('host') ? `https://${request.headers.get('host')}` : '')
+      || request.headers.get('referer')?.replace(/\/[^/]*$/, '')
+      || '';
 
     const checkoutSession = await stripe.checkout.sessions.create({
       mode: 'payment',
@@ -104,7 +107,7 @@ export async function POST(request) {
 
     return NextResponse.json({ sessionUrl: checkoutSession.url });
   } catch (err) {
-    console.error('Checkout create error:', err);
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+    console.error('Checkout create error:', err?.message || err);
+    return NextResponse.json({ error: err?.message || 'Server error' }, { status: 500 });
   }
 }
