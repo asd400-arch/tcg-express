@@ -136,11 +136,16 @@ export async function POST(request) {
     const payout = parseFloat(bid.amount) - commission;
 
     // Update wallet balance
-    await supabaseAdmin.from('wallets').update({
+    const { error: walletUpdateErr } = await supabaseAdmin.from('wallets').update({
       balance: newBalance.toFixed(2),
       bonus_balance: newBonus.toFixed(2),
       updated_at: new Date().toISOString(),
     }).eq('user_id', session.userId);
+
+    if (walletUpdateErr) {
+      console.error('CRITICAL: Wallet balance update failed:', walletUpdateErr.message);
+      return NextResponse.json({ error: 'Failed to update wallet balance' }, { status: 500 });
+    }
 
     // Record payment in wallet_transactions
     try {

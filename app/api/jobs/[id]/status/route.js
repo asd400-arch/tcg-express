@@ -51,6 +51,19 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: `Cannot transition from ${job.status} to ${status}` }, { status: 400 });
     }
 
+    // Prevent early completion: if deliver_by is in the future, driver cannot mark as delivered
+    if (status === 'delivered' && session.role === 'driver' && job.deliver_by) {
+      const scheduledDate = new Date(job.deliver_by);
+      const now = new Date();
+      if (scheduledDate > now) {
+        const dateStr = scheduledDate.toLocaleDateString('en-SG', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        return NextResponse.json({
+          error: `This delivery is scheduled for ${dateStr}. You cannot complete it before the scheduled date.`,
+          scheduled_date: job.deliver_by,
+        }, { status: 400 });
+      }
+    }
+
     // Normalize status alias
     const normalizedStatus = STATUS_ALIASES[status] || status;
 

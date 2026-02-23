@@ -303,20 +303,29 @@ export default function DriverMyJobs() {
                 || (nextStatus === 'delivered' && !selected.delivery_photo);
               const photoHint = nextStatus === 'pickup_confirmed' ? 'Upload pickup photo first'
                 : nextStatus === 'delivered' ? 'Upload delivery photo first' : null;
+              // Prevent early completion: check if deliver_by is in the future
+              const scheduledFuture = nextStatus === 'delivered' && selected.deliver_by && new Date(selected.deliver_by) > new Date();
+              const scheduledDateStr = selected.deliver_by ? new Date(selected.deliver_by).toLocaleDateString('en-SG', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+              const isDisabled = needsPhoto || scheduledFuture;
               return (
                 <div style={{ marginBottom: '10px' }}>
-                  <button onClick={() => updateStatus(nextStatus)} style={{
+                  <button onClick={() => !isDisabled && updateStatus(nextStatus)} disabled={isDisabled} style={{
                     padding: '16px 28px', borderRadius: '12px', border: 'none', width: '100%',
-                    background: needsPhoto
+                    background: isDisabled
                       ? `linear-gradient(135deg, ${statusFlow[selected.status].color}80, ${statusFlow[selected.status].color}60)`
                       : `linear-gradient(135deg, ${statusFlow[selected.status].color}, ${statusFlow[selected.status].color}cc)`,
-                    color: 'white', fontSize: '18px', fontWeight: '700', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
-                    boxShadow: needsPhoto ? 'none' : `0 4px 14px ${statusFlow[selected.status].color}40`,
-                    opacity: needsPhoto ? 0.7 : 1,
+                    color: 'white', fontSize: '18px', fontWeight: '700', cursor: isDisabled ? 'not-allowed' : 'pointer', fontFamily: "'Inter', sans-serif",
+                    boxShadow: isDisabled ? 'none' : `0 4px 14px ${statusFlow[selected.status].color}40`,
+                    opacity: isDisabled ? 0.7 : 1,
                   }}>{statusFlow[selected.status].label}</button>
                   {needsPhoto && photoHint && (
                     <div style={{ textAlign: 'center', fontSize: '12px', color: '#f59e0b', fontWeight: '600', marginTop: '6px' }}>
                       {photoHint}
+                    </div>
+                  )}
+                  {scheduledFuture && (
+                    <div style={{ textAlign: 'center', fontSize: '12px', color: '#ef4444', fontWeight: '600', marginTop: '6px' }}>
+                      Delivery scheduled for {scheduledDateStr} — cannot complete before then
                     </div>
                   )}
                 </div>

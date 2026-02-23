@@ -20,6 +20,7 @@ export default function DriverJobs() {
   const [bidTime, setBidTime] = useState('');
   const [bidMsg, setBidMsg] = useState('');
   const [bidding, setBidding] = useState(false);
+  const [accepting, setAccepting] = useState(null);
   const [myBids, setMyBids] = useState({});
 
   useEffect(() => {
@@ -65,6 +66,31 @@ export default function DriverJobs() {
     } catch (e) {
       toast.error('Failed to submit bid');
       setBidding(false);
+    }
+  };
+
+  const instantAccept = async (job) => {
+    const maxBudget = parseFloat(job.budget_max) || parseFloat(job.budget_min);
+    if (!maxBudget) { toast.error('Job has no valid budget'); return; }
+    if (!confirm(`Accept this job at $${maxBudget.toFixed(2)}? The client will be charged immediately from their wallet.`)) return;
+    setAccepting(job.id);
+    try {
+      const res = await fetch(`/api/jobs/${job.id}/instant-accept`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        toast.error(result.error || 'Failed to accept job');
+        setAccepting(null);
+        return;
+      }
+      toast.success(`Job accepted! You'll earn $${result.payout}`);
+      setAccepting(null);
+      loadData();
+    } catch (e) {
+      toast.error('Failed to accept job');
+      setAccepting(null);
     }
   };
 
@@ -154,7 +180,10 @@ export default function DriverJobs() {
                     {hasBid ? (
                       <span style={{ padding: '8px 16px', borderRadius: '8px', background: '#f0fdf4', color: '#10b981', fontSize: '13px', fontWeight: '600' }}>✓ Bid: ${hasBid.amount} ({hasBid.status})</span>
                     ) : (
-                      <button onClick={() => setSelectedJob(job)} style={{ padding: '8px 20px', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: 'white', fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>💰 Place Bid</button>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button onClick={() => instantAccept(job)} disabled={accepting === job.id} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif", opacity: accepting === job.id ? 0.7 : 1 }}>{accepting === job.id ? 'Accepting...' : `Accept $${job.budget_max || job.budget_min}`}</button>
+                        <button onClick={() => setSelectedJob(job)} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #3b82f6', background: 'white', color: '#3b82f6', fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>Bid Custom</button>
+                      </div>
                     )}
                   </div>
                 </div>
