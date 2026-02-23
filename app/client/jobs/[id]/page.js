@@ -442,7 +442,19 @@ export default function ClientJobDetail({ params }) {
           <EditJobModal
             job={job}
             onClose={() => setShowEdit(false)}
-            onSaved={(updated) => { setJob(updated); setShowEdit(false); toast.success('Job updated successfully'); }}
+            onSaved={(updated, result) => {
+              setJob(updated);
+              setShowEdit(false);
+              if (result?.assignmentCancelled) {
+                toast.info('Job updated — vehicle changed, driver unassigned. Job re-opened for bidding.');
+                loadData();
+              } else if (result?.fareChanged) {
+                const diff = result.newFare - result.oldFare;
+                toast.success(`Job updated. Fare: $${result.oldFare.toFixed(2)} → $${result.newFare.toFixed(2)}${diff > 0 ? ` (+$${diff.toFixed(2)} charged)` : ` ($${Math.abs(diff).toFixed(2)} refunded)`}`);
+              } else {
+                toast.success('Job updated successfully');
+              }
+            }}
           />
         )}
 
