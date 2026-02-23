@@ -176,7 +176,7 @@ export async function POST(request) {
 
     // Update job: extended columns (requires migration)
     try {
-      await supabaseAdmin.from('express_jobs').update({
+      const { error: extErr } = await supabaseAdmin.from('express_jobs').update({
         assigned_bid_id: bid.id,
         final_amount: bid.amount,
         commission_rate: rate,
@@ -188,21 +188,33 @@ export async function POST(request) {
         points_discount: pointsDiscount.toFixed(2),
         wallet_paid: true,
       }).eq('id', jobId);
-    } catch {}
+      if (extErr) console.error('Job extended update error (run add-all-missing-columns.sql):', extErr.message);
+    } catch (e) {
+      console.error('Job extended update exception:', e?.message);
+    }
 
-    // Create escrow transaction
-    try {
-      await supabaseAdmin.from('express_transactions').insert([{
-        job_id: jobId,
-        client_id: session.userId,
-        driver_id: bid.driver_id,
-        total_amount: bid.amount,
-        commission_amount: commission.toFixed(2),
-        driver_payout: payout.toFixed(2),
-        payment_status: 'held',
-        held_at: new Date().toISOString(),
-      }]);
-    } catch {}
+    // Create escrow transaction (CRITICAL — release route depends on this)
+    const { data: escrowTxn, error: escrowErr } = await supabaseAdmin.from('express_transactions').insert([{
+      job_id: jobId,
+      client_id: session.userId,
+      driver_id: bid.driver_id,
+      total_amount: bid.amount,
+      commission_amount: commission.toFixed(2),
+      driver_payout: payout.toFixed(2),
+      payment_status: 'held',
+      held_at: new Date().toISOString(),
+    }]).select().single();
+
+    if (escrowErr) {
+      console.error('CRITICAL: Escrow insert failed:', escrowErr.message, escrowErr.details, escrowErr.hint);
+      // Refund wallet since escrow failed
+      await supabaseAdmin.from('wallets').update({
+        balance: balance.toFixed(2),
+        bonus_balance: bonusBalance.toFixed(2),
+        updated_at: new Date().toISOString(),
+      }).eq('user_id', session.userId);
+      return NextResponse.json({ error: 'Payment processing failed. Your wallet has been refunded.' }, { status: 500 });
+    }
 
     // Increment promo code usage
     if (couponId) {

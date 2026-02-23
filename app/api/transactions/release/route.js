@@ -48,7 +48,8 @@ export async function POST(req) {
     const driverId = txn.driver_id;
     const driverPayout = parseFloat(txn.driver_payout);
 
-    if (!driverId || driverPayout <= 0) {
+    if (!driverId || !driverPayout || isNaN(driverPayout) || driverPayout <= 0) {
+      console.error('Invalid driver/payout:', { driverId, driverPayout, raw: txn.driver_payout });
       return NextResponse.json({ error: 'Invalid driver or payout amount' }, { status: 400 });
     }
 
