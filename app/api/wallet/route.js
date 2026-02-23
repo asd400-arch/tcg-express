@@ -7,17 +7,17 @@ export async function GET(request) {
   const session = getSession(request);
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  // Get or create wallet
+  // Get or create wallet (uses wallets table from wallet migration)
   let { data: wallet } = await supabaseAdmin
-    .from('express_wallets')
+    .from('wallets')
     .select('*')
     .eq('user_id', session.userId)
     .single();
 
   if (!wallet) {
     const { data: newWallet } = await supabaseAdmin
-      .from('express_wallets')
-      .insert([{ user_id: session.userId }])
+      .from('wallets')
+      .insert([{ user_id: session.userId, balance: 0, bonus_balance: 0 }])
       .select()
       .single();
     wallet = newWallet;
@@ -25,7 +25,7 @@ export async function GET(request) {
 
   // Get recent transactions
   const { data: transactions } = await supabaseAdmin
-    .from('express_wallet_transactions')
+    .from('wallet_transactions')
     .select('*')
     .eq('user_id', session.userId)
     .order('created_at', { ascending: false })

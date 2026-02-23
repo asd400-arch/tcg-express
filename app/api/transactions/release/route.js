@@ -126,14 +126,14 @@ export async function POST(req) {
       const pointsEarned = Math.floor(parseFloat(txn.total_amount) * 5); // 5% * 100
       if (pointsEarned > 0) {
         let { data: wallet } = await supabaseAdmin
-          .from('express_wallets')
+          .from('wallets')
           .select('*')
           .eq('user_id', session.userId)
           .single();
 
         if (!wallet) {
           const { data: w } = await supabaseAdmin
-            .from('express_wallets')
+            .from('wallets')
             .insert([{ user_id: session.userId }])
             .select()
             .single();
@@ -142,11 +142,11 @@ export async function POST(req) {
 
         if (wallet) {
           const newPoints = (wallet.points || 0) + pointsEarned;
-          await supabaseAdmin.from('express_wallets')
+          await supabaseAdmin.from('wallets')
             .update({ points: newPoints, updated_at: new Date().toISOString() })
             .eq('user_id', session.userId);
 
-          await supabaseAdmin.from('express_wallet_transactions').insert([{
+          await supabaseAdmin.from('wallet_transactions').insert([{
             user_id: session.userId,
             type: 'points_earn',
             amount: '0',

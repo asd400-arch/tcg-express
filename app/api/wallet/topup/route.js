@@ -71,53 +71,81 @@ export async function POST(request) {
 }
 
 async function directTopup(userId, amount, bonus) {
-  // Ensure wallet exists
+  // Ensure wallet exists (uses wallets table from wallet migration)
   let { data: wallet } = await supabaseAdmin
-    .from('express_wallets')
+    .from('wallets')
     .select('*')
     .eq('user_id', userId)
     .single();
 
   if (!wallet) {
     const { data: w } = await supabaseAdmin
-      .from('express_wallets')
-      .insert([{ user_id: userId }])
+      .from('wallets')
+      .insert([{ user_id: userId, balance: 0, bonus_balance: 0 }])
       .select()
       .single();
     wallet = w;
   }
 
-  const newBalance = parseFloat(wallet.balance) + amount;
-  const newBonus = parseFloat(wallet.bonus_balance) + bonus;
+  if (!wallet) {
+    return NextResponse.json({ error: 'Wallet not found' }, { status: 500 });
+  }
+
+  const newBalance = parseFloat(wallet.balance || 0) + amount;
+  const newBonus = parseFloat(wallet.bonus_balance || 0) + bonus;
 
   await supabaseAdmin
-    .from('express_wallets')
+    .from('wallets')
     .update({ balance: newBalance.toFixed(2), bonus_balance: newBonus.toFixed(2), updated_at: new Date().toISOString() })
     .eq('user_id', userId);
 
   // Record topup transaction
-  await supabaseAdmin.from('express_wallet_transactions').insert([{
-    user_id: userId,
-    type: 'topup',
-    amount: amount.toFixed(2),
-    balance_after: newBalance.toFixed(2),
-    description: `Wallet top-up $${amount.toFixed(2)}`,
-  }]);
+  try {
+    await supabaseAdmin.from('wallet_transactions').insert([{
+      wallet_id: wallet.id,
+      user_id: userId,
+      type: 'top_up',
+      amount: amount,
+      direction: 'credit',
+      balance_before: parseFloat(wallet.balance || 0),
+      balance_after: newBalance,
+      description: `Wallet top-up $${amount.toFixed(2)}`,
+      status: 'completed',
+      created_at: new Date().toISOString(),
+      completed_at: new Date().toISOString(),
+    }]);
+  } catch (e) {
+    console.error('Topup transaction record error:', e?.message);
+  }
 
   // Record bonus if any
   if (bonus > 0) {
-    await supabaseAdmin.from('express_wallet_transactions').insert([{
-      user_id: userId,
-      type: 'bonus',
-      amount: bonus.toFixed(2),
-      balance_after: (newBalance + bonus).toFixed(2),
-      description: `Top-up bonus for $${amount.toFixed(2)} deposit`,
-    }]);
+    try {
+      await supabaseAdmin.from('wallet_transactions').insert([{
+        wallet_id: wallet.id,
+        user_id: userId,
+        type: 'bonus',
+        amount: bonus,
+        direction: 'credit',
+        balance_before: newBalance,
+        balance_after: newBalance + bonus,
+        description: `Top-up bonus for $${amount.toFixed(2)} deposit`,
+        status: 'completed',
+        created_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
+      }]);
+    } catch (e) {
+      console.error('Bonus transaction record error:', e?.message);
+    }
   }
 
   return NextResponse.json({
+    data: {
+      paynow_qr: null,
+      client_secret: null,
+      bonus,
+    },
     success: true,
     wallet: { balance: newBalance.toFixed(2), bonus_balance: newBonus.toFixed(2) },
-    bonus,
   });
 }

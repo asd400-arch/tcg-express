@@ -226,26 +226,27 @@ export default function TopupModal({ open, onClose, onSuccess }: Props) {
                 }}>Free</span>
               </button>
 
-              {/* Card */}
+              {/* Card — temporarily disabled */}
               <button
-                onClick={() => setMethod('stripe_card')}
+                disabled
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: '12px',
                   padding: '14px 16px',
                   borderRadius: '12px',
-                  border: method === 'stripe_card' ? '2px solid #3b82f6' : '1px solid #e2e8f0',
-                  background: method === 'stripe_card' ? '#eff6ff' : 'white',
-                  cursor: 'pointer',
+                  border: '1px solid #e2e8f0',
+                  background: '#f8fafc',
+                  cursor: 'not-allowed',
                   textAlign: 'left',
                   fontFamily: "'Inter', sans-serif",
+                  opacity: 0.6,
                 }}
               >
                 <span style={{ fontSize: '24px' }}>💳</span>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b' }}>Credit / Debit Card</div>
-                  <div style={{ fontSize: '12px', color: '#64748b' }}>Visa, Mastercard, Amex</div>
+                  <div style={{ fontSize: '14px', fontWeight: '600', color: '#94a3b8' }}>Credit / Debit Card</div>
+                  <div style={{ fontSize: '12px', color: '#94a3b8' }}>Card payments coming soon</div>
                 </div>
               </button>
             </div>

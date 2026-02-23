@@ -2,42 +2,44 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../lib/supabase-server';
 import { getSession } from '../../../lib/auth';
 
-// GET: Admin list coupons
+// GET: Admin list promo codes
 export async function GET(request) {
   const session = getSession(request);
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   if (session.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const { data } = await supabaseAdmin
-    .from('express_coupons')
+    .from('promo_codes')
     .select('*')
     .order('created_at', { ascending: false });
 
   return NextResponse.json({ data: data || [] });
 }
 
-// POST: Admin create coupon
+// POST: Admin create promo code
 export async function POST(request) {
   const session = getSession(request);
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   if (session.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const body = await request.json();
-  const { code, type, value, min_order, max_discount, max_uses, expires_at, description } = body;
+  const { code, discount_type, discount_value, min_order_amount, max_discount, usage_limit, valid_until, description } = body;
 
-  if (!code || !type || !value) {
-    return NextResponse.json({ error: 'code, type, and value are required' }, { status: 400 });
+  if (!code || !discount_type || !discount_value) {
+    return NextResponse.json({ error: 'code, discount_type, and discount_value are required' }, { status: 400 });
   }
 
-  const { data, error } = await supabaseAdmin.from('express_coupons').insert([{
+  const { data, error } = await supabaseAdmin.from('promo_codes').insert([{
     code: code.toUpperCase(),
-    type,
-    value: parseFloat(value),
-    min_order: min_order ? parseFloat(min_order) : 0,
+    discount_type,
+    discount_value: parseFloat(discount_value),
+    min_order_amount: min_order_amount ? parseFloat(min_order_amount) : 0,
     max_discount: max_discount ? parseFloat(max_discount) : null,
-    max_uses: max_uses ? parseInt(max_uses) : null,
-    expires_at: expires_at || null,
+    usage_limit: usage_limit ? parseInt(usage_limit) : null,
+    valid_until: valid_until || null,
     description: description || '',
+    is_active: true,
+    usage_count: 0,
   }]).select().single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

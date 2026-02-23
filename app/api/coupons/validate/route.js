@@ -10,45 +10,37 @@ export async function POST(request) {
     const { code, orderAmount } = await request.json();
     if (!code) return NextResponse.json({ error: 'Coupon code required' }, { status: 400 });
 
-    const { data: coupon } = await supabaseAdmin
-      .from('express_coupons')
+    const { data: promo } = await supabaseAdmin
+      .from('promo_codes')
       .select('*')
       .eq('code', code.toUpperCase())
       .eq('is_active', true)
       .single();
 
-    if (!coupon) return NextResponse.json({ error: 'Invalid coupon code' }, { status: 404 });
+    if (!promo) return NextResponse.json({ error: 'Invalid coupon code' }, { status: 404 });
 
     const now = new Date();
-    if (coupon.expires_at && new Date(coupon.expires_at) < now) {
+    if (promo.valid_until && new Date(promo.valid_until) < now) {
       return NextResponse.json({ error: 'Coupon has expired' }, { status: 400 });
     }
-    if (coupon.max_uses && coupon.used_count >= coupon.max_uses) {
+    if (promo.valid_from && new Date(promo.valid_from) > now) {
+      return NextResponse.json({ error: 'Coupon is not yet active' }, { status: 400 });
+    }
+    if (promo.usage_limit && promo.usage_count >= promo.usage_limit) {
       return NextResponse.json({ error: 'Coupon usage limit reached' }, { status: 400 });
     }
-    if (coupon.min_order && orderAmount && parseFloat(orderAmount) < parseFloat(coupon.min_order)) {
-      return NextResponse.json({ error: `Minimum order $${coupon.min_order} required` }, { status: 400 });
-    }
-
-    // Check if user already used
-    const { count } = await supabaseAdmin
-      .from('express_coupon_usages')
-      .select('id', { count: 'exact' })
-      .eq('coupon_id', coupon.id)
-      .eq('user_id', session.userId);
-
-    if (count > 0) {
-      return NextResponse.json({ error: 'You have already used this coupon' }, { status: 400 });
+    if (promo.min_order_amount && orderAmount && parseFloat(orderAmount) < parseFloat(promo.min_order_amount)) {
+      return NextResponse.json({ error: `Minimum order $${promo.min_order_amount} required` }, { status: 400 });
     }
 
     let discount = 0;
     if (orderAmount) {
       const amt = parseFloat(orderAmount);
-      if (coupon.type === 'percent') {
-        discount = amt * (parseFloat(coupon.value) / 100);
-        if (coupon.max_discount) discount = Math.min(discount, parseFloat(coupon.max_discount));
+      if (promo.discount_type === 'percentage') {
+        discount = amt * (parseFloat(promo.discount_value) / 100);
+        if (promo.max_discount) discount = Math.min(discount, parseFloat(promo.max_discount));
       } else {
-        discount = parseFloat(coupon.value);
+        discount = parseFloat(promo.discount_value);
       }
       discount = Math.min(discount, amt);
     }
@@ -56,11 +48,11 @@ export async function POST(request) {
     return NextResponse.json({
       valid: true,
       coupon: {
-        code: coupon.code,
-        type: coupon.type,
-        value: coupon.value,
-        description: coupon.description,
-        min_order: coupon.min_order,
+        code: promo.code,
+        type: promo.discount_type,
+        value: promo.discount_value,
+        description: promo.description,
+        min_order: promo.min_order_amount,
       },
       discount: discount.toFixed(2),
     });
