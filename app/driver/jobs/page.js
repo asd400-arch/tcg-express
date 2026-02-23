@@ -58,6 +58,7 @@ export default function DriverJobs() {
       if (!res.ok) {
         toast.error(result.error || 'Failed to submit bid');
         setBidding(false);
+        if (res.status === 409) { setSelectedJob(null); loadData(); }
         return;
       }
       toast.success('Bid submitted!');

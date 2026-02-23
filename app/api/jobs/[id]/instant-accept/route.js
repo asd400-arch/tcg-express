@@ -30,33 +30,47 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: 'Job has no valid budget set' }, { status: 400 });
     }
 
-    // Check driver doesn't already have a bid
+    // Check for existing bid — update it instead of creating a duplicate
+    let bid;
     const { data: existingBid } = await supabaseAdmin
       .from('express_bids')
-      .select('id')
+      .select('id, amount, status')
       .eq('job_id', jobId)
       .eq('driver_id', session.userId)
-      .eq('status', 'pending')
+      .in('status', ['pending'])
       .single();
 
     if (existingBid) {
-      return NextResponse.json({ error: 'You already have a pending bid on this job' }, { status: 409 });
+      // Update existing bid to budget amount
+      const { data: updated, error: updateErr } = await supabaseAdmin
+        .from('express_bids')
+        .update({ amount: bidAmount, message: 'Instant accept at posted budget' })
+        .eq('id', existingBid.id)
+        .select()
+        .single();
+      if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 });
+      bid = updated;
+    } else {
+      // Create new bid at max_budget
+      const { data: newBid, error: bidErr } = await supabaseAdmin
+        .from('express_bids')
+        .insert([{
+          job_id: jobId,
+          driver_id: session.userId,
+          amount: bidAmount,
+          message: 'Instant accept at posted budget',
+          status: 'pending',
+        }])
+        .select()
+        .single();
+      if (bidErr) {
+        if (bidErr.code === '23505') {
+          return NextResponse.json({ error: 'You already placed a bid on this job. Please try again.' }, { status: 409 });
+        }
+        return NextResponse.json({ error: bidErr.message }, { status: 500 });
+      }
+      bid = newBid;
     }
-
-    // Create bid at max_budget
-    const { data: bid, error: bidErr } = await supabaseAdmin
-      .from('express_bids')
-      .insert([{
-        job_id: jobId,
-        driver_id: session.userId,
-        amount: bidAmount,
-        message: 'Instant accept at posted budget',
-        status: 'pending',
-      }])
-      .select()
-      .single();
-
-    if (bidErr) return NextResponse.json({ error: bidErr.message }, { status: 500 });
 
     // Get client's wallet
     let { data: wallet } = await supabaseAdmin

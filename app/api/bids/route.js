@@ -62,16 +62,21 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Job is no longer accepting bids' }, { status: 400 });
     }
 
-    // Check for existing bid
+    // Check for existing bid (any non-rejected status)
     const { data: existing } = await supabaseAdmin
       .from('express_bids')
-      .select('id')
+      .select('id, status, amount')
       .eq('job_id', job_id)
       .eq('driver_id', session.userId)
-      .eq('status', 'pending')
+      .in('status', ['pending', 'accepted'])
       .single();
 
-    if (existing) return NextResponse.json({ error: 'You already have a pending bid on this job' }, { status: 409 });
+    if (existing) {
+      return NextResponse.json({
+        error: 'You already placed a bid on this job',
+        existing_bid: { id: existing.id, amount: existing.amount, status: existing.status },
+      }, { status: 409 });
+    }
 
     const { data, error } = await supabaseAdmin
       .from('express_bids')
@@ -85,7 +90,13 @@ export async function POST(request) {
       .select()
       .single();
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+      // Handle race condition: duplicate bid inserted between check and insert
+      if (error.code === '23505') {
+        return NextResponse.json({ error: 'You already placed a bid on this job' }, { status: 409 });
+      }
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
 
     // Update job status to bidding if still open
     if (job.status === 'open') {
