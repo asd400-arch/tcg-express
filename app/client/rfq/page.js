@@ -34,6 +34,7 @@ export default function RFQPage() {
   const [ndaAccepted, setNdaAccepted] = useState(false);
   const [files, setFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [showNdaModal, setShowNdaModal] = useState(false);
   const [form, setForm] = useState({
     title: '', description: '', duration: '3_months',
     estimated_volume: '', pickup_regions: '', delivery_regions: '',
@@ -213,6 +214,7 @@ export default function RFQPage() {
                     I acknowledge that all information shared in this RFQ is confidential. TCG Express and its partners agree not to disclose project details,
                     pricing, routes, or any proprietary information to third parties. This NDA applies for the duration of the contract and 2 years thereafter.
                   </p>
+                  <button type="button" onClick={(e) => { e.stopPropagation(); setShowNdaModal(true); }} style={{ marginTop: '8px', padding: '0', border: 'none', background: 'none', color: '#3b82f6', fontSize: '13px', fontWeight: '600', cursor: 'pointer', textDecoration: 'underline', fontFamily: "'Inter', sans-serif" }}>View Full NDA Terms</button>
                 </div>
               </div>
             </div>
@@ -268,6 +270,47 @@ export default function RFQPage() {
                 );
               })
             )}
+          </div>
+        )}
+        {/* NDA Full Text Modal */}
+        {showNdaModal && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
+            <div style={{ background: 'white', borderRadius: '16px', maxWidth: '640px', width: '100%', maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+              <div style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h2 style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b', margin: 0 }}>Non-Disclosure Agreement</h2>
+                <button onClick={() => setShowNdaModal(false)} style={{ width: '32px', height: '32px', borderRadius: '8px', border: 'none', background: '#f1f5f9', cursor: 'pointer', fontSize: '16px', color: '#64748b' }}>✕</button>
+              </div>
+              <div style={{ padding: '24px', overflowY: 'auto', fontSize: '14px', color: '#374151', lineHeight: '1.8' }}>
+                <p style={{ fontWeight: '700', fontSize: '15px', color: '#1e293b', marginBottom: '16px' }}>TCG EXPRESS PTE LTD — NON-DISCLOSURE AGREEMENT (RFQ)</p>
+
+                <p><strong>1. Confidentiality Obligations.</strong> TCG Express and the assigned transport partner(s) agree to: (a) treat all Confidential Information as strictly confidential; (b) not disclose, publish, or disseminate any Confidential Information to any third party without prior written consent from the Client; (c) use Confidential Information solely for the purpose of fulfilling delivery obligations under this agreement; (d) restrict access to Confidential Information to only those employees and agents who need to know for service delivery.</p>
+
+                <p><strong>2. Definition of Confidential Information.</strong> "Confidential Information" means any and all non-public information disclosed by the Client, including but not limited to: business plans, trade secrets, customer lists, pricing data, pickup and delivery addresses, cargo descriptions, shipment schedules, volume data, financial information, route maps, and any other proprietary information shared during the RFQ process.</p>
+
+                <p><strong>3. Duration.</strong> This NDA remains in effect for the duration of the service contract and for a period of two (2) years following termination or expiration of the contract, whichever is later.</p>
+
+                <p><strong>4. Permitted Disclosures.</strong> Confidential Information may be disclosed if: (a) required by law, regulation, or court order, provided the disclosing party gives prompt written notice where legally permitted; (b) the information becomes publicly available through no fault of the receiving party; (c) the information was independently developed without use of Confidential Information.</p>
+
+                <p><strong>5. Data Protection.</strong> All route data, customer data, delivery logs, and operational data are stored in compliance with the Personal Data Protection Act (PDPA) of Singapore. This data may not be exported, shared, repurposed, or used for any purpose other than the contracted delivery services. TCG Express implements industry-standard encryption and access controls to protect all data.</p>
+
+                <p><strong>6. Intellectual Property.</strong> No transfer of intellectual property rights is implied by this agreement. All proprietary systems, processes, and technologies used by either party remain the sole property of that party. RFQ submissions and attachments remain the intellectual property of the Client.</p>
+
+                <p><strong>7. Breach and Remedies.</strong> Any breach of this NDA may result in: (a) immediate termination of the service contract; (b) financial penalties as stipulated in the service agreement; (c) legal proceedings for damages and injunctive relief. The breaching party shall be liable for all costs incurred as a result of the breach, including legal fees.</p>
+
+                <p><strong>8. Indemnification.</strong> Each party agrees to indemnify and hold harmless the other party from any losses, damages, or claims arising from a breach of this NDA by the indemnifying party or its agents.</p>
+
+                <p><strong>9. Governing Law.</strong> This NDA shall be governed by and construed in accordance with the laws of the Republic of Singapore.</p>
+
+                <p><strong>10. Dispute Resolution.</strong> Any dispute arising out of or in connection with this NDA shall first be submitted to mediation administered by the Singapore Mediation Centre. If mediation fails to resolve the dispute within thirty (30) days, either party may refer the matter to arbitration under the rules of the Singapore International Arbitration Centre (SIAC). The arbitration shall be conducted in English, and the decision of the arbitrator(s) shall be final and binding on both parties.</p>
+
+                <p><strong>11. Return of Information.</strong> Upon termination of the contract, TCG Express and its partners shall promptly return or destroy all Confidential Information and any copies thereof, and provide written confirmation of such destruction upon request.</p>
+
+                <p style={{ marginTop: '16px', fontSize: '12px', color: '#94a3b8' }}>Last updated: February 2026 | TCG Express Pte Ltd</p>
+              </div>
+              <div style={{ padding: '16px 24px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'flex-end' }}>
+                <button onClick={() => setShowNdaModal(false)} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: 'white', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>Close</button>
+              </div>
+            </div>
           </div>
         )}
       </div>

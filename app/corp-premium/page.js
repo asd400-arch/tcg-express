@@ -300,9 +300,11 @@ export default function CorpPremiumPage() {
 
                 <p><strong>9. Indemnification.</strong> Each party agrees to indemnify and hold harmless the other party from any losses, damages, or claims arising from a breach of this NDA by the indemnifying party or its agents.</p>
 
-                <p><strong>10. Governing Law.</strong> This NDA shall be governed by and construed in accordance with the laws of the Republic of Singapore. Any disputes arising from this agreement shall be subject to the exclusive jurisdiction of the courts of Singapore.</p>
+                <p><strong>10. Governing Law.</strong> This NDA shall be governed by and construed in accordance with the laws of the Republic of Singapore.</p>
 
-                <p style={{ marginTop: '16px', fontSize: '12px', color: '#94a3b8' }}>Last updated: January 2026 | TCG Express Pte Ltd</p>
+                <p><strong>11. Dispute Resolution.</strong> Any dispute arising out of or in connection with this NDA shall first be submitted to mediation administered by the Singapore Mediation Centre. If mediation fails to resolve the dispute within thirty (30) days, either party may refer the matter to arbitration under the rules of the Singapore International Arbitration Centre (SIAC). The arbitration shall be conducted in English, and the decision of the arbitrator(s) shall be final and binding on both parties. Each party shall bear its own costs of mediation and arbitration, unless the arbitrator determines otherwise.</p>
+
+                <p style={{ marginTop: '16px', fontSize: '12px', color: '#94a3b8' }}>Last updated: February 2026 | TCG Express Pte Ltd</p>
               </div>
               <div style={{ padding: '16px 24px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'flex-end' }}>
                 <button onClick={() => setShowNdaModal(false)} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #8b5cf6, #6d28d9)', color: 'white', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>Close</button>
