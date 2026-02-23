@@ -132,25 +132,35 @@ export default function ClientJobDetail({ params }) {
   };
 
   const confirmDelivery = async () => {
-    await supabase.from('express_jobs').update({ status: 'confirmed', confirmed_at: new Date().toISOString() }).eq('id', jobId);
-    // Release held payment via server API
-    await fetch('/api/transactions/release', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jobId }),
-    });
-    // Notify driver (in-app + email + push via unified endpoint)
-    fetch('/api/notify', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: job.assigned_driver_id, type: 'delivery', category: 'delivery_status',
-        title: 'Delivery confirmed!', message: `Delivery for ${job.job_number} confirmed. Payout: $${job.driver_payout || job.final_amount || '—'}`,
-        emailTemplate: 'delivery_confirmed', emailData: { jobNumber: job.job_number, payout: job.driver_payout || job.final_amount || '—' },
-        url: '/driver/my-jobs',
-      }),
-    }).catch(() => {});
-    toast.success('Delivery confirmed');
-    setShowRating(true);
-    loadData();
+    try {
+      await supabase.from('express_jobs').update({ status: 'confirmed', confirmed_at: new Date().toISOString() }).eq('id', jobId);
+      // Release held payment via server API
+      const releaseRes = await fetch('/api/transactions/release', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId }),
+      });
+      const releaseResult = await releaseRes.json();
+      if (!releaseRes.ok) {
+        toast.error(releaseResult.error || 'Failed to release payment to driver. Please contact support.');
+        loadData();
+        return;
+      }
+      // Notify driver (in-app + email + push via unified endpoint)
+      fetch('/api/notify', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: job.assigned_driver_id, type: 'delivery', category: 'delivery_status',
+          title: 'Delivery confirmed!', message: `Delivery for ${job.job_number} confirmed. Payout: $${job.driver_payout || job.final_amount || '—'}`,
+          emailTemplate: 'delivery_confirmed', emailData: { jobNumber: job.job_number, payout: job.driver_payout || job.final_amount || '—' },
+          url: '/driver/my-jobs',
+        }),
+      }).catch(() => {});
+      toast.success('Delivery confirmed — driver has been paid');
+      setShowRating(true);
+      loadData();
+    } catch (e) {
+      toast.error('Failed to confirm delivery. Please try again.');
+    }
   };
 
   const cancelJob = async () => {

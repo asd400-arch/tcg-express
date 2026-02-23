@@ -147,6 +147,7 @@ export async function POST(req) {
             .eq('user_id', session.userId);
 
           await supabaseAdmin.from('wallet_transactions').insert([{
+            wallet_id: wallet.id,
             user_id: session.userId,
             type: 'points_earn',
             amount: '0',
@@ -154,6 +155,9 @@ export async function POST(req) {
             points_after: newPoints,
             description: `Points earned for completed delivery`,
             reference_id: jobId,
+            reference_type: 'loyalty_points',
+            status: 'completed',
+            completed_at: new Date().toISOString(),
           }]);
         }
       }
