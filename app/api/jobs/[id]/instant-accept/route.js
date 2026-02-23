@@ -32,15 +32,21 @@ export async function POST(request, { params }) {
 
     // Check for existing bid — update it instead of creating a duplicate
     let bid;
+    let wasExistingBid = false;
+    let originalBidAmount = null;
+    let originalBidMessage = null;
     const { data: existingBid } = await supabaseAdmin
       .from('express_bids')
-      .select('id, amount, status')
+      .select('id, amount, status, message')
       .eq('job_id', jobId)
       .eq('driver_id', session.userId)
       .in('status', ['pending'])
       .single();
 
     if (existingBid) {
+      wasExistingBid = true;
+      originalBidAmount = existingBid.amount;
+      originalBidMessage = existingBid.message;
       // Update existing bid to budget amount
       const { data: updated, error: updateErr } = await supabaseAdmin
         .from('express_bids')
@@ -72,6 +78,17 @@ export async function POST(request, { params }) {
       bid = newBid;
     }
 
+    // Helper: revert bid on failure — restore original if existing, delete if new
+    const revertBid = async () => {
+      if (wasExistingBid) {
+        await supabaseAdmin.from('express_bids')
+          .update({ amount: originalBidAmount, message: originalBidMessage })
+          .eq('id', bid.id);
+      } else {
+        await supabaseAdmin.from('express_bids').delete().eq('id', bid.id);
+      }
+    };
+
     // Get client's wallet
     let { data: wallet } = await supabaseAdmin
       .from('wallets')
@@ -89,8 +106,7 @@ export async function POST(request, { params }) {
     }
 
     if (!wallet) {
-      // Revert bid
-      await supabaseAdmin.from('express_bids').update({ status: 'rejected' }).eq('id', bid.id);
+      await revertBid();
       return NextResponse.json({ error: 'Client wallet not found' }, { status: 500 });
     }
 
@@ -99,8 +115,7 @@ export async function POST(request, { params }) {
     const availableBalance = balance + bonusBalance;
 
     if (availableBalance < bidAmount) {
-      // Revert bid
-      await supabaseAdmin.from('express_bids').update({ status: 'rejected' }).eq('id', bid.id);
+      await revertBid();
       return NextResponse.json({ error: 'Client has insufficient wallet balance for instant accept' }, { status: 400 });
     }
 
@@ -134,7 +149,7 @@ export async function POST(request, { params }) {
     }).eq('user_id', job.client_id);
 
     if (walletUpdateErr) {
-      await supabaseAdmin.from('express_bids').update({ status: 'rejected' }).eq('id', bid.id);
+      await revertBid();
       return NextResponse.json({ error: 'Failed to process payment' }, { status: 500 });
     }
 
@@ -157,9 +172,9 @@ export async function POST(request, { params }) {
       console.error('Wallet transaction record error:', e?.message);
     }
 
-    // Accept bid + reject others
+    // Accept bid + close others (outbid, not rejected — customer didn't reject them)
     await supabaseAdmin.from('express_bids').update({ status: 'accepted' }).eq('id', bid.id);
-    await supabaseAdmin.from('express_bids').update({ status: 'rejected' }).eq('job_id', jobId).neq('id', bid.id).eq('status', 'pending');
+    await supabaseAdmin.from('express_bids').update({ status: 'outbid' }).eq('job_id', jobId).neq('id', bid.id).eq('status', 'pending');
 
     // Update job: assign driver
     await supabaseAdmin.from('express_jobs').update({

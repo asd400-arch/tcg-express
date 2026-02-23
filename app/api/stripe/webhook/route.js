@@ -57,9 +57,9 @@ export async function POST(request) {
       const commission = amount * (rate / 100);
       const payout = amount - commission;
 
-      // Accept bid, reject others
+      // Accept bid, close others (outbid, not rejected)
       await supabaseAdmin.from('express_bids').update({ status: 'accepted' }).eq('id', bidId);
-      await supabaseAdmin.from('express_bids').update({ status: 'rejected' }).eq('job_id', jobId).neq('id', bidId);
+      await supabaseAdmin.from('express_bids').update({ status: 'outbid' }).eq('job_id', jobId).neq('id', bidId);
 
       // Update job
       await supabaseAdmin.from('express_jobs').update({

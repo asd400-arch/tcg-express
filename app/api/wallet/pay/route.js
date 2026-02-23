@@ -169,7 +169,7 @@ export async function POST(request) {
 
     // Accept bid + reject others + assign driver
     await supabaseAdmin.from('express_bids').update({ status: 'accepted' }).eq('id', bidId);
-    await supabaseAdmin.from('express_bids').update({ status: 'rejected' }).eq('job_id', jobId).neq('id', bidId).eq('status', 'pending');
+    await supabaseAdmin.from('express_bids').update({ status: 'outbid' }).eq('job_id', jobId).neq('id', bidId).eq('status', 'pending');
 
     // Update job: base columns (always exist)
     const { error: jobUpdateErr } = await supabaseAdmin.from('express_jobs').update({

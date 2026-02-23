@@ -64,10 +64,10 @@ export async function POST(request, { params }) {
 
     if (acceptErr) return NextResponse.json({ error: acceptErr.message }, { status: 500 });
 
-    // Reject all other bids for this job
+    // Close other bids (outbid, not rejected — customer didn't reject them)
     await supabaseAdmin
       .from('express_bids')
-      .update({ status: 'rejected' })
+      .update({ status: 'outbid' })
       .eq('job_id', bid.job_id)
       .neq('id', id)
       .eq('status', 'pending');

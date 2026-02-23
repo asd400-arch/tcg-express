@@ -375,7 +375,7 @@ export default function ClientJobDetail({ params }) {
                     {bid.status === 'pending' && ['open', 'bidding'].includes(job.status) ? (
                       <button onClick={() => acceptBid(bid)} style={{ padding: '8px 20px', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>✅ Accept Bid</button>
                     ) : (
-                      <span style={{ padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', background: bid.status === 'accepted' ? '#f0fdf4' : '#fef2f2', color: bid.status === 'accepted' ? '#10b981' : '#ef4444', textTransform: 'capitalize' }}>{bid.status}</span>
+                      <span style={{ padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', background: bid.status === 'accepted' ? '#f0fdf4' : bid.status === 'outbid' ? '#fffbeb' : '#fef2f2', color: bid.status === 'accepted' ? '#10b981' : bid.status === 'outbid' ? '#d97706' : '#ef4444', textTransform: 'capitalize' }}>{bid.status === 'outbid' ? 'not selected' : bid.status}</span>
                     )}
                   </div>
                 </div>
