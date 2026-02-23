@@ -15,15 +15,23 @@ BEGIN;
 
 CREATE TABLE IF NOT EXISTS express_reviews (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  job_id UUID NOT NULL REFERENCES express_jobs(id),
-  client_id UUID NOT NULL REFERENCES express_users(id),
-  driver_id UUID NOT NULL REFERENCES express_users(id),
-  rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  job_id UUID REFERENCES express_jobs(id),
+  client_id UUID REFERENCES express_users(id),
+  driver_id UUID REFERENCES express_users(id),
+  rating INTEGER CHECK (rating >= 1 AND rating <= 5),
   review_text TEXT,
-  reviewer_role VARCHAR(20) NOT NULL DEFAULT 'client' CHECK (reviewer_role IN ('client', 'driver')),
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  CONSTRAINT unique_review_per_role UNIQUE (job_id, reviewer_role)
+  reviewer_role VARCHAR(20) DEFAULT 'client',
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Ensure all columns exist (table may have been created by earlier migration with different schema)
+ALTER TABLE express_reviews ADD COLUMN IF NOT EXISTS job_id UUID REFERENCES express_jobs(id);
+ALTER TABLE express_reviews ADD COLUMN IF NOT EXISTS client_id UUID REFERENCES express_users(id);
+ALTER TABLE express_reviews ADD COLUMN IF NOT EXISTS driver_id UUID REFERENCES express_users(id);
+ALTER TABLE express_reviews ADD COLUMN IF NOT EXISTS rating INTEGER;
+ALTER TABLE express_reviews ADD COLUMN IF NOT EXISTS review_text TEXT;
+ALTER TABLE express_reviews ADD COLUMN IF NOT EXISTS reviewer_role VARCHAR(20) DEFAULT 'client';
+ALTER TABLE express_reviews ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
 
 CREATE INDEX IF NOT EXISTS idx_reviews_job_id ON express_reviews(job_id);
 CREATE INDEX IF NOT EXISTS idx_reviews_driver_id ON express_reviews(driver_id);
@@ -267,15 +275,17 @@ GRANT SELECT, INSERT, UPDATE ON express_schedules TO authenticated;
 --     /api/push/register uses: type, expo_token, platform
 -- ============================================================
 
-ALTER TABLE express_push_subscriptions
-  ADD COLUMN IF NOT EXISTS type VARCHAR(20) DEFAULT 'web',
-  ADD COLUMN IF NOT EXISTS expo_token TEXT,
-  ADD COLUMN IF NOT EXISTS platform VARCHAR(20) DEFAULT 'web';
-
--- Make p256dh and auth nullable (push tokens don't have them)
-ALTER TABLE express_push_subscriptions
-  ALTER COLUMN p256dh DROP NOT NULL,
-  ALTER COLUMN auth DROP NOT NULL;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'express_push_subscriptions') THEN
+    ALTER TABLE express_push_subscriptions ADD COLUMN IF NOT EXISTS type VARCHAR(20) DEFAULT 'web';
+    ALTER TABLE express_push_subscriptions ADD COLUMN IF NOT EXISTS expo_token TEXT;
+    ALTER TABLE express_push_subscriptions ADD COLUMN IF NOT EXISTS platform VARCHAR(20) DEFAULT 'web';
+    -- Make p256dh and auth nullable (push tokens don't have them)
+    ALTER TABLE express_push_subscriptions ALTER COLUMN p256dh DROP NOT NULL;
+    ALTER TABLE express_push_subscriptions ALTER COLUMN auth DROP NOT NULL;
+  END IF;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
 
 -- ============================================================
 -- 11. express_driver_locations — Ensure table exists for tracking
@@ -283,16 +293,26 @@ ALTER TABLE express_push_subscriptions
 
 CREATE TABLE IF NOT EXISTS express_driver_locations (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  job_id UUID NOT NULL REFERENCES express_jobs(id) ON DELETE CASCADE UNIQUE,
-  driver_id UUID NOT NULL REFERENCES express_users(id) ON DELETE CASCADE,
-  latitude DOUBLE PRECISION NOT NULL,
-  longitude DOUBLE PRECISION NOT NULL,
+  job_id UUID REFERENCES express_jobs(id) ON DELETE CASCADE,
+  driver_id UUID REFERENCES express_users(id) ON DELETE CASCADE,
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
   heading DOUBLE PRECISION DEFAULT 0,
   speed DOUBLE PRECISION DEFAULT 0,
   accuracy DOUBLE PRECISION,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Ensure columns exist if table pre-existed with different schema
+ALTER TABLE express_driver_locations ADD COLUMN IF NOT EXISTS job_id UUID REFERENCES express_jobs(id) ON DELETE CASCADE;
+ALTER TABLE express_driver_locations ADD COLUMN IF NOT EXISTS driver_id UUID REFERENCES express_users(id) ON DELETE CASCADE;
+ALTER TABLE express_driver_locations ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;
+ALTER TABLE express_driver_locations ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;
+ALTER TABLE express_driver_locations ADD COLUMN IF NOT EXISTS heading DOUBLE PRECISION DEFAULT 0;
+ALTER TABLE express_driver_locations ADD COLUMN IF NOT EXISTS speed DOUBLE PRECISION DEFAULT 0;
+ALTER TABLE express_driver_locations ADD COLUMN IF NOT EXISTS accuracy DOUBLE PRECISION;
+ALTER TABLE express_driver_locations ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 
 ALTER TABLE express_driver_locations ENABLE ROW LEVEL SECURITY;
 
