@@ -72,58 +72,40 @@ export async function POST(request) {
     let amountAfterCoupon = totalAmount - couponDiscount;
 
     // Fetch wallet (uses wallets table from wallet migration)
-    let { data: wallet } = await supabaseAdmin
+    let { data: wallet, error: walletFetchErr } = await supabaseAdmin
       .from('wallets')
       .select('*')
       .eq('user_id', session.userId)
       .single();
 
+    if (walletFetchErr && walletFetchErr.code !== 'PGRST116') {
+      console.error('Wallet fetch error:', walletFetchErr.message, '| code:', walletFetchErr.code);
+    }
+
     if (!wallet) {
       // Auto-create wallet if trigger didn't fire
-      const { data: w } = await supabaseAdmin
+      const { data: w, error: walletCreateErr } = await supabaseAdmin
         .from('wallets')
-        .insert([{ user_id: session.userId, balance: 0, bonus_balance: 0 }])
+        .insert([{ user_id: session.userId }])
         .select()
         .single();
+      if (walletCreateErr) console.error('Wallet create error:', walletCreateErr.message, '| code:', walletCreateErr.code, '| details:', walletCreateErr.details);
       wallet = w;
     }
 
     if (!wallet) return NextResponse.json({ error: 'Wallet not found' }, { status: 500 });
 
-    // Apply points if requested
-    if (usePoints && (wallet.points || 0) > 0) {
-      const maxPointsValue = amountAfterCoupon * 0.5;
-      const pointsValue = Math.min(wallet.points / 100, maxPointsValue);
-      pointsUsed = Math.floor(pointsValue * 100);
-      pointsDiscount = pointsUsed / 100;
-      amountAfterCoupon -= pointsDiscount;
-    }
-
     const finalAmount = Math.max(0, amountAfterCoupon);
 
     // Check wallet balance
     const balance = parseFloat(wallet.balance || 0);
-    const bonusBalance = parseFloat(wallet.bonus_balance || 0);
-    const availableBalance = balance + bonusBalance;
-    if (availableBalance < finalAmount) {
+    if (balance < finalAmount) {
       return NextResponse.json({
         error: 'Insufficient wallet balance',
         required: finalAmount.toFixed(2),
-        available: availableBalance.toFixed(2),
+        available: balance.toFixed(2),
       }, { status: 400 });
     }
-
-    // Deduct from bonus first, then main balance
-    let remaining = finalAmount;
-    let newBonus = bonusBalance;
-    let newBalance = balance;
-
-    if (newBonus > 0 && remaining > 0) {
-      const fromBonus = Math.min(newBonus, remaining);
-      newBonus -= fromBonus;
-      remaining -= fromBonus;
-    }
-    newBalance -= remaining;
 
     // Get commission rate
     let rate = 15;
@@ -135,36 +117,25 @@ export async function POST(request) {
     const commission = parseFloat(bid.amount) * (rate / 100);
     const payout = parseFloat(bid.amount) - commission;
 
-    // Update wallet balance
-    const { error: walletUpdateErr } = await supabaseAdmin.from('wallets').update({
-      balance: newBalance.toFixed(2),
-      bonus_balance: newBonus.toFixed(2),
-      updated_at: new Date().toISOString(),
-    }).eq('user_id', session.userId);
+    // Debit wallet via wallet_debit RPC (atomic: locks row, checks balance, deducts, creates transaction)
+    let debitTxn = null;
+    if (finalAmount > 0) {
+      const { data: txn, error: debitErr } = await supabaseAdmin.rpc('wallet_debit', {
+        p_wallet_id: wallet.id,
+        p_user_id: session.userId,
+        p_amount: finalAmount,
+        p_type: 'payment',
+        p_reference_type: 'job',
+        p_reference_id: jobId,
+        p_description: `Payment for job ${job.job_number}`,
+        p_metadata: { bid_id: bidId, coupon_discount: couponDiscount.toFixed(2) },
+      });
 
-    if (walletUpdateErr) {
-      console.error('CRITICAL: Wallet balance update failed:', walletUpdateErr.message);
-      return NextResponse.json({ error: 'Failed to update wallet balance' }, { status: 500 });
-    }
-
-    // Record payment in wallet_transactions
-    try {
-      await supabaseAdmin.from('wallet_transactions').insert([{
-        wallet_id: wallet.id,
-        user_id: session.userId,
-        type: 'payment',
-        amount: finalAmount,
-        direction: 'debit',
-        balance_before: availableBalance,
-        balance_after: (newBalance + newBonus),
-        description: `Payment for job ${job.job_number}`,
-        reference_id: jobId,
-        status: 'completed',
-        created_at: new Date().toISOString(),
-        completed_at: new Date().toISOString(),
-      }]);
-    } catch (e) {
-      console.error('Wallet transaction record error:', e?.message);
+      if (debitErr) {
+        console.error('WALLET DEBIT RPC FAILED:', debitErr.message, '| code:', debitErr.code, '| details:', debitErr.details, '| hint:', debitErr.hint, '| wallet_id:', wallet.id, '| amount:', finalAmount);
+        return NextResponse.json({ error: `Failed to update wallet balance: ${debitErr.message}` }, { status: 500 });
+      }
+      debitTxn = txn;
     }
 
     // Accept bid + reject others + assign driver
@@ -211,13 +182,20 @@ export async function POST(request) {
     }]).select().single();
 
     if (escrowErr) {
-      console.error('CRITICAL: Escrow insert failed:', escrowErr.message, escrowErr.details, escrowErr.hint);
-      // Refund wallet since escrow failed
-      await supabaseAdmin.from('wallets').update({
-        balance: balance.toFixed(2),
-        bonus_balance: bonusBalance.toFixed(2),
-        updated_at: new Date().toISOString(),
-      }).eq('user_id', session.userId);
+      console.error('CRITICAL: Escrow insert failed:', escrowErr.message, '| details:', escrowErr.details, '| hint:', escrowErr.hint);
+      // Refund wallet via wallet_credit RPC since escrow failed
+      if (finalAmount > 0) {
+        const { error: refundErr } = await supabaseAdmin.rpc('wallet_credit', {
+          p_wallet_id: wallet.id,
+          p_user_id: session.userId,
+          p_amount: finalAmount,
+          p_type: 'refund',
+          p_reference_type: 'job',
+          p_reference_id: jobId,
+          p_description: `Refund for failed escrow on job ${job.job_number}`,
+        });
+        if (refundErr) console.error('CRITICAL: Refund also failed:', refundErr.message);
+      }
       return NextResponse.json({ error: 'Payment processing failed. Your wallet has been refunded.' }, { status: 500 });
     }
 
@@ -260,9 +238,8 @@ export async function POST(request) {
       payment: {
         total: totalAmount.toFixed(2),
         couponDiscount: couponDiscount.toFixed(2),
-        pointsDiscount: pointsDiscount.toFixed(2),
         finalPaid: finalAmount.toFixed(2),
-        walletBalance: (newBalance + newBonus).toFixed(2),
+        walletBalance: debitTxn ? parseFloat(debitTxn.balance_after).toFixed(2) : balance.toFixed(2),
       },
     });
   } catch (err) {

@@ -90,18 +90,23 @@ export async function POST(request, { params }) {
     };
 
     // Get client's wallet
-    let { data: wallet } = await supabaseAdmin
+    let { data: wallet, error: walletFetchErr } = await supabaseAdmin
       .from('wallets')
       .select('*')
       .eq('user_id', job.client_id)
       .single();
 
+    if (walletFetchErr && walletFetchErr.code !== 'PGRST116') {
+      console.error('Wallet fetch error:', walletFetchErr.message, '| code:', walletFetchErr.code);
+    }
+
     if (!wallet) {
-      const { data: w } = await supabaseAdmin
+      const { data: w, error: walletCreateErr } = await supabaseAdmin
         .from('wallets')
-        .insert([{ user_id: job.client_id, balance: 0, bonus_balance: 0 }])
+        .insert([{ user_id: job.client_id }])
         .select()
         .single();
+      if (walletCreateErr) console.error('Wallet create error:', walletCreateErr.message, '| code:', walletCreateErr.code);
       wallet = w;
     }
 
@@ -111,25 +116,11 @@ export async function POST(request, { params }) {
     }
 
     const balance = parseFloat(wallet.balance || 0);
-    const bonusBalance = parseFloat(wallet.bonus_balance || 0);
-    const availableBalance = balance + bonusBalance;
 
-    if (availableBalance < bidAmount) {
+    if (balance < bidAmount) {
       await revertBid();
       return NextResponse.json({ error: 'Client has insufficient wallet balance for instant accept' }, { status: 400 });
     }
-
-    // Deduct from bonus first, then main balance
-    let remaining = bidAmount;
-    let newBonus = bonusBalance;
-    let newBalance = balance;
-
-    if (newBonus > 0 && remaining > 0) {
-      const fromBonus = Math.min(newBonus, remaining);
-      newBonus -= fromBonus;
-      remaining -= fromBonus;
-    }
-    newBalance -= remaining;
 
     // Get commission rate
     let rate = 15;
@@ -141,35 +132,22 @@ export async function POST(request, { params }) {
     const commission = bidAmount * (rate / 100);
     const payout = bidAmount - commission;
 
-    // Update wallet balance
-    const { error: walletUpdateErr } = await supabaseAdmin.from('wallets').update({
-      balance: newBalance.toFixed(2),
-      bonus_balance: newBonus.toFixed(2),
-      updated_at: new Date().toISOString(),
-    }).eq('user_id', job.client_id);
+    // Debit wallet via wallet_debit RPC (atomic: locks row, checks balance, deducts, creates transaction)
+    const { error: debitErr } = await supabaseAdmin.rpc('wallet_debit', {
+      p_wallet_id: wallet.id,
+      p_user_id: job.client_id,
+      p_amount: bidAmount,
+      p_type: 'payment',
+      p_reference_type: 'job',
+      p_reference_id: jobId,
+      p_description: `Instant accept payment for job ${job.job_number}`,
+      p_metadata: { bid_id: bid.id, driver_id: session.userId },
+    });
 
-    if (walletUpdateErr) {
+    if (debitErr) {
+      console.error('WALLET DEBIT RPC FAILED:', debitErr.message, '| code:', debitErr.code, '| details:', debitErr.details, '| hint:', debitErr.hint, '| wallet_id:', wallet.id, '| amount:', bidAmount);
       await revertBid();
-      return NextResponse.json({ error: 'Failed to process payment' }, { status: 500 });
-    }
-
-    // Record wallet transaction
-    try {
-      await supabaseAdmin.from('wallet_transactions').insert([{
-        wallet_id: wallet.id,
-        user_id: job.client_id,
-        type: 'payment',
-        amount: bidAmount,
-        direction: 'debit',
-        balance_before: availableBalance,
-        balance_after: (newBalance + newBonus),
-        description: `Instant accept payment for job ${job.job_number}`,
-        reference_id: jobId,
-        status: 'completed',
-        completed_at: new Date().toISOString(),
-      }]);
-    } catch (e) {
-      console.error('Wallet transaction record error:', e?.message);
+      return NextResponse.json({ error: `Failed to process payment: ${debitErr.message}` }, { status: 500 });
     }
 
     // Accept bid + close others (outbid, not rejected — customer didn't reject them)
@@ -207,13 +185,18 @@ export async function POST(request, { params }) {
     }]).select().single();
 
     if (escrowErr) {
-      console.error('Escrow insert failed on instant-accept:', escrowErr.message);
-      // Refund wallet
-      await supabaseAdmin.from('wallets').update({
-        balance: balance.toFixed(2),
-        bonus_balance: bonusBalance.toFixed(2),
-        updated_at: new Date().toISOString(),
-      }).eq('user_id', job.client_id);
+      console.error('CRITICAL: Escrow insert failed on instant-accept:', escrowErr.message, '| details:', escrowErr.details, '| hint:', escrowErr.hint);
+      // Refund wallet via wallet_credit RPC
+      const { error: refundErr } = await supabaseAdmin.rpc('wallet_credit', {
+        p_wallet_id: wallet.id,
+        p_user_id: job.client_id,
+        p_amount: bidAmount,
+        p_type: 'refund',
+        p_reference_type: 'job',
+        p_reference_id: jobId,
+        p_description: `Refund for failed escrow on job ${job.job_number}`,
+      });
+      if (refundErr) console.error('CRITICAL: Refund also failed:', refundErr.message);
       return NextResponse.json({ error: 'Payment processing failed. Client wallet refunded.' }, { status: 500 });
     }
 
