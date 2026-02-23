@@ -158,12 +158,62 @@ CREATE INDEX IF NOT EXISTS idx_txn_client_id ON express_transactions(client_id);
 CREATE INDEX IF NOT EXISTS idx_txn_driver_id ON express_transactions(driver_id);
 CREATE INDEX IF NOT EXISTS idx_txn_payment_status ON express_transactions(payment_status);
 
+-- ============================================================
+-- 5. express_disputes table (required for dispute system)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS express_disputes (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  job_id UUID REFERENCES express_jobs(id) NOT NULL,
+  opened_by UUID REFERENCES express_users(id) NOT NULL,
+  opened_by_role TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  description TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'open',
+  resolution TEXT,
+  admin_notes TEXT,
+  resolved_by UUID REFERENCES express_users(id),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  resolved_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_disputes_job_id ON express_disputes(job_id);
+CREATE INDEX IF NOT EXISTS idx_disputes_status ON express_disputes(status);
+CREATE INDEX IF NOT EXISTS idx_disputes_opened_by ON express_disputes(opened_by);
+
+-- RLS for express_disputes
+ALTER TABLE express_disputes ENABLE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'disputes_select' AND tablename = 'express_disputes') THEN
+    CREATE POLICY "disputes_select" ON express_disputes FOR SELECT USING (
+      opened_by = auth.uid()
+      OR EXISTS (
+        SELECT 1 FROM express_jobs
+        WHERE express_jobs.id = express_disputes.job_id
+        AND (express_jobs.client_id = auth.uid() OR express_jobs.assigned_driver_id = auth.uid())
+      )
+    );
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'disputes_insert' AND tablename = 'express_disputes') THEN
+    CREATE POLICY "disputes_insert" ON express_disputes FOR INSERT WITH CHECK (opened_by = auth.uid());
+  END IF;
+END $$;
+
+GRANT ALL ON express_disputes TO service_role;
+GRANT SELECT, INSERT ON express_disputes TO authenticated;
+
 COMMIT;
 
 -- ============================================================
--- Summary: 47 columns added across 3 tables
+-- Summary: 47 columns + 1 table added
 --   express_users:        16 columns
 --   express_jobs:         22 columns (incl. assigned_bid_id, final_amount)
 --   express_transactions:  9 columns (incl. job_id, client_id, driver_id, payment_status, paid_at)
+--   express_disputes:      table created if not exists
 -- All use IF NOT EXISTS — safe to re-run
 -- ============================================================

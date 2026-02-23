@@ -89,51 +89,63 @@ export async function POST(req) {
       .single();
 
     if (insertErr) {
-      return NextResponse.json({ error: 'Failed to create dispute' }, { status: 500 });
+      console.error('DISPUTE INSERT FAILED:', insertErr.message, '| code:', insertErr.code, '| details:', insertErr.details, '| hint:', insertErr.hint);
+      return NextResponse.json({ error: `Failed to create dispute: ${insertErr.message}` }, { status: 500 });
     }
 
     // Update job status to disputed
-    await supabaseAdmin
+    const { error: jobStatusErr } = await supabaseAdmin
       .from('express_jobs')
       .update({ status: 'disputed' })
       .eq('id', jobId);
+
+    if (jobStatusErr) {
+      console.error('Job status update to disputed failed:', jobStatusErr.message, '| code:', jobStatusErr.code);
+    }
 
     // Notify the other party
     const reasonLabel = reason.replace(/_/g, ' ');
     const otherPartyId = user.role === 'client' ? job.assigned_driver_id : job.client_id;
 
-    if (otherPartyId) {
-      await notify(otherPartyId, {
-        type: 'dispute',
-        category: 'job_updates',
-        title: `Dispute opened on ${job.job_number}`,
-        message: `${user.contact_name} opened a dispute: ${reasonLabel}`,
-        emailTemplate: 'job_disputed',
-        emailData: { jobNumber: job.job_number, openerName: user.contact_name, openerRole: user.role, reason: reasonLabel, description },
-        url: user.role === 'client' ? '/driver/my-jobs' : `/client/jobs/${jobId}`,
-      });
+    try {
+      if (otherPartyId) {
+        await notify(otherPartyId, {
+          type: 'dispute',
+          category: 'job_updates',
+          title: `Dispute opened on ${job.job_number}`,
+          message: `${user.contact_name} opened a dispute: ${reasonLabel}`,
+          url: user.role === 'client' ? '/driver/my-jobs' : `/client/jobs/${jobId}`,
+        });
+      }
+    } catch (notifyErr) {
+      console.error('Dispute notify other party error:', notifyErr?.message);
     }
 
-    // Notify all admins (in-app only, no email template for admin dispute alerts)
-    const { data: admins } = await supabaseAdmin
-      .from('express_users')
-      .select('id')
-      .eq('role', 'admin');
+    // Notify all admins (in-app only)
+    try {
+      const { data: admins } = await supabaseAdmin
+        .from('express_users')
+        .select('id')
+        .eq('role', 'admin');
 
-    if (admins) {
-      for (const admin of admins) {
-        await createNotification(
-          admin.id,
-          'dispute',
-          `New dispute on ${job.job_number}`,
-          `${user.contact_name} (${user.role}) opened a dispute: ${reasonLabel}`
-        );
+      if (admins) {
+        for (const admin of admins) {
+          await createNotification(
+            admin.id,
+            'dispute',
+            `New dispute on ${job.job_number}`,
+            `${user.contact_name} (${user.role}) opened a dispute: ${reasonLabel}`
+          );
+        }
       }
+    } catch (adminNotifyErr) {
+      console.error('Dispute notify admins error:', adminNotifyErr?.message);
     }
 
     return NextResponse.json({ data: dispute });
   } catch (err) {
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+    console.error('POST /api/disputes error:', err);
+    return NextResponse.json({ error: err?.message || 'Server error' }, { status: 500 });
   }
 }
 
@@ -151,7 +163,8 @@ export async function GET(req) {
         .order('created_at', { ascending: false });
 
       if (error) {
-        return NextResponse.json({ error: 'Failed to fetch disputes' }, { status: 500 });
+        console.error('Admin fetch disputes error:', error.message, '| code:', error.code, '| details:', error.details);
+        return NextResponse.json({ error: `Failed to fetch disputes: ${error.message}` }, { status: 500 });
       }
       return NextResponse.json({ data });
     }
@@ -174,10 +187,12 @@ export async function GET(req) {
       .order('created_at', { ascending: false });
 
     if (error) {
-      return NextResponse.json({ error: 'Failed to fetch disputes' }, { status: 500 });
+      console.error('Fetch disputes error:', error.message, '| code:', error.code, '| details:', error.details);
+      return NextResponse.json({ error: `Failed to fetch disputes: ${error.message}` }, { status: 500 });
     }
     return NextResponse.json({ data });
   } catch (err) {
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+    console.error('GET /api/disputes error:', err);
+    return NextResponse.json({ error: err?.message || 'Server error' }, { status: 500 });
   }
 }
