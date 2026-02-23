@@ -72,33 +72,46 @@ export async function POST(request, { params }) {
       .neq('id', id)
       .eq('status', 'pending');
 
-    // Update job: assign driver
+    // Update job: assign driver (base columns always exist)
     const { error: jobUpdateErr } = await supabaseAdmin
       .from('express_jobs')
-      .update({
-        status: 'assigned',
-        assigned_driver_id: bid.driver_id,
-        assigned_bid_id: bid.id,
-        final_amount: bid.amount,
-        commission_rate: rate,
-        commission_amount: commission.toFixed(2),
-        driver_payout: payout.toFixed(2),
-      })
+      .update({ status: 'assigned', assigned_driver_id: bid.driver_id })
       .eq('id', bid.job_id);
 
-    if (jobUpdateErr) return NextResponse.json({ error: jobUpdateErr.message }, { status: 500 });
+    if (jobUpdateErr) {
+      console.error('Job assign error:', jobUpdateErr.message);
+      return NextResponse.json({ error: jobUpdateErr.message }, { status: 500 });
+    }
+
+    // Set commission/bid columns (requires add-all-missing-columns.sql migration)
+    try {
+      const { error: extErr } = await supabaseAdmin
+        .from('express_jobs')
+        .update({
+          assigned_bid_id: bid.id,
+          final_amount: bid.amount,
+          commission_rate: rate,
+          commission_amount: commission.toFixed(2),
+          driver_payout: payout.toFixed(2),
+        })
+        .eq('id', bid.job_id);
+      if (extErr) console.error('Job commission columns error (run add-all-missing-columns.sql):', extErr.message);
+    } catch {}
 
     // Create held transaction (escrow)
-    await supabaseAdmin.from('express_transactions').insert([{
-      job_id: bid.job_id,
-      client_id: session.userId,
-      driver_id: bid.driver_id,
-      total_amount: bid.amount,
-      commission_amount: commission.toFixed(2),
-      driver_payout: payout.toFixed(2),
-      payment_status: 'held',
-      held_at: new Date().toISOString(),
-    }]);
+    try {
+      const { error: txnErr } = await supabaseAdmin.from('express_transactions').insert([{
+        job_id: bid.job_id,
+        client_id: session.userId,
+        driver_id: bid.driver_id,
+        total_amount: bid.amount,
+        commission_amount: commission.toFixed(2),
+        driver_payout: payout.toFixed(2),
+        payment_status: 'held',
+        held_at: new Date().toISOString(),
+      }]);
+      if (txnErr) console.error('Transaction insert error (run add-all-missing-columns.sql):', txnErr.message);
+    } catch {}
 
     // Notify driver with client details
     try {
