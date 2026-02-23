@@ -51,8 +51,10 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: `Cannot transition from ${job.status} to ${status}` }, { status: 400 });
     }
 
-    // Prevent early completion: if deliver_by is in the future, driver cannot mark as delivered
-    if (status === 'delivered' && session.role === 'driver' && job.deliver_by) {
+    // Prevent early completion: only for scheduled/regular jobs with a future deliver_by
+    // Spot/immediate deliveries (job_type='spot' or missing) are never blocked
+    const isScheduledJob = job.job_type === 'scheduled' || job.job_type === 'regular';
+    if (status === 'delivered' && session.role === 'driver' && isScheduledJob && job.deliver_by) {
       const scheduledDate = new Date(job.deliver_by);
       const now = new Date();
       if (scheduledDate > now) {

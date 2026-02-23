@@ -320,8 +320,10 @@ export default function DriverMyJobs() {
                 || (nextStatus === 'delivered' && !selected.delivery_photo);
               const photoHint = nextStatus === 'pickup_confirmed' ? 'Upload pickup photo first'
                 : nextStatus === 'delivered' ? 'Upload delivery photo first' : null;
-              // Prevent early completion: check if deliver_by is in the future
-              const scheduledFuture = nextStatus === 'delivered' && selected.deliver_by && new Date(selected.deliver_by) > new Date();
+              // Prevent early completion: only for scheduled/regular jobs with future deliver_by
+              // Spot/immediate deliveries are never blocked
+              const isScheduledJob = selected.job_type === 'scheduled' || selected.job_type === 'regular';
+              const scheduledFuture = nextStatus === 'delivered' && isScheduledJob && selected.deliver_by && new Date(selected.deliver_by) > new Date();
               const scheduledDateStr = selected.deliver_by ? new Date(selected.deliver_by).toLocaleDateString('en-SG', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
               const isDisabled = needsPhoto || scheduledFuture;
               return (
