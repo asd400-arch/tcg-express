@@ -12,6 +12,7 @@ import DisputeModal from '../../../components/DisputeModal';
 import CallButtons from '../../../components/CallButtons';
 import { supabase } from '../../../../lib/supabase';
 import useMobile from '../../../components/useMobile';
+import { useUnreadMessages } from '../../../components/UnreadMessagesContext';
 import { use } from 'react';
 import { getCategoryByKey, getEquipmentLabel } from '../../../../lib/constants';
 
@@ -21,6 +22,7 @@ export default function ClientJobDetail({ params }) {
   const router = useRouter();
   const toast = useToast();
   const m = useMobile();
+  const { unreadByJob, markJobRead } = useUnreadMessages();
   const [jobId] = useState(resolvedParams.id);
   const [job, setJob] = useState(null);
   const [bids, setBids] = useState([]);
@@ -35,6 +37,13 @@ export default function ClientJobDetail({ params }) {
     if (!loading && !user) router.push('/login');
     if (jobId && user) loadData();
   }, [jobId, user, loading]);
+
+  // Auto-mark messages read when viewing Messages tab
+  useEffect(() => {
+    if (tab === 'messages' && jobId && unreadByJob[jobId] > 0) {
+      markJobRead(jobId);
+    }
+  }, [tab, jobId, unreadByJob, markJobRead]);
 
   // Handle payment=success query param
   useEffect(() => {
@@ -214,12 +223,22 @@ export default function ClientJobDetail({ params }) {
         {/* Tabs */}
         <div style={{ display: 'flex', gap: '4px', marginBottom: '20px', background: '#f1f5f9', borderRadius: '10px', padding: '4px', flexWrap: 'wrap' }}>
           {['details', 'bids', ...(showMap ? ['tracking'] : []), ...(showChat ? ['messages'] : [])].map(t => (
-            <button key={t} onClick={() => setTab(t)} style={{
+            <button key={t} onClick={() => { setTab(t); if (t === 'messages') markJobRead(jobId); }} style={{
               flex: 1, minWidth: '70px', padding: '10px', borderRadius: '8px', border: 'none', cursor: 'pointer',
               background: tab === t ? 'white' : 'transparent', color: tab === t ? '#1e293b' : '#64748b',
               fontSize: '13px', fontWeight: '600', fontFamily: "'Inter', sans-serif",
               boxShadow: tab === t ? '0 1px 3px rgba(0,0,0,0.08)' : 'none', textTransform: 'capitalize',
-            }}>{t} {t === 'bids' ? `(${bids.length})` : ''}</button>
+              position: 'relative',
+            }}>
+              {t} {t === 'bids' ? `(${bids.length})` : ''}
+              {t === 'messages' && unreadByJob[jobId] > 0 && (
+                <span style={{
+                  position: 'absolute', top: '4px', right: '4px',
+                  width: '8px', height: '8px', borderRadius: '50%',
+                  background: '#ef4444',
+                }} />
+              )}
+            </button>
           ))}
         </div>
 

@@ -1,6 +1,7 @@
 import './globals.css';
 import { AuthProvider } from './components/AuthContext';
 import { ToastProvider } from './components/Toast';
+import { UnreadMessagesProvider } from './components/UnreadMessagesContext';
 import ServiceWorkerRegister from './components/ServiceWorkerRegister';
 import ChatWidget from './components/help/ChatWidget';
 
@@ -48,8 +49,10 @@ export default function RootLayout({ children }) {
       <body style={{ margin: 0, padding: 0 }}>
         <AuthProvider>
           <ToastProvider>
-            {children}
-            <ChatWidget />
+            <UnreadMessagesProvider>
+              {children}
+              <ChatWidget />
+            </UnreadMessagesProvider>
           </ToastProvider>
         </AuthProvider>
         <ServiceWorkerRegister />

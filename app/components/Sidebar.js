@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from './AuthContext';
 import useMobile from './useMobile';
 import NotificationBell from './NotificationBell';
+import { useUnreadMessages } from './UnreadMessagesContext';
 
 const clientLinks = [
   { label: 'Dashboard', href: '/client/dashboard', icon: '📊' },
@@ -47,6 +48,7 @@ export default function Sidebar({ active = '', title }) {
   const m = useMobile();
   const [open, setOpen] = useState(false);
   const [walletBalance, setWalletBalance] = useState(null);
+  const { totalUnread } = useUnreadMessages();
   const displayTitle = title || active;
 
   // Fetch wallet balance for badge
@@ -109,6 +111,13 @@ export default function Sidebar({ active = '', title }) {
                 background: active === 'Wallet' ? `${roleColor}20` : '#f1f5f9',
                 color: active === 'Wallet' ? roleColor : '#475569',
               }}>${walletBalance.toFixed(2)}</span>
+            )}
+            {(link.label === 'My Jobs' || link.label === 'My Deliveries') && totalUnread > 0 && (
+              <span style={{
+                fontSize: '11px', fontWeight: '700', minWidth: '20px', textAlign: 'center',
+                padding: '2px 7px', borderRadius: '10px',
+                background: '#ef4444', color: 'white',
+              }}>{totalUnread > 99 ? '99+' : totalUnread}</span>
             )}
           </a>
         ))}

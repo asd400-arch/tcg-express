@@ -13,6 +13,7 @@ import RatingModal from '../../components/RatingModal';
 import CallButtons from '../../components/CallButtons';
 import { supabase } from '../../../lib/supabase';
 import useMobile from '../../components/useMobile';
+import { useUnreadMessages } from '../../components/UnreadMessagesContext';
 
 export default function DriverMyJobs() {
   const { user, loading } = useAuth();
@@ -33,6 +34,7 @@ export default function DriverMyJobs() {
   const [deliveryCoords, setDeliveryCoords] = useState(null);
   const [queue, setQueue] = useState([]);
   const [queueLoading, setQueueLoading] = useState(false);
+  const { unreadByJob, markJobRead } = useUnreadMessages();
   const gps = useGpsTracking(user?.id, selected?.id, pickupCoords, deliveryCoords);
 
   useEffect(() => {
@@ -95,6 +97,13 @@ export default function DriverMyJobs() {
     if (job.pickup_address) geocodeAddress(job.pickup_address).then(setPickupCoords);
     if (job.delivery_address) geocodeAddress(job.delivery_address).then(setDeliveryCoords);
   };
+
+  // Auto-mark messages read when viewing Messages tab
+  useEffect(() => {
+    if (activeTab === 'messages' && selected?.id && unreadByJob[selected.id] > 0) {
+      markJobRead(selected.id);
+    }
+  }, [activeTab, selected?.id, unreadByJob, markJobRead]);
 
   // Auto-start GPS when viewing an in_transit job (handles page refresh)
   useEffect(() => {
@@ -280,7 +289,15 @@ export default function DriverMyJobs() {
                     <div style={{ fontSize: '13px', color: '#374151' }}>{job.item_description}</div>
                     <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>📍 {job.pickup_address} → {job.delivery_address}</div>
                   </div>
-                  <div style={{ fontSize: '18px', fontWeight: '800', color: '#059669' }}>${job.driver_payout || job.final_amount || '—'}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {unreadByJob[job.id] > 0 && (
+                      <span style={{
+                        fontSize: '10px', fontWeight: '700', minWidth: '18px', textAlign: 'center',
+                        padding: '2px 6px', borderRadius: '10px', background: '#ef4444', color: 'white',
+                      }}>{unreadByJob[job.id]}</span>
+                    )}
+                    <div style={{ fontSize: '18px', fontWeight: '800', color: '#059669' }}>${job.driver_payout || job.final_amount || '—'}</div>
+                  </div>
                 </div>
               </div>
             ))}
@@ -376,12 +393,22 @@ export default function DriverMyJobs() {
             {/* Tabs */}
             <div style={{ display: 'flex', gap: '4px', marginBottom: '20px', background: '#f1f5f9', borderRadius: '10px', padding: '4px' }}>
               {['info', ...(showMap ? ['tracking'] : []), 'uploads', 'messages'].map(t => (
-                <button key={t} onClick={() => setActiveTab(t)} style={{
+                <button key={t} onClick={() => { setActiveTab(t); if (t === 'messages' && selected) markJobRead(selected.id); }} style={{
                   flex: 1, padding: '10px', borderRadius: '8px', border: 'none', cursor: 'pointer',
                   background: activeTab === t ? 'white' : 'transparent', color: activeTab === t ? '#1e293b' : '#64748b',
                   fontSize: '13px', fontWeight: '600', fontFamily: "'Inter', sans-serif",
                   boxShadow: activeTab === t ? '0 1px 3px rgba(0,0,0,0.08)' : 'none', textTransform: 'capitalize',
-                }}>{t === 'info' ? 'Job Info' : t}</button>
+                  position: 'relative',
+                }}>
+                  {t === 'info' ? 'Job Info' : t}
+                  {t === 'messages' && selected && unreadByJob[selected.id] > 0 && (
+                    <span style={{
+                      position: 'absolute', top: '4px', right: '4px',
+                      width: '8px', height: '8px', borderRadius: '50%',
+                      background: '#ef4444',
+                    }} />
+                  )}
+                </button>
               ))}
             </div>
 
