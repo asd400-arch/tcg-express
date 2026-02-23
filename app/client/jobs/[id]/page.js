@@ -9,6 +9,7 @@ import LiveMap from '../../../components/LiveMap';
 import { useToast } from '../../../components/Toast';
 import RatingModal from '../../../components/RatingModal';
 import DisputeModal from '../../../components/DisputeModal';
+import EditJobModal from '../../../components/EditJobModal';
 import CallButtons from '../../../components/CallButtons';
 import { supabase } from '../../../../lib/supabase';
 import useMobile from '../../../components/useMobile';
@@ -32,6 +33,7 @@ export default function ClientJobDetail({ params }) {
   const [heldTxn, setHeldTxn] = useState(null);
   const [dispute, setDispute] = useState(null);
   const [showDispute, setShowDispute] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
   const [assignedDriver, setAssignedDriver] = useState(null);
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -217,7 +219,16 @@ export default function ClientJobDetail({ params }) {
             <a href="/client/jobs" style={{ color: '#64748b', fontSize: '13px', textDecoration: 'none' }}>← Back to Jobs</a>
             <h1 style={{ fontSize: '22px', fontWeight: '700', color: '#1e293b', marginTop: '6px' }}>{job.job_number || 'Job Details'}</h1>
           </div>
-          <span style={{ padding: '6px 14px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', background: `${statusColor[job.status]}15`, color: statusColor[job.status], textTransform: 'uppercase' }}>{job.status.replace(/_/g, ' ')}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ padding: '6px 14px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', background: `${statusColor[job.status]}15`, color: statusColor[job.status], textTransform: 'uppercase' }}>{job.status.replace(/_/g, ' ')}</span>
+            {!['confirmed', 'completed', 'cancelled', 'disputed'].includes(job.status) && (
+              <button onClick={() => setShowEdit(true)} style={{
+                padding: '6px 14px', borderRadius: '8px', border: '1px solid #e2e8f0',
+                background: 'white', color: '#3b82f6', fontSize: '13px', fontWeight: '600',
+                cursor: 'pointer', fontFamily: "'Inter', sans-serif", display: 'flex', alignItems: 'center', gap: '4px',
+              }}>✏️ Edit</button>
+            )}
+          </div>
         </div>
 
         {/* Tabs */}
@@ -423,6 +434,15 @@ export default function ClientJobDetail({ params }) {
             driverId={job.assigned_driver_id}
             onClose={() => setShowRating(false)}
             onSubmitted={() => { setHasReview(true); loadData(); }}
+          />
+        )}
+
+        {/* Edit Job Modal */}
+        {showEdit && (
+          <EditJobModal
+            job={job}
+            onClose={() => setShowEdit(false)}
+            onSaved={(updated) => { setJob(updated); setShowEdit(false); toast.success('Job updated successfully'); }}
           />
         )}
 
