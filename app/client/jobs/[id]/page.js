@@ -117,6 +117,22 @@ export default function ClientJobDetail({ params }) {
     }
   };
 
+  const rejectBid = async (bid) => {
+    if (!confirm(`Reject this bid of $${bid.amount} from ${bid.driver?.contact_name || 'driver'}? They can re-bid with a different price.`)) return;
+    try {
+      const res = await fetch(`/api/bids/${bid.id}/reject`, { method: 'POST' });
+      const result = await res.json();
+      if (res.ok) {
+        toast.success('Bid rejected. Driver has been notified.');
+        loadData();
+      } else {
+        toast.error(result.error || 'Failed to reject bid');
+      }
+    } catch {
+      toast.error('Failed to reject bid');
+    }
+  };
+
   const acceptBid = async (bid) => {
     // Pay with wallet balance (card payments paused)
     try {
@@ -403,7 +419,10 @@ export default function ClientJobDetail({ params }) {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: '12px', color: '#94a3b8' }}>{new Date(bid.created_at).toLocaleString()}</span>
                     {bid.status === 'pending' && ['open', 'bidding'].includes(job.status) ? (
-                      <button onClick={() => acceptBid(bid)} style={{ padding: '8px 20px', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>✅ Accept Bid</button>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button onClick={() => rejectBid(bid)} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #ef4444', background: 'white', color: '#ef4444', fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>Reject</button>
+                        <button onClick={() => acceptBid(bid)} style={{ padding: '8px 20px', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>✅ Accept Bid</button>
+                      </div>
                     ) : (
                       <span style={{ padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', background: bid.status === 'accepted' ? '#f0fdf4' : bid.status === 'outbid' ? '#fffbeb' : '#fef2f2', color: bid.status === 'accepted' ? '#10b981' : bid.status === 'outbid' ? '#d97706' : '#ef4444', textTransform: 'capitalize' }}>{bid.status === 'outbid' ? 'not selected' : bid.status}</span>
                     )}
