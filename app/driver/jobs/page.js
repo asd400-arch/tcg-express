@@ -179,7 +179,12 @@ export default function DriverJobs() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: '12px', color: '#94a3b8' }}>{new Date(job.created_at).toLocaleString()}</span>
                     {hasBid ? (
-                      <span style={{ padding: '8px 16px', borderRadius: '8px', background: hasBid.status === 'accepted' ? '#f0fdf4' : hasBid.status === 'outbid' ? '#fffbeb' : hasBid.status === 'rejected' ? '#fef2f2' : '#f0fdf4', color: hasBid.status === 'accepted' ? '#10b981' : hasBid.status === 'outbid' ? '#d97706' : hasBid.status === 'rejected' ? '#ef4444' : '#10b981', fontSize: '13px', fontWeight: '600' }}>{hasBid.status === 'accepted' ? '✓' : hasBid.status === 'outbid' ? '—' : hasBid.status === 'rejected' ? '✕' : '✓'} Bid: ${hasBid.amount} ({hasBid.status === 'outbid' ? 'another driver accepted' : hasBid.status})</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ padding: '8px 16px', borderRadius: '8px', background: hasBid.status === 'accepted' ? '#f0fdf4' : hasBid.status === 'outbid' ? '#fffbeb' : hasBid.status === 'rejected' ? '#fef2f2' : '#f0fdf4', color: hasBid.status === 'accepted' ? '#10b981' : hasBid.status === 'outbid' ? '#d97706' : hasBid.status === 'rejected' ? '#ef4444' : '#10b981', fontSize: '13px', fontWeight: '600' }}>{hasBid.status === 'accepted' ? '✓' : hasBid.status === 'outbid' ? '—' : hasBid.status === 'rejected' ? '✕' : '✓'} Bid: ${hasBid.amount} ({hasBid.status === 'outbid' ? 'another driver accepted' : hasBid.status})</span>
+                        {['rejected', 'outbid'].includes(hasBid.status) && (
+                          <button onClick={() => setSelectedJob(job)} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #f59e0b', background: 'white', color: '#f59e0b', fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>Re-bid</button>
+                        )}
+                      </div>
                     ) : (
                       <div style={{ display: 'flex', gap: '8px' }}>
                         <button onClick={() => instantAccept(job)} disabled={accepting === job.id} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif", opacity: accepting === job.id ? 0.7 : 1 }}>{accepting === job.id ? 'Accepting...' : `Accept $${job.budget_max || job.budget_min}`}</button>

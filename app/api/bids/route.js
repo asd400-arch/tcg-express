@@ -62,20 +62,56 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Job is no longer accepting bids' }, { status: 400 });
     }
 
-    // Check for existing bid (any non-rejected status)
+    // Check for existing bid
     const { data: existing } = await supabaseAdmin
       .from('express_bids')
       .select('id, status, amount')
       .eq('job_id', job_id)
       .eq('driver_id', session.userId)
-      .in('status', ['pending', 'accepted'])
       .single();
 
     if (existing) {
-      return NextResponse.json({
-        error: 'You already placed a bid on this job',
-        existing_bid: { id: existing.id, amount: existing.amount, status: existing.status },
-      }, { status: 409 });
+      // Active bid — block duplicate
+      if (['pending', 'accepted'].includes(existing.status)) {
+        return NextResponse.json({
+          error: 'You already placed a bid on this job',
+          existing_bid: { id: existing.id, amount: existing.amount, status: existing.status },
+        }, { status: 409 });
+      }
+
+      // Rejected or outbid — allow re-bid by updating existing row
+      if (['rejected', 'outbid'].includes(existing.status)) {
+        const { data, error } = await supabaseAdmin
+          .from('express_bids')
+          .update({
+            amount: parseFloat(amount),
+            message: message || null,
+            status: 'pending',
+            created_at: new Date().toISOString(),
+          })
+          .eq('id', existing.id)
+          .select()
+          .single();
+
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+        // Update job status to bidding if still open
+        if (job.status === 'open') {
+          await supabaseAdmin.from('express_jobs').update({ status: 'bidding' }).eq('id', job_id);
+        }
+
+        // Notify client
+        try {
+          await notify(job.client_id, {
+            type: 'new_bid',
+            category: 'bid_activity',
+            title: 'New bid received',
+            message: `A driver bid $${parseFloat(amount).toFixed(2)} on job ${job.job_number || ''}`,
+          });
+        } catch {}
+
+        return NextResponse.json({ data });
+      }
     }
 
     const { data, error } = await supabaseAdmin
