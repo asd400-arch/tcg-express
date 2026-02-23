@@ -6,7 +6,7 @@ export async function POST(request) {
   const session = getSession(request);
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { job_id, rating, review } = await request.json();
+  const { job_id, rating, review, review_text } = await request.json();
   if (!job_id || !rating) return NextResponse.json({ error: 'Job ID and rating required' }, { status: 400 });
 
   const { data: job } = await supabaseAdmin
@@ -21,7 +21,7 @@ export async function POST(request) {
   const reviewData = {
     job_id,
     rating: Math.min(5, Math.max(1, parseInt(rating))),
-    review: review || null,
+    review_text: review_text || review || null,
     reviewer_role: reviewerRole,
   };
 

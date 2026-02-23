@@ -112,53 +112,43 @@ export async function POST(req) {
     if (driverTx) {
       const driverTxId = Array.isArray(driverTx) ? driverTx[0]?.id : driverTx.id;
       if (driverTxId) {
-        await supabaseAdmin
-          .from('payments')
-          .update({ driver_wallet_tx_id: driverTxId, settled_at: now })
-          .eq('job_id', jobId)
-          .in('payment_status', ['pending', 'paid']);
+        try {
+          await supabaseAdmin
+            .from('payments')
+            .update({ driver_wallet_tx_id: driverTxId, settled_at: now })
+            .eq('job_id', jobId)
+            .in('payment_status', ['pending', 'paid']);
+        } catch {}
       }
     }
 
     // ============================================================
-    // Award client loyalty points: 5% of total amount (100 points = $1)
+    // Award client green points (if applicable)
+    // Note: loyalty points via wallets.points column was removed;
+    // green points use green_points_ledger + express_users.green_points_balance
     // ============================================================
     try {
-      const pointsEarned = Math.floor(parseFloat(txn.total_amount) * 5); // 5% * 100
+      const pointsEarned = Math.floor(parseFloat(txn.total_amount) * 5);
       if (pointsEarned > 0) {
-        let { data: wallet } = await supabaseAdmin
-          .from('wallets')
-          .select('*')
-          .eq('user_id', session.userId)
+        // Update user's green_points_balance
+        const { data: usr } = await supabaseAdmin
+          .from('express_users')
+          .select('green_points_balance')
+          .eq('id', session.userId)
           .single();
 
-        if (!wallet) {
-          const { data: w } = await supabaseAdmin
-            .from('wallets')
-            .insert([{ user_id: session.userId }])
-            .select()
-            .single();
-          wallet = w;
-        }
+        if (usr) {
+          const newBalance = (usr.green_points_balance || 0) + pointsEarned;
+          await supabaseAdmin.from('express_users')
+            .update({ green_points_balance: newBalance })
+            .eq('id', session.userId);
 
-        if (wallet) {
-          const newPoints = (wallet.points || 0) + pointsEarned;
-          await supabaseAdmin.from('wallets')
-            .update({ points: newPoints, updated_at: new Date().toISOString() })
-            .eq('user_id', session.userId);
-
-          await supabaseAdmin.from('wallet_transactions').insert([{
-            wallet_id: wallet.id,
+          await supabaseAdmin.from('green_points_ledger').insert([{
             user_id: session.userId,
-            type: 'points_earn',
-            amount: '0',
-            points_amount: pointsEarned,
-            points_after: newPoints,
-            description: `Points earned for completed delivery`,
-            reference_id: jobId,
-            reference_type: 'loyalty_points',
-            status: 'completed',
-            completed_at: new Date().toISOString(),
+            user_type: 'client',
+            job_id: jobId,
+            points_earned: pointsEarned,
+            points_type: 'loyalty',
           }]);
         }
       }
