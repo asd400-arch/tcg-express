@@ -4,6 +4,7 @@ import { getSession } from '../../../lib/auth';
 import { notify } from '../../../lib/notify';
 import { rateLimiters, applyRateLimit } from '../../../lib/rate-limiters';
 import { requireUUID, requirePositiveNumber, cleanString } from '../../../lib/validate';
+import { checkVehicleFit } from '../../../lib/fares';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -73,13 +74,29 @@ export async function POST(request) {
     // Check job exists and is open
     const { data: job } = await supabaseAdmin
       .from('express_jobs')
-      .select('id, client_id, status, job_number')
+      .select('id, client_id, status, job_number, vehicle_required')
       .eq('id', job_id)
       .single();
 
     if (!job) return NextResponse.json({ error: 'Job not found' }, { status: 404 });
     if (!['open', 'bidding'].includes(job.status)) {
       return NextResponse.json({ error: 'Job is no longer accepting bids' }, { status: 400 });
+    }
+
+    // Vehicle size validation: driver's vehicle must be big enough
+    if (job.vehicle_required && job.vehicle_required !== 'any') {
+      const { data: driver } = await supabaseAdmin
+        .from('express_users')
+        .select('vehicle_type')
+        .eq('id', session.userId)
+        .single();
+
+      const fit = checkVehicleFit(driver?.vehicle_type, job.vehicle_required);
+      if (!fit.ok) {
+        return NextResponse.json({
+          error: `Your vehicle is too small for this job. Required: ${fit.required}`,
+        }, { status: 400 });
+      }
     }
 
     // Check for existing bid

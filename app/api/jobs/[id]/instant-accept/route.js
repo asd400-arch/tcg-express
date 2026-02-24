@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../../../lib/supabase-server';
 import { getSession } from '../../../../../lib/auth';
 import { notify } from '../../../../../lib/notify';
+import { checkVehicleFit } from '../../../../../lib/fares';
 
 // POST: Driver instantly accepts job at customer's max budget
 // Uses atomic process_bid_acceptance RPC — all-or-nothing
@@ -19,13 +20,29 @@ export async function POST(request, { params }) {
     // Fetch job to get budget and client_id
     const { data: job, error: jobErr } = await supabaseAdmin
       .from('express_jobs')
-      .select('id, client_id, status, job_number, budget_max, budget_min')
+      .select('id, client_id, status, job_number, budget_max, budget_min, vehicle_required')
       .eq('id', jobId)
       .single();
 
     if (jobErr || !job) return NextResponse.json({ error: 'Job not found' }, { status: 404 });
     if (!['open', 'bidding'].includes(job.status)) {
       return NextResponse.json({ error: 'Job is no longer accepting bids' }, { status: 400 });
+    }
+
+    // Vehicle size validation: driver's vehicle must be big enough
+    if (job.vehicle_required && job.vehicle_required !== 'any') {
+      const { data: driver } = await supabaseAdmin
+        .from('express_users')
+        .select('vehicle_type')
+        .eq('id', session.userId)
+        .single();
+
+      const fit = checkVehicleFit(driver?.vehicle_type, job.vehicle_required);
+      if (!fit.ok) {
+        return NextResponse.json({
+          error: `Your vehicle is too small for this job. Required: ${fit.required}`,
+        }, { status: 400 });
+      }
     }
 
     const bidAmount = parseFloat(job.budget_max) || parseFloat(job.budget_min);
