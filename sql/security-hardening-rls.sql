@@ -264,7 +264,7 @@ CREATE POLICY "banners_select_active" ON express_promo_banners
 
 -- Regular schedules: clients see their own
 CREATE POLICY "regular_schedules_select_own" ON regular_schedules
-  FOR SELECT USING (client_id = auth.uid());
+  FOR SELECT USING (customer_id = auth.uid());
 
 -- Service zones: public read
 CREATE POLICY "service_zones_select_all" ON service_zones
@@ -277,12 +277,9 @@ CREATE POLICY "driver_queue_select_own" ON driver_job_queue
 -- Webhook events: no authenticated access (service role only)
 -- No policies = deny all for authenticated role
 
--- Consolidation groups: participant access
+-- Consolidation groups: driver access
 CREATE POLICY "consolidation_select_participant" ON consolidation_groups
-  FOR SELECT USING (
-    driver_id = auth.uid()
-    OR created_by = auth.uid()
-  );
+  FOR SELECT USING (driver_id = auth.uid());
 
 -- ============================================================
 -- SUMMARY
