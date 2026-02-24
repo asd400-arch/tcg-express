@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../lib/supabase-server';
 import { getSession, requireAuth } from '../../../lib/auth';
 import { VALID_VEHICLE_KEYS } from '../../../lib/fares';
+import { findMatchingZones, calculateZoneSurcharge, isInRestrictedZone } from '../../../lib/geo';
 
 export async function GET(request) {
   try {
@@ -119,6 +120,44 @@ export async function POST(request) {
       save_mode_window: body.save_mode_window != null ? parseInt(body.save_mode_window) : null,
       save_mode_deadline: body.save_mode_deadline || null,
     };
+
+    // Geo-fencing validation
+    const hasCoords = body.pickup_lat != null || body.delivery_lat != null;
+    if (hasCoords) {
+      try {
+        const { data: zones } = await supabaseAdmin
+          .from('service_zones')
+          .select('*')
+          .eq('is_active', true);
+
+        if (zones && zones.length > 0) {
+          if (body.pickup_lat != null && body.pickup_lng != null) {
+            if (isInRestrictedZone(body.pickup_lat, body.pickup_lng, zones)) {
+              return NextResponse.json({ error: 'Pickup address is in a restricted zone' }, { status: 400 });
+            }
+          }
+          if (body.delivery_lat != null && body.delivery_lng != null) {
+            if (isInRestrictedZone(body.delivery_lat, body.delivery_lng, zones)) {
+              return NextResponse.json({ error: 'Delivery address is in a restricted zone' }, { status: 400 });
+            }
+          }
+          // Recalculate zone surcharge server-side
+          const pickupSurchargeZones = body.pickup_lat != null ? findMatchingZones(body.pickup_lat, body.pickup_lng, zones).filter(z => z.zone_type === 'surcharge') : [];
+          const deliverySurchargeZones = body.delivery_lat != null ? findMatchingZones(body.delivery_lat, body.delivery_lng, zones).filter(z => z.zone_type === 'surcharge') : [];
+          const allZones = [...pickupSurchargeZones, ...deliverySurchargeZones].filter((z, i, arr) => arr.findIndex(x => x.id === z.id) === i);
+          if (allZones.length > 0) {
+            const baseFare = parseFloat(body.estimated_fare) || parseFloat(body.budget_min) || 0;
+            jobData.zone_surcharge = calculateZoneSurcharge(baseFare, allZones);
+          }
+        }
+      } catch {
+        // Don't fail job creation if geo-fencing check fails
+      }
+    }
+    if (body.pickup_lat != null) jobData.pickup_lat = parseFloat(body.pickup_lat);
+    if (body.pickup_lng != null) jobData.pickup_lng = parseFloat(body.pickup_lng);
+    if (body.delivery_lat != null) jobData.delivery_lat = parseFloat(body.delivery_lat);
+    if (body.delivery_lng != null) jobData.delivery_lng = parseFloat(body.delivery_lng);
 
     // Validate vehicle_required against valid keys
     if (jobData.vehicle_required !== 'any' && !VALID_VEHICLE_KEYS.includes(jobData.vehicle_required)) {

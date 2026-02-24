@@ -14,6 +14,8 @@ export async function GET(request) {
 
     if (session.role === 'client') {
       query = query.eq('client_id', session.userId);
+    } else if (session.role === 'driver') {
+      query = query.eq('status', 'bidding_open');
     }
 
     const { data, error } = await query;

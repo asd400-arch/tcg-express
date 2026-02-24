@@ -19,6 +19,7 @@ const driverLinks = [
   { label: 'Dashboard', href: '/driver/dashboard', icon: '📊' },
   { label: 'Available Jobs', href: '/driver/jobs', icon: '🔍' },
   { label: 'My Jobs', href: '/driver/my-jobs', icon: '📦' },
+  { label: 'Corp Premium', href: '/driver/corp-premium', icon: '⭐' },
   { label: 'Earnings', href: '/driver/earnings', icon: '💰' },
   { label: 'Wallet', href: '/driver/wallet', icon: '👛' },
   { label: 'Help', href: '/driver/help', icon: '❓' },
@@ -79,7 +80,7 @@ export default function Sidebar({ active = '', title }) {
       {/* Logo */}
       <div style={{ padding: '20px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <a href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: `linear-gradient(135deg, ${roleColor}, ${roleColor}cc)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: '900', color: 'white' }}>T</div>
+          <img src="/logo_C_typographic_1200.png" alt="TCG Express" style={{ width: '36px', height: '36px', borderRadius: '10px', objectFit: 'contain' }} />
           <div>
             <div style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b' }}>TCG Express</div>
             <div style={{ fontSize: '11px', fontWeight: '600', color: roleColor, textTransform: 'uppercase', letterSpacing: '1px' }}>{roleLabel}</div>
@@ -153,7 +154,7 @@ export default function Sidebar({ active = '', title }) {
           padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: `linear-gradient(135deg, ${roleColor}, ${roleColor}cc)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: '900', color: 'white', flexShrink: 0 }}>T</div>
+            <img src="/logo_C_typographic_1200.png" alt="TCG Express" style={{ width: '32px', height: '32px', borderRadius: '8px', objectFit: 'contain', flexShrink: 0 }} />
             <span style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{displayTitle || 'TCG Express'}</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>

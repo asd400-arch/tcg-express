@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../components/AuthContext';
 import TermsModal from '../components/TermsModal';
+import LiabilityCapModal from '../components/LiabilityCapModal';
 import { VEHICLE_MODES } from '../../lib/fares';
 
 export default function Signup() {
@@ -20,6 +21,7 @@ export default function Signup() {
   const [driverTcAccepted, setDriverTcAccepted] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [termsHighlightSection, setTermsHighlightSection] = useState(null);
+  const [showLiabilityModal, setShowLiabilityModal] = useState(false);
 
   const set = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
   const setFile = (k, file) => setFiles(prev => ({ ...prev, [k]: file }));
@@ -143,7 +145,7 @@ export default function Signup() {
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', padding: '20px' }}>
       <div style={{ maxWidth: '520px', width: '100%', background: 'white', borderRadius: '20px', padding: '40px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <div style={{ width: '56px', height: '56px', borderRadius: '14px', background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', fontWeight: '900', color: 'white', margin: '0 auto 16px' }}>T</div>
+          <img src="/logo_C_typographic_1200.png" alt="TCG Express" style={{ width: '56px', height: '56px', borderRadius: '14px', objectFit: 'contain', margin: '0 auto 16px', display: 'block' }} />
           <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', marginBottom: '6px' }}>Create Account</h1>
           <p style={{ color: '#64748b', fontSize: '14px' }}>Join TCG Express</p>
         </div>
@@ -366,6 +368,9 @@ export default function Signup() {
                     <span onClick={(e) => { e.preventDefault(); setTermsHighlightSection(null); setShowTermsModal(true); }} style={{ color: '#3b82f6', fontWeight: '600', cursor: 'pointer', textDecoration: 'underline' }}>Driver Partner Terms and Conditions</span>
                   </span>
                 </label>
+                <div style={{ marginTop: '8px', paddingLeft: '26px' }}>
+                  <span onClick={() => setShowLiabilityModal(true)} style={{ color: '#dc2626', fontWeight: '600', cursor: 'pointer', textDecoration: 'underline', fontSize: '12px' }}>View Liability Caps</span>
+                </div>
               </div>
             )}
 
@@ -384,6 +389,7 @@ export default function Signup() {
         </div>
 
         {showTermsModal && <TermsModal onClose={() => setShowTermsModal(false)} highlightSection={termsHighlightSection} />}
+        {showLiabilityModal && <LiabilityCapModal onClose={() => setShowLiabilityModal(false)} />}
       </div>
     </div>
   );

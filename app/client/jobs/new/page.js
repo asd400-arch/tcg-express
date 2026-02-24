@@ -14,8 +14,9 @@ import {
   EV_EMISSION_FACTORS, EV_DISCOUNT_RATE, calculateCO2Saved, calculateGreenPoints, calculateEvDiscount,
   SAVE_MODE_WINDOWS, SAVE_MODE_GREEN_POINTS, DIMENSION_PRESETS,
 } from '../../../../lib/fares';
+import { findMatchingZones, calculateZoneSurcharge, isInRestrictedZone } from '../../../../lib/geo';
 
-function AddressAutocomplete({ value, onChange, placeholder, inputStyle }) {
+function AddressAutocomplete({ value, onChange, onSelect, placeholder, inputStyle }) {
   const [suggestions, setSuggestions] = useState([]);
   const [show, setShow] = useState(false);
   const debounceRef = useRef(null);
@@ -50,7 +51,7 @@ function AddressAutocomplete({ value, onChange, placeholder, inputStyle }) {
       {show && suggestions.length > 0 && (
         <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', borderRadius: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.12)', border: '1px solid #e2e8f0', zIndex: 50, maxHeight: '240px', overflow: 'auto', marginTop: '4px' }}>
           {suggestions.map((s, i) => (
-            <div key={i} onClick={() => { onChange(s.address); setShow(false); }}
+            <div key={i} onClick={() => { onChange(s.address); onSelect?.({ lat: s.lat, lng: s.lng }); setShow(false); }}
               style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: i < suggestions.length - 1 ? '1px solid #f1f5f9' : 'none', fontSize: '13px', color: '#1e293b' }}
               onMouseEnter={e => e.target.style.background = '#f8fafc'}
               onMouseLeave={e => e.target.style.background = 'white'}>
@@ -104,6 +105,10 @@ export default function NewJob() {
   const [deliveryMode, setDeliveryMode] = useState('express');
   const [saveModeWindow, setSaveModeWindow] = useState(null);
   const [balanceModal, setBalanceModal] = useState(null); // { available, required, shortfall }
+  const [pickupCoords, setPickupCoords] = useState(null);
+  const [deliveryCoords, setDeliveryCoords] = useState(null);
+  const [serviceZones, setServiceZones] = useState([]);
+  const [zoneWarning, setZoneWarning] = useState(null); // { type: 'restricted' | 'surcharge', message, surcharge? }
   const [form, setForm] = useState({
     pickup_address: '', pickup_contact: '', pickup_phone: '', pickup_instructions: '',
     delivery_address: '', delivery_contact: '', delivery_phone: '', delivery_instructions: '',
@@ -126,6 +131,45 @@ export default function NewJob() {
     if (!loading && !user) router.push('/login');
     if (!loading && user && user.role !== 'client') router.push('/');
   }, [user, loading]);
+
+  // Fetch active service zones on mount
+  useEffect(() => {
+    fetch('/api/geo-zones')
+      .then(res => res.json())
+      .then(result => { if (result.data) setServiceZones(result.data); })
+      .catch(() => {});
+  }, []);
+
+  // Check geo-fencing when coordinates change
+  useEffect(() => {
+    if (serviceZones.length === 0) { setZoneWarning(null); return; }
+    // Check pickup
+    if (pickupCoords) {
+      if (isInRestrictedZone(pickupCoords.lat, pickupCoords.lng, serviceZones)) {
+        setZoneWarning({ type: 'restricted', message: 'Pickup address is in a restricted zone. Delivery not available in this area.' });
+        return;
+      }
+    }
+    // Check delivery
+    if (deliveryCoords) {
+      if (isInRestrictedZone(deliveryCoords.lat, deliveryCoords.lng, serviceZones)) {
+        setZoneWarning({ type: 'restricted', message: 'Delivery address is in a restricted zone. Delivery not available in this area.' });
+        return;
+      }
+    }
+    // Check surcharge zones
+    const pickupZones = pickupCoords ? findMatchingZones(pickupCoords.lat, pickupCoords.lng, serviceZones).filter(z => z.zone_type === 'surcharge') : [];
+    const deliveryZones = deliveryCoords ? findMatchingZones(deliveryCoords.lat, deliveryCoords.lng, serviceZones).filter(z => z.zone_type === 'surcharge') : [];
+    const allSurchargeZones = [...pickupZones, ...deliveryZones];
+    // Deduplicate by id
+    const unique = allSurchargeZones.filter((z, i, arr) => arr.findIndex(x => x.id === z.id) === i);
+    if (unique.length > 0) {
+      const names = unique.map(z => z.name).join(', ');
+      setZoneWarning({ type: 'surcharge', message: `Zone surcharge applies: ${names}`, zones: unique });
+    } else {
+      setZoneWarning(null);
+    }
+  }, [pickupCoords, deliveryCoords, serviceZones]);
 
   const set = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
   const setAddon = (key, qty) => setForm(prev => {
@@ -191,10 +235,19 @@ export default function NewJob() {
     return w ? w.discount : 0;
   }, [deliveryMode, saveModeWindow]);
 
+  // Zone surcharge calculation
+  const computedZoneSurcharge = useMemo(() => {
+    if (!zoneWarning || zoneWarning.type !== 'surcharge' || !zoneWarning.zones) return 0;
+    // Use effective vehicle base fare for rate calculation
+    const vm = VEHICLE_MODES.find(v => v.key === effectiveVehicleMode);
+    const base = vm && vm.key !== 'special' ? vm.baseFare : (SIZE_TIERS.find(t => t.key === effectiveSize)?.baseFare || 0);
+    return calculateZoneSurcharge(base, zoneWarning.zones);
+  }, [zoneWarning, effectiveVehicleMode, effectiveSize]);
+
   // Real-time fare calculation
   const fare = useMemo(
-    () => calculateFare({ sizeTier: effectiveSize, vehicleMode: effectiveVehicleMode, urgency: form.urgency, addons: form.addons, basicEquipment: form.basic_equipment, isEvSelected, saveModeDiscount: activeSaveModeDiscount }),
-    [effectiveSize, effectiveVehicleMode, form.urgency, form.addons, form.basic_equipment, isEvSelected, activeSaveModeDiscount]
+    () => calculateFare({ sizeTier: effectiveSize, vehicleMode: effectiveVehicleMode, urgency: form.urgency, addons: form.addons, basicEquipment: form.basic_equipment, isEvSelected, saveModeDiscount: activeSaveModeDiscount, zoneSurcharge: computedZoneSurcharge }),
+    [effectiveSize, effectiveVehicleMode, form.urgency, form.addons, form.basic_equipment, isEvSelected, activeSaveModeDiscount, computedZoneSurcharge]
   );
 
   // Styles
@@ -206,6 +259,7 @@ export default function NewJob() {
 
   const handleSubmit = async () => {
     if (!form.pickup_address || !form.delivery_address || !form.item_description) return;
+    if (zoneWarning?.type === 'restricted') { toast.error(zoneWarning.message); return; }
 
     // Check wallet balance before creating job
     const minBudget = parseFloat(form.budget_min) || fare?.total || 0;
@@ -257,6 +311,9 @@ export default function NewJob() {
         job_type: jobType,
         delivery_mode: deliveryMode,
       };
+      if (pickupCoords) { jobInsert.pickup_lat = parseFloat(pickupCoords.lat); jobInsert.pickup_lng = parseFloat(pickupCoords.lng); }
+      if (deliveryCoords) { jobInsert.delivery_lat = parseFloat(deliveryCoords.lat); jobInsert.delivery_lng = parseFloat(deliveryCoords.lng); }
+      if (computedZoneSurcharge > 0) jobInsert.zone_surcharge = computedZoneSurcharge;
       if (deliveryMode === 'save_mode' && saveModeWindow) {
         const deadline = new Date();
         deadline.setHours(deadline.getHours() + saveModeWindow);
@@ -318,6 +375,9 @@ export default function NewJob() {
     setDeliveryMode('express');
     setSaveModeWindow(null);
     setJobType('spot');
+    setPickupCoords(null);
+    setDeliveryCoords(null);
+    setZoneWarning(null);
     setForm({
       pickup_address: '', pickup_contact: '', pickup_phone: '', pickup_instructions: '',
       delivery_address: '', delivery_contact: '', delivery_phone: '', delivery_instructions: '',
@@ -400,6 +460,12 @@ export default function NewJob() {
             <span style={{ fontWeight: '600', color: '#8b5cf6' }}>-${fare.saveModeDiscount.toFixed(2)}</span>
           </div>
         )}
+        {fare.zoneSurcharge > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: '14px' }}>
+            <span style={{ color: '#f59e0b', fontWeight: '500' }}>Zone Surcharge</span>
+            <span style={{ fontWeight: '600', color: '#f59e0b' }}>+${fare.zoneSurcharge.toFixed(2)}</span>
+          </div>
+        )}
         <div style={{ height: '1px', background: '#3b82f6', opacity: 0.2, margin: '10px 0' }} />
         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0' }}>
           <span style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b' }}>Estimated Total</span>
@@ -457,7 +523,7 @@ export default function NewJob() {
           <div>
             <div style={card}>
               <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>📍 Pickup Location</h3>
-              <div style={{ marginBottom: '14px' }}><label style={label}>Pickup Address *</label><AddressAutocomplete inputStyle={input} value={form.pickup_address} onChange={v => set('pickup_address', v)} placeholder="Search address or postal code" /></div>
+              <div style={{ marginBottom: '14px' }}><label style={label}>Pickup Address *</label><AddressAutocomplete inputStyle={input} value={form.pickup_address} onChange={v => set('pickup_address', v)} onSelect={c => setPickupCoords(c)} placeholder="Search address or postal code" /></div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
                 <div><label style={label}>Contact Name</label><input style={input} value={form.pickup_contact} onChange={e => set('pickup_contact', e.target.value)} placeholder="Name" /></div>
                 <div><label style={label}>Phone</label><input style={input} value={form.pickup_phone} onChange={e => set('pickup_phone', e.target.value)} placeholder="+65 xxxx xxxx" /></div>
@@ -466,14 +532,23 @@ export default function NewJob() {
             </div>
             <div style={card}>
               <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>📦 Delivery Location</h3>
-              <div style={{ marginBottom: '14px' }}><label style={label}>Delivery Address *</label><AddressAutocomplete inputStyle={input} value={form.delivery_address} onChange={v => set('delivery_address', v)} placeholder="Search address or postal code" /></div>
+              <div style={{ marginBottom: '14px' }}><label style={label}>Delivery Address *</label><AddressAutocomplete inputStyle={input} value={form.delivery_address} onChange={v => set('delivery_address', v)} onSelect={c => setDeliveryCoords(c)} placeholder="Search address or postal code" /></div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
                 <div><label style={label}>Contact Name</label><input style={input} value={form.delivery_contact} onChange={e => set('delivery_contact', e.target.value)} placeholder="Name" /></div>
                 <div><label style={label}>Phone</label><input style={input} value={form.delivery_phone} onChange={e => set('delivery_phone', e.target.value)} placeholder="+65 xxxx xxxx" /></div>
               </div>
               <div style={{ marginTop: '14px' }}><label style={label}>Instructions</label><textarea style={{ ...input, height: '60px', resize: 'vertical' }} value={form.delivery_instructions} onChange={e => set('delivery_instructions', e.target.value)} placeholder="Leave at reception, call on arrival, etc." /></div>
             </div>
-            <button onClick={() => { if (form.pickup_address && form.delivery_address) setStep(2); }} style={btnPrimary}>Next →</button>
+            {zoneWarning && (
+              <div style={{ padding: '14px', borderRadius: '10px', background: zoneWarning.type === 'restricted' ? '#fef2f2' : '#fffbeb', border: `1px solid ${zoneWarning.type === 'restricted' ? '#fecaca' : '#fde68a'}`, marginBottom: '16px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                <span style={{ fontSize: '18px' }}>{zoneWarning.type === 'restricted' ? '🚫' : '⚠️'}</span>
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: '700', color: zoneWarning.type === 'restricted' ? '#dc2626' : '#92400e' }}>{zoneWarning.type === 'restricted' ? 'Restricted Zone' : 'Zone Surcharge'}</div>
+                  <div style={{ fontSize: '12px', color: zoneWarning.type === 'restricted' ? '#991b1b' : '#78350f', marginTop: '2px' }}>{zoneWarning.message}</div>
+                </div>
+              </div>
+            )}
+            <button onClick={() => { if (form.pickup_address && form.delivery_address && zoneWarning?.type !== 'restricted') setStep(2); }} disabled={zoneWarning?.type === 'restricted'} style={{ ...btnPrimary, opacity: zoneWarning?.type === 'restricted' ? 0.5 : 1 }}>Next →</button>
           </div>
         )}
 
