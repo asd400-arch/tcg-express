@@ -1,6 +1,5 @@
 'use client';
 import { useState } from 'react';
-import { supabase } from '../../lib/supabase';
 import { useToast } from './Toast';
 
 export default function RatingModal({ jobId, clientId, driverId, reviewerRole = 'client', onClose, onSubmitted }) {
@@ -17,25 +16,26 @@ export default function RatingModal({ jobId, clientId, driverId, reviewerRole = 
   const submit = async () => {
     if (rating === 0) { toast.error('Please select a rating'); return; }
     setSubmitting(true);
-    const { error } = await supabase.from('express_reviews').insert([{
-      job_id: jobId, client_id: clientId, driver_id: driverId,
-      rating, review_text: reviewText || null, reviewer_role: reviewerRole,
-    }]);
-    if (error) {
+    try {
+      const res = await fetch('/api/ratings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ job_id: jobId, rating, review_text: reviewText || null }),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        toast.error(result.error || 'Error submitting review');
+        setSubmitting(false);
+        return;
+      }
+      toast.success('Review submitted!');
+      setSubmitting(false);
+      if (onSubmitted) onSubmitted();
+      onClose();
+    } catch {
       toast.error('Error submitting review');
       setSubmitting(false);
-      return;
     }
-    // Update average rating
-    await fetch('/api/reviews/submit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ driverId, clientId, reviewerRole }),
-    });
-    toast.success('Review submitted!');
-    setSubmitting(false);
-    if (onSubmitted) onSubmitted();
-    onClose();
   };
 
   return (

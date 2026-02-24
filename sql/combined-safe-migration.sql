@@ -558,5 +558,12 @@ BEGIN
 END $$;
 
 -- ════════════════════════════════════════════════════════════
+-- SECTION 14: Corp Premium flag on jobs
+-- ════════════════════════════════════════════════════════════
+
+ALTER TABLE express_jobs ADD COLUMN IF NOT EXISTS is_corp_premium BOOLEAN DEFAULT FALSE;
+CREATE INDEX IF NOT EXISTS idx_jobs_corp_premium ON express_jobs(is_corp_premium) WHERE is_corp_premium = true;
+
+-- ════════════════════════════════════════════════════════════
 -- DONE. All tables and columns should now exist.
 -- ════════════════════════════════════════════════════════════

@@ -68,10 +68,19 @@ export default function RFQPage() {
     for (const file of selected) {
       const ext = file.name.split('.').pop();
       const path = `rfq/${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error } = await supabase.storage.from('uploads').upload(path, file);
-      if (!error) {
-        const { data: urlData } = supabase.storage.from('uploads').getPublicUrl(path);
-        uploaded.push({ name: file.name, url: urlData.publicUrl, path });
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('path', path);
+        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (res.ok && data.url) {
+          uploaded.push({ name: file.name, url: data.url, path });
+        } else {
+          toast.error(`Failed to upload ${file.name}: ${data.error || 'Unknown error'}`);
+        }
+      } catch {
+        toast.error(`Failed to upload ${file.name}`);
       }
     }
     setFiles(prev => [...prev, ...uploaded]);

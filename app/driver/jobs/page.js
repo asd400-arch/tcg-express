@@ -53,7 +53,9 @@ export default function DriverJobs() {
       supabase.from('express_jobs').select('*, client:client_id(contact_name, company_name)').in('status', ['open', 'bidding']).order('created_at', { ascending: false }),
       supabase.from('express_bids').select('*').eq('driver_id', user.id),
     ]);
-    setJobs(jobsRes.data || []);
+    // Filter out corp_premium/RFQ jobs — those are admin-assigned only
+    const allJobs = (jobsRes.data || []).filter(j => !j.is_corp_premium);
+    setJobs(allJobs);
     const bm = {};
     (bidsRes.data || []).forEach(b => { bm[b.job_id] = b; });
     setMyBids(bm);

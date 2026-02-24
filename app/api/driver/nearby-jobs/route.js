@@ -47,6 +47,9 @@ export async function GET(request) {
 
     // Filter by: same vehicle mode, minimum fare, and deadline within 15 min detour
     const filtered = (openJobs || []).filter(job => {
+      // Exclude corp_premium/RFQ jobs — admin-assigned only
+      if (job.is_corp_premium) return false;
+
       // Must have a minimum budget
       const minBudget = parseFloat(job.budget_min) || 0;
       if (minBudget < 10) return false;

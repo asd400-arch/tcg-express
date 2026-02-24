@@ -109,7 +109,7 @@ export default function NewJob() {
     item_description: '', item_category: 'general',
     weight_range: '', dim_l: '', dim_w: '', dim_h: '',
     urgency: 'standard', budget_min: '', budget_max: '', vehicle_required: 'any', special_requirements: '',
-    basic_equipment: [], special_equipment: [], manpower_count: 1, manpower_auto: true,
+    basic_equipment: [], special_equipment: [], special_equipment_comment: '', manpower_count: 1, manpower_auto: true,
     pickup_by: '', deliver_by: '',
     size_tier: '',
     addons: {},
@@ -192,8 +192,8 @@ export default function NewJob() {
 
   // Real-time fare calculation
   const fare = useMemo(
-    () => calculateFare({ sizeTier: effectiveSize, vehicleMode: effectiveVehicleMode, urgency: form.urgency, addons: form.addons, basicEquipCount: form.basic_equipment.length, isEvSelected, saveModeDiscount: activeSaveModeDiscount }),
-    [effectiveSize, effectiveVehicleMode, form.urgency, form.addons, form.basic_equipment.length, isEvSelected, activeSaveModeDiscount]
+    () => calculateFare({ sizeTier: effectiveSize, vehicleMode: effectiveVehicleMode, urgency: form.urgency, addons: form.addons, basicEquipment: form.basic_equipment, isEvSelected, saveModeDiscount: activeSaveModeDiscount }),
+    [effectiveSize, effectiveVehicleMode, form.urgency, form.addons, form.basic_equipment, isEvSelected, activeSaveModeDiscount]
   );
 
   // Styles
@@ -212,6 +212,7 @@ export default function NewJob() {
     if (Object.keys(form.addons).length > 0) fareInfo.addons = form.addons;
     if (fare) fareInfo.estimated_fare = fare.total;
 
+    if (form.special_equipment_comment) fareInfo.special_equipment_comment = form.special_equipment_comment;
     let specialReqs = form.special_requirements;
     if (Object.keys(fareInfo).length > 0) {
       specialReqs = JSON.stringify({
@@ -220,8 +221,8 @@ export default function NewJob() {
       });
     }
 
-    const budgetMin = parseFloat(form.budget_min) || fare?.total || null;
-    const budgetMax = parseFloat(form.budget_max) || fare?.total || null;
+    const budgetMin = parseFloat(form.budget_min) || fare?.budgetMin || fare?.total || null;
+    const budgetMax = parseFloat(form.budget_max) || fare?.budgetMax || fare?.total || null;
     const allEquipment = [...form.basic_equipment, ...form.special_equipment];
     const dimensions = (form.dim_l && form.dim_w && form.dim_h) ? `${form.dim_l}x${form.dim_w}x${form.dim_h}cm` : null;
 
@@ -308,7 +309,7 @@ export default function NewJob() {
       item_description: '', item_category: 'general',
       weight_range: '', dim_l: '', dim_w: '', dim_h: '',
       urgency: 'standard', budget_min: '', budget_max: '', vehicle_required: 'any', special_requirements: '',
-      basic_equipment: [], special_equipment: [], manpower_count: 1, manpower_auto: true,
+      basic_equipment: [], special_equipment: [], special_equipment_comment: '', manpower_count: 1, manpower_auto: true,
       pickup_by: '', deliver_by: '',
       size_tier: '', addons: {},
       schedule_mode: 'now', schedule_date: '', recurrence: 'weekly', recurrence_day: '1', recurrence_time: '09:00', recurrence_end: '',
@@ -368,8 +369,8 @@ export default function NewJob() {
         )}
         {fare.addonLines.map(a => (
           <div key={a.key} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: '14px' }}>
-            <span style={{ color: '#64748b' }}>{a.label} ({a.qty} {a.unit}{a.qty > 1 ? 's' : ''})</span>
-            <span style={{ fontWeight: '600', color: '#1e293b' }}>+${a.cost.toFixed(2)}</span>
+            <span style={{ color: '#64748b' }}>{a.label}{a.unit ? ` (${a.qty} ${a.unit}${a.qty > 1 ? 's' : ''})` : ''}</span>
+            <span style={{ fontWeight: '600', color: a.cost > 0 ? '#1e293b' : '#16a34a' }}>{a.cost > 0 ? `+$${a.cost.toFixed(2)}` : 'Free'}</span>
           </div>
         ))}
         {fare.evDiscount > 0 && (
@@ -722,9 +723,9 @@ export default function NewJob() {
               </div>
             </div>
 
-            {/* Basic Equipment ($20/each) */}
+            {/* Basic Service */}
             <div style={card}>
-              <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '14px' }}>🔧 Basic Equipment ($20/each)</h3>
+              <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '14px' }}>🔧 Basic Service</h3>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                 {BASIC_EQUIPMENT.map(eq => {
                   const selected = form.basic_equipment.includes(eq.key);
@@ -739,17 +740,17 @@ export default function NewJob() {
                       color: selected ? '#3b82f6' : '#64748b',
                       display: 'flex', alignItems: 'center', gap: '6px',
                     }}>
-                      <span>{eq.icon}</span> {eq.label} <span style={{ fontSize: '11px' }}>+$20</span>
+                      <span>{eq.icon}</span> {eq.label} <span style={{ fontSize: '11px' }}>{eq.price > 0 ? `+$${eq.price}` : 'Free'}</span>
                     </div>
                   );
                 })}
               </div>
             </div>
 
-            {/* Special Equipment (Driver quote) */}
+            {/* Special Equipment (Admin quote) */}
             <div style={card}>
               <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '6px' }}>🏗️ Special Equipment</h3>
-              <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '12px' }}>Driver will provide separate quote for these</p>
+              <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '12px' }}>Special equipment pricing will be confirmed by TCG team.</p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                 {SPECIAL_EQUIPMENT.map(eq => {
                   const selected = form.special_equipment.includes(eq.key);
@@ -769,9 +770,15 @@ export default function NewJob() {
                   );
                 })}
               </div>
+              {form.special_equipment.includes('other_request') && (
+                <div style={{ marginTop: '10px' }}>
+                  <label style={label}>Describe your equipment needs</label>
+                  <textarea style={{ ...input, height: '60px', resize: 'vertical' }} value={form.special_equipment_comment} onChange={e => set('special_equipment_comment', e.target.value)} placeholder="Describe the special equipment or service you need..." />
+                </div>
+              )}
               {form.special_equipment.length > 0 && (
                 <div style={{ background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '10px', marginTop: '10px', textAlign: 'center' }}>
-                  <span style={{ fontSize: '13px', color: '#92400e', fontWeight: '500' }}>Driver will submit separate equipment costs in their bid</span>
+                  <span style={{ fontSize: '13px', color: '#92400e', fontWeight: '500' }}>Special equipment pricing will be confirmed by TCG team.</span>
                 </div>
               )}
             </div>

@@ -3,16 +3,16 @@ import { supabaseAdmin } from '../../../lib/supabase-server';
 import { getSession } from '../../../lib/auth';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-const ALLOWED_PREFIXES = ['jobs/', 'chat/', 'kyc/', 'delivery/'];
+const ALLOWED_PREFIXES = ['jobs/', 'chat/', 'kyc/', 'delivery/', 'rfq/'];
 
-async function ensureBucket() {
+async function ensureBucket(name, options = {}) {
   const { data: buckets } = await supabaseAdmin.storage.listBuckets();
-  const exists = buckets?.some(b => b.id === 'express-uploads');
+  const exists = buckets?.some(b => b.id === name);
   if (!exists) {
-    await supabaseAdmin.storage.createBucket('express-uploads', {
+    await supabaseAdmin.storage.createBucket(name, {
       public: true,
-      allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
       fileSizeLimit: MAX_FILE_SIZE,
+      ...options,
     });
   }
 }
@@ -33,7 +33,7 @@ export async function POST(request) {
     }
 
     // Detect content type
-    const contentType = file.type || 'image/jpeg';
+    const contentType = file.type || 'application/octet-stream';
 
     // Auto-generate path if not provided
     if (!uploadPath) {
@@ -55,11 +55,20 @@ export async function POST(request) {
     // Convert to buffer for upload
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    // Ensure bucket exists
-    await ensureBucket();
+    // Route to appropriate bucket based on prefix
+    const isRfq = uploadPath.startsWith('rfq/');
+    const bucket = isRfq ? 'rfq-attachments' : 'express-uploads';
+
+    if (isRfq) {
+      await ensureBucket('rfq-attachments');
+    } else {
+      await ensureBucket('express-uploads', {
+        allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+      });
+    }
 
     const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
-      .from('express-uploads')
+      .from(bucket)
       .upload(uploadPath, buffer, { contentType, upsert: true });
 
     if (uploadError) {
@@ -68,7 +77,7 @@ export async function POST(request) {
     }
 
     const { data: urlData } = supabaseAdmin.storage
-      .from('express-uploads')
+      .from(bucket)
       .getPublicUrl(uploadPath);
 
     return NextResponse.json({ url: urlData.publicUrl });
