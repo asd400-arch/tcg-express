@@ -79,21 +79,21 @@ function checkOrigin(request) {
 export async function middleware(request) {
   const { pathname } = request.nextUrl;
 
-  // CSRF: validate Origin/Referer on state-changing API requests
-  if (pathname.startsWith('/api/') && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)) {
-    if (!checkOrigin(request)) {
-      return NextResponse.json({ error: 'Forbidden: invalid origin' }, { status: 403 });
-    }
-  }
-
   // Public pages — no auth required
   if (PUBLIC_PATHS.includes(pathname)) {
     return NextResponse.next();
   }
 
-  // Public API routes — no auth required
+  // Public API routes — no auth required (skip CSRF for login/signup/etc.)
   if (PUBLIC_API_PATHS.includes(pathname)) {
     return NextResponse.next();
+  }
+
+  // CSRF: validate Origin/Referer on state-changing API requests (after public paths bypass)
+  if (pathname.startsWith('/api/') && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)) {
+    if (!checkOrigin(request)) {
+      return NextResponse.json({ error: 'Forbidden: invalid origin' }, { status: 403 });
+    }
   }
 
   // GET /api/admin/settings is public (commission rate)

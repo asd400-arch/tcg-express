@@ -4,7 +4,7 @@ import { supabaseAdmin } from '../../../../lib/supabase-server';
 import { createSession, setSessionCookie } from '../../../../lib/auth';
 import { rateLimit } from '../../../../lib/rate-limit';
 
-const loginLimiter = rateLimit({ interval: 60000, maxRequests: 5, name: 'login' });
+const loginLimiter = rateLimit({ interval: 60000, maxRequests: 10, name: 'login' });
 
 export async function POST(request) {
   try {
