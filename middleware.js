@@ -45,7 +45,19 @@ const ALLOWED_ORIGINS = [
   process.env.NEXT_PUBLIC_APP_URL,
   'https://tcgexpress.sg',
   'https://www.tcgexpress.sg',
+  'https://tcg-express.vercel.app',
 ].filter(Boolean);
+
+function isAllowedOrigin(url) {
+  if (!url) return false;
+  // Exact match or startsWith for configured origins
+  if (ALLOWED_ORIGINS.some(ao => url.startsWith(ao))) return true;
+  // Allow any *.vercel.app preview/deployment URL
+  if (/^https:\/\/[a-z0-9-]+\.vercel\.app/i.test(url)) return true;
+  // Allow localhost / 127.0.0.1 (any port) in development
+  if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/.test(url)) return true;
+  return false;
+}
 
 function checkOrigin(request) {
   const origin = request.headers.get('origin');
@@ -55,21 +67,12 @@ function checkOrigin(request) {
   if (authHeader?.startsWith('Bearer ')) return true;
   // Stripe webhooks have no origin
   if (request.headers.get('stripe-signature')) return true;
-  // Cron/internal requests may have no origin
+  // No origin/referer: allow (mobile browsers, server-side, cron, etc.)
   if (!origin && !referer) return true;
-  // Check origin header
-  if (origin) {
-    if (ALLOWED_ORIGINS.some(ao => origin.startsWith(ao))) return true;
-    // Allow localhost in development
-    if (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1')) return true;
-    return false;
-  }
-  // Check referer header
-  if (referer) {
-    if (ALLOWED_ORIGINS.some(ao => referer.startsWith(ao))) return true;
-    if (referer.startsWith('http://localhost') || referer.startsWith('http://127.0.0.1')) return true;
-    return false;
-  }
+  // Check origin header first
+  if (origin) return isAllowedOrigin(origin);
+  // Fall back to referer
+  if (referer) return isAllowedOrigin(referer);
   return true;
 }
 

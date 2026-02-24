@@ -27,6 +27,28 @@ function getVehicleLabel(key) {
   return legacyVehicleLabel(key);
 }
 
+/** Get the display budget for a job, with fallbacks */
+function getJobBudget(job) {
+  const max = parseFloat(job.budget_max);
+  const min = parseFloat(job.budget_min);
+  const fare = parseFloat(job.estimated_fare);
+  if (max > 0) return max;
+  if (min > 0) return min;
+  if (fare > 0) return fare;
+  return null;
+}
+
+function formatBudgetRange(job) {
+  const max = parseFloat(job.budget_max);
+  const min = parseFloat(job.budget_min);
+  const fare = parseFloat(job.estimated_fare);
+  if (min > 0 && max > 0) return `$${min.toFixed(0)} - $${max.toFixed(0)}`;
+  if (max > 0) return `$${max.toFixed(2)}`;
+  if (min > 0) return `$${min.toFixed(2)}`;
+  if (fare > 0) return `~$${fare.toFixed(2)}`;
+  return 'Open bid';
+}
+
 export default function DriverJobs() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -92,7 +114,7 @@ export default function DriverJobs() {
   };
 
   const instantAccept = async (job) => {
-    const maxBudget = parseFloat(job.budget_max) || parseFloat(job.budget_min);
+    const maxBudget = getJobBudget(job);
     if (!maxBudget) { toast.error('Job has no valid budget'); return; }
     if (!confirm(`Accept this job at $${maxBudget.toFixed(2)}? The client will be charged immediately from their wallet.`)) return;
     setAccepting(job.id);
@@ -170,7 +192,7 @@ export default function DriverJobs() {
               <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '14px', marginBottom: '20px' }}>
                 <div style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b', marginBottom: '4px' }}>{selectedJob.job_number || selectedJob.item_description}</div>
                 <div style={{ fontSize: '12px', color: '#64748b' }}>{getAreaFromAddress(selectedJob.pickup_address)} → {getAreaFromAddress(selectedJob.delivery_address)}</div>
-                <div style={{ fontSize: '13px', color: '#10b981', fontWeight: '700', marginTop: '6px' }}>Budget: ${selectedJob.budget_min} - ${selectedJob.budget_max}</div>
+                <div style={{ fontSize: '13px', color: '#10b981', fontWeight: '700', marginTop: '6px' }}>Budget: {formatBudgetRange(selectedJob)}</div>
               </div>
               <div style={{ marginBottom: '14px' }}>
                 <label style={{ fontSize: '13px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>Your Bid Amount ($) *</label>
@@ -200,7 +222,7 @@ export default function DriverJobs() {
                   <span style={badge(detailJob.job_type || 'spot', `${jobTypeColor[detailJob.job_type] || jobTypeColor.spot}15`, jobTypeColor[detailJob.job_type] || jobTypeColor.spot)}>{detailJob.job_type || 'spot'}</span>
                   <span style={badge(detailJob.urgency || 'standard', `${urgencyColor[detailJob.urgency]}15`, urgencyColor[detailJob.urgency])}>{detailJob.urgency || 'standard'}</span>
                 </div>
-                <div style={{ fontSize: '22px', fontWeight: '800', color: '#10b981' }}>${detailJob.budget_min} - ${detailJob.budget_max}</div>
+                <div style={{ fontSize: '22px', fontWeight: '800', color: '#10b981' }}>{formatBudgetRange(detailJob)}</div>
               </div>
             </div>
 
@@ -316,8 +338,8 @@ export default function DriverJobs() {
                 </div>
               ) : (
                 <>
-                  <button onClick={() => instantAccept(detailJob)} disabled={accepting === detailJob.id} style={{ padding: '12px 24px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif", opacity: accepting === detailJob.id ? 0.7 : 1 }}>{accepting === detailJob.id ? 'Accepting...' : `Accept $${detailJob.budget_max || detailJob.budget_min}`}</button>
-                  <button onClick={() => setSelectedJob(detailJob)} style={{ padding: '12px 24px', borderRadius: '10px', border: '1px solid #3b82f6', background: 'white', color: '#3b82f6', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>Bid Custom</button>
+                  {getJobBudget(detailJob) && <button onClick={() => instantAccept(detailJob)} disabled={accepting === detailJob.id} style={{ padding: '12px 24px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif", opacity: accepting === detailJob.id ? 0.7 : 1 }}>{accepting === detailJob.id ? 'Accepting...' : `Accept $${getJobBudget(detailJob).toFixed(2)}`}</button>}
+                  <button onClick={() => setSelectedJob(detailJob)} style={{ padding: '12px 24px', borderRadius: '10px', border: '1px solid #3b82f6', background: 'white', color: '#3b82f6', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>{getJobBudget(detailJob) ? 'Bid Custom' : 'Place Bid'}</button>
                 </>
               )}
             </div>
@@ -346,7 +368,7 @@ export default function DriverJobs() {
                           <span style={badge(jType, `${jobTypeColor[jType] || jobTypeColor.spot}15`, jobTypeColor[jType] || jobTypeColor.spot)}>{jType}</span>
                           <span style={badge(job.urgency || 'standard', `${urgencyColor[job.urgency]}15`, urgencyColor[job.urgency])}>{job.urgency || 'standard'}</span>
                         </div>
-                        <div style={{ fontSize: '17px', fontWeight: '800', color: '#10b981', flexShrink: 0 }}>${job.budget_min} - ${job.budget_max}</div>
+                        <div style={{ fontSize: '17px', fontWeight: '800', color: '#10b981', flexShrink: 0 }}>{formatBudgetRange(job)}</div>
                       </div>
 
                       {/* Row 2: Route (area only) */}
@@ -377,8 +399,8 @@ export default function DriverJobs() {
                           </div>
                         ) : (
                           <div style={{ display: 'flex', gap: '8px' }}>
-                            <button onClick={() => instantAccept(job)} disabled={accepting === job.id} style={{ padding: '7px 14px', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontSize: '12px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif", opacity: accepting === job.id ? 0.7 : 1 }}>{accepting === job.id ? '...' : `Accept $${job.budget_max || job.budget_min}`}</button>
-                            <button onClick={() => setSelectedJob(job)} style={{ padding: '7px 14px', borderRadius: '8px', border: '1px solid #3b82f6', background: 'white', color: '#3b82f6', fontSize: '12px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>Bid</button>
+                            {getJobBudget(job) && <button onClick={() => instantAccept(job)} disabled={accepting === job.id} style={{ padding: '7px 14px', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontSize: '12px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif", opacity: accepting === job.id ? 0.7 : 1 }}>{accepting === job.id ? '...' : `Accept $${getJobBudget(job).toFixed(2)}`}</button>}
+                            <button onClick={() => setSelectedJob(job)} style={{ padding: '7px 14px', borderRadius: '8px', border: '1px solid #3b82f6', background: 'white', color: '#3b82f6', fontSize: '12px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>{getJobBudget(job) ? 'Bid' : 'Place Bid'}</button>
                           </div>
                         )}
                       </div>
