@@ -1351,6 +1351,13 @@
     "is_nullable": "YES"
   },
   {
+    "table_name": "express_jobs",
+    "column_name": "is_corp_premium",
+    "data_type": "boolean",
+    "column_default": "false",
+    "is_nullable": "YES"
+  },
+  {
     "table_name": "express_messages",
     "column_name": "id",
     "data_type": "uuid",
