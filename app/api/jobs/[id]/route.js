@@ -353,7 +353,7 @@ export async function PUT(request, { params }) {
     .single();
 
   if (updateErr) {
-    console.error('Job update error:', updateErr.message, updateErr.code, updateErr.details, updateErr.hint);
+    console.error('Job update error:', updateErr.message);
     return NextResponse.json({ error: `Failed to update job: ${updateErr.message}` }, { status: 500 });
   }
 

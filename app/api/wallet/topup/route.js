@@ -110,7 +110,7 @@ async function directTopup(userId, amount, bonus) {
   });
 
   if (creditErr) {
-    console.error('Topup wallet_credit RPC error:', creditErr.message, creditErr.code, creditErr.details);
+    console.error('Topup wallet_credit RPC error:', creditErr.message);
     return NextResponse.json({ error: 'Failed to credit wallet' }, { status: 500 });
   }
 

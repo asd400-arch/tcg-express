@@ -97,7 +97,7 @@ export async function POST(req) {
       .single();
 
     if (insertErr) {
-      console.error('DISPUTE INSERT FAILED:', insertErr.message, '| code:', insertErr.code, '| details:', insertErr.details, '| hint:', insertErr.hint);
+      console.error('Dispute insert failed:', insertErr.message);
       return NextResponse.json({ error: `Failed to create dispute: ${insertErr.message}` }, { status: 500 });
     }
 
@@ -108,7 +108,7 @@ export async function POST(req) {
       .eq('id', jobId);
 
     if (jobStatusErr) {
-      console.error('Job status update to disputed failed:', jobStatusErr.message, '| code:', jobStatusErr.code);
+      console.error('Job status update to disputed failed:', jobStatusErr.message);
     }
 
     // Notify the other party
@@ -171,7 +171,7 @@ export async function GET(req) {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Admin fetch disputes error:', error.message, '| code:', error.code, '| details:', error.details);
+        console.error('Admin fetch disputes error:', error.message);
         return NextResponse.json({ error: `Failed to fetch disputes: ${error.message}` }, { status: 500 });
       }
       return NextResponse.json({ data });
@@ -195,7 +195,7 @@ export async function GET(req) {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Fetch disputes error:', error.message, '| code:', error.code, '| details:', error.details);
+      console.error('Fetch disputes error:', error.message);
       return NextResponse.json({ error: `Failed to fetch disputes: ${error.message}` }, { status: 500 });
     }
     return NextResponse.json({ data });

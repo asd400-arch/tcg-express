@@ -4,64 +4,72 @@ import { getSession } from '../../../../lib/auth';
 
 // GET: User's tickets or admin all tickets
 export async function GET(request) {
-  const session = getSession(request);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  try {
+    const session = getSession(request);
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  let query = supabaseAdmin.from('express_support_tickets').select('*, user:user_id(contact_name, email, role)');
+    let query = supabaseAdmin.from('express_support_tickets').select('*, user:user_id(contact_name, email, role)');
 
-  if (session.role !== 'admin') {
-    query = query.eq('user_id', session.userId);
+    if (session.role !== 'admin') {
+      query = query.eq('user_id', session.userId);
+    }
+
+    const { searchParams } = new URL(request.url);
+    const status = searchParams.get('status');
+    if (status) query = query.eq('status', status);
+
+    query = query.order('updated_at', { ascending: false });
+    const { data } = await query;
+    return NextResponse.json({ data: data || [] });
+  } catch (err) {
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
-
-  const { searchParams } = new URL(request.url);
-  const status = searchParams.get('status');
-  if (status) query = query.eq('status', status);
-
-  query = query.order('updated_at', { ascending: false });
-  const { data } = await query;
-  return NextResponse.json({ data: data || [] });
 }
 
 // POST: Create ticket
 export async function POST(request) {
-  const session = getSession(request);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  try {
+    const session = getSession(request);
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { category, subject, message } = await request.json();
-  if (!category) return NextResponse.json({ error: 'Category required' }, { status: 400 });
+    const { category, subject, message } = await request.json();
+    if (!category) return NextResponse.json({ error: 'Category required' }, { status: 400 });
 
-  const { data: ticket, error } = await supabaseAdmin.from('express_support_tickets').insert([{
-    user_id: session.userId,
-    category,
-    subject: subject || `${category} issue`,
-    status: 'open',
-  }]).select().single();
+    const { data: ticket, error } = await supabaseAdmin.from('express_support_tickets').insert([{
+      user_id: session.userId,
+      category,
+      subject: subject || `${category} issue`,
+      status: 'open',
+    }]).select().single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Add initial user message
-  if (message) {
+    // Add initial user message
+    if (message) {
+      await supabaseAdmin.from('express_support_messages').insert([{
+        ticket_id: ticket.id,
+        sender_id: session.userId,
+        sender_type: 'user',
+        content: message,
+      }]);
+    }
+
+    // AI auto-response
+    const aiResponse = getAiResponse(category, message || subject || '');
     await supabaseAdmin.from('express_support_messages').insert([{
       ticket_id: ticket.id,
-      sender_id: session.userId,
-      sender_type: 'user',
-      content: message,
+      sender_type: 'ai',
+      content: aiResponse,
     }]);
+
+    await supabaseAdmin.from('express_support_tickets')
+      .update({ status: 'ai_handled', ai_resolved: false, updated_at: new Date().toISOString() })
+      .eq('id', ticket.id);
+
+    return NextResponse.json({ data: ticket });
+  } catch (err) {
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
-
-  // AI auto-response
-  const aiResponse = getAiResponse(category, message || subject || '');
-  await supabaseAdmin.from('express_support_messages').insert([{
-    ticket_id: ticket.id,
-    sender_type: 'ai',
-    content: aiResponse,
-  }]);
-
-  await supabaseAdmin.from('express_support_tickets')
-    .update({ status: 'ai_handled', ai_resolved: false, updated_at: new Date().toISOString() })
-    .eq('id', ticket.id);
-
-  return NextResponse.json({ data: ticket });
 }
 
 function getAiResponse(category, message) {

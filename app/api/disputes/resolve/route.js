@@ -27,7 +27,7 @@ export async function POST(req) {
       .single();
 
     if (disputeErr || !dispute) {
-      console.error('Dispute fetch error:', disputeErr?.message, '| code:', disputeErr?.code, '| details:', disputeErr?.details);
+      console.error('Dispute fetch error:', disputeErr?.message);
       return NextResponse.json({ error: `Dispute not found: ${disputeErr?.message || 'no data'}` }, { status: 404 });
     }
 
@@ -52,7 +52,7 @@ export async function POST(req) {
       .eq('id', disputeId);
 
     if (updateErr) {
-      console.error('Dispute update error:', updateErr.message, '| code:', updateErr.code, '| details:', updateErr.details);
+      console.error('Dispute update error:', updateErr.message);
       return NextResponse.json({ error: `Failed to update dispute: ${updateErr.message}` }, { status: 500 });
     }
 
@@ -71,14 +71,14 @@ export async function POST(req) {
           .from('express_transactions')
           .update({ payment_status: 'refunded', refunded_at: now })
           .eq('id', txn.id);
-        if (txnErr) console.error('Transaction refund update error:', txnErr.message, '| code:', txnErr.code);
+        if (txnErr) console.error('Transaction refund update error:', txnErr.message);
       }
 
       const { error: jobErr } = await supabaseAdmin
         .from('express_jobs')
         .update({ status: 'cancelled', cancelled_at: now, cancelled_by: 'admin' })
         .eq('id', job.id);
-      if (jobErr) console.error('Job cancel update error:', jobErr.message, '| code:', jobErr.code);
+      if (jobErr) console.error('Job cancel update error:', jobErr.message);
 
       // Credit client wallet if txn exists
       if (txn) {
@@ -135,14 +135,14 @@ export async function POST(req) {
           .from('express_transactions')
           .update({ payment_status: 'paid', released_at: now, paid_at: now })
           .eq('id', txn.id);
-        if (txnErr) console.error('Transaction release update error:', txnErr.message, '| code:', txnErr.code);
+        if (txnErr) console.error('Transaction release update error:', txnErr.message);
       }
 
       const { error: jobErr } = await supabaseAdmin
         .from('express_jobs')
         .update({ status: 'confirmed', confirmed_at: now })
         .eq('id', job.id);
-      if (jobErr) console.error('Job confirm update error:', jobErr.message, '| code:', jobErr.code);
+      if (jobErr) console.error('Job confirm update error:', jobErr.message);
 
       // Credit driver wallet if txn exists
       if (txn) {
