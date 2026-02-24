@@ -10,6 +10,7 @@ import useGpsTracking from '../../components/useGpsTracking';
 import { useToast } from '../../components/Toast';
 import DisputeModal from '../../components/DisputeModal';
 import RatingModal from '../../components/RatingModal';
+import SignaturePad from '../../components/SignaturePad';
 import CallButtons from '../../components/CallButtons';
 import { supabase } from '../../../lib/supabase';
 import useMobile from '../../components/useMobile';
@@ -28,6 +29,7 @@ export default function DriverMyJobs() {
   const [dispute, setDispute] = useState(null);
   const [showDispute, setShowDispute] = useState(false);
   const [showRating, setShowRating] = useState(false);
+  const [showSignature, setShowSignature] = useState(false);
   const [hasReviewedClient, setHasReviewedClient] = useState(false);
   const [clientInfo, setClientInfo] = useState(null);
   const [pickupCoords, setPickupCoords] = useState(null);
@@ -112,7 +114,40 @@ export default function DriverMyJobs() {
     }
   }, [selected?.id, selected?.status]);
 
-  const updateStatus = async (status) => {
+  const handleSignatureSubmit = async (dataUrl, signerName) => {
+    setShowSignature(false);
+    try {
+      // Convert base64 data URL to blob
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+      const file = new File([blob], `signature_${Date.now()}.png`, { type: 'image/png' });
+      const path = `delivery/${selected.id}/signature_${Date.now()}.png`;
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('path', path);
+      const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
+      const uploadResult = await uploadRes.json();
+      if (!uploadResult.url) { toast.error('Signature upload failed'); return; }
+
+      // Save signature data to job
+      const signedAt = new Date().toISOString();
+      await supabase.from('express_jobs').update({
+        customer_signature_url: uploadResult.url,
+        signer_name: signerName,
+        signed_at: signedAt,
+      }).eq('id', selected.id);
+
+      setSelected(prev => ({ ...prev, customer_signature_url: uploadResult.url, signer_name: signerName, signed_at: signedAt }));
+      toast.success('Signature captured');
+
+      // Auto-proceed to mark delivered
+      await updateStatus('delivered', true);
+    } catch (e) {
+      toast.error('Failed to save signature');
+    }
+  };
+
+  const updateStatus = async (status, skipSignatureCheck) => {
     // Photo proof enforcement
     if (status === 'pickup_confirmed' && !selected.pickup_photo) {
       toast.error('Please upload a pickup photo first');
@@ -122,6 +157,11 @@ export default function DriverMyJobs() {
     if (status === 'delivered' && !selected.delivery_photo) {
       toast.error('Please upload a delivery photo first');
       setActiveTab('uploads');
+      return;
+    }
+    // Signature enforcement for delivery
+    if (status === 'delivered' && !skipSignatureCheck && !selected.customer_signature_url) {
+      setShowSignature(true);
       return;
     }
     try {
@@ -505,7 +545,7 @@ export default function DriverMyJobs() {
             )}
 
             {/* Uploads Tab */}
-            {activeTab === 'uploads' && (
+            {activeTab === 'uploads' && (<>
               <div style={card}>
                 <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b', marginBottom: '14px' }}>📸 Upload Evidence</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr' : '1fr 1fr 1fr', gap: '16px' }}>
@@ -535,9 +575,34 @@ export default function DriverMyJobs() {
                     </div>
                   ))}
                 </div>
-                {uploading && <div style={{ marginTop: '12px', color: '#3b82f6', fontSize: '13px', fontWeight: '600', textAlign: 'center' }}>⏳ Uploading...</div>}
+                {uploading && <div style={{ marginTop: '12px', color: '#3b82f6', fontSize: '13px', fontWeight: '600', textAlign: 'center' }}>Uploading...</div>}
+
+                {/* Customer Signature Preview */}
+                {selected.customer_signature_url && (
+                  <div style={{ marginTop: '16px', padding: '16px', border: '1px solid #d1fae5', borderRadius: '12px', background: '#f0fdf4' }}>
+                    <label style={{ fontSize: '13px', fontWeight: '600', color: '#059669', display: 'block', marginBottom: '10px' }}>Customer Signature</label>
+                    <img src={selected.customer_signature_url} alt="Customer signature" style={{ maxWidth: '200px', maxHeight: '100px', borderRadius: '8px', background: 'white', padding: '8px', border: '1px solid #e2e8f0' }} />
+                    {selected.signer_name && <div style={{ fontSize: '12px', color: '#374151', marginTop: '6px' }}>Signed by: {selected.signer_name}</div>}
+                    {selected.signed_at && <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>{new Date(selected.signed_at).toLocaleString()}</div>}
+                  </div>
+                )}
               </div>
-            )}
+
+              {/* Download Receipt */}
+              {selected.invoice_url && ['delivered', 'confirmed', 'completed'].includes(selected.status) && (
+                <div style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                  <div>
+                    <div style={{ fontSize: '14px', fontWeight: '700', color: '#059669' }}>Delivery Receipt</div>
+                    <div style={{ fontSize: '12px', color: '#64748b' }}>Auto-generated PDF receipt</div>
+                  </div>
+                  <a href={selected.invoice_url} target="_blank" rel="noopener noreferrer" style={{
+                    padding: '8px 16px', borderRadius: '8px', border: 'none',
+                    background: '#059669', color: 'white', fontSize: '13px', fontWeight: '600',
+                    textDecoration: 'none', display: 'inline-block',
+                  }}>Download</a>
+                </div>
+              )}
+            </>)}
 
             {/* Messages Tab */}
             {activeTab === 'messages' && (
@@ -564,6 +629,14 @@ export default function DriverMyJobs() {
             jobId={selected.id}
             onClose={() => setShowDispute(false)}
             onSubmitted={() => { loadJobs(); selectJob({ ...selected, status: 'disputed' }); }}
+          />
+        )}
+
+        {/* Signature Pad Modal */}
+        {showSignature && selected && (
+          <SignaturePad
+            onSave={handleSignatureSubmit}
+            onClose={() => setShowSignature(false)}
           />
         )}
       </div>

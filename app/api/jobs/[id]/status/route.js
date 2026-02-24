@@ -3,6 +3,7 @@ import { supabaseAdmin } from '../../../../../lib/supabase-server';
 import { getSession } from '../../../../../lib/auth';
 import { notify } from '../../../../../lib/notify';
 import { calculateCO2Saved, calculateGreenPoints, SAVE_MODE_GREEN_POINTS } from '../../../../../lib/fares';
+import { generateInvoice } from '../../../../../lib/generate-invoice';
 
 const VALID_TRANSITIONS = {
   assigned: ['pickup_confirmed', 'picked_up'],
@@ -89,6 +90,11 @@ export async function POST(request, { params }) {
       .single();
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    // Fire-and-forget PDF invoice generation on delivery
+    if (normalizedStatus === 'delivered' || status === 'delivered') {
+      generateInvoice(id).catch(err => console.error('Invoice gen failed:', err));
+    }
 
     // Notify the other party with detailed status messages
     try {

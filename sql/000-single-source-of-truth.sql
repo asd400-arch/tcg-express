@@ -220,6 +220,11 @@ CREATE TABLE IF NOT EXISTS express_jobs (
   -- corp premium
   is_corp_premium       BOOLEAN DEFAULT false,
   distance_km           NUMERIC,
+  -- proof of delivery
+  customer_signature_url TEXT,
+  invoice_url           TEXT,
+  signer_name           TEXT,
+  signed_at             TIMESTAMPTZ,
   created_at            TIMESTAMPTZ DEFAULT now(),
   updated_at            TIMESTAMPTZ DEFAULT now()
 );
@@ -276,6 +281,10 @@ DO $$ BEGIN
   ALTER TABLE express_jobs ADD COLUMN IF NOT EXISTS item_dimensions TEXT;
   ALTER TABLE express_jobs ADD COLUMN IF NOT EXISTS distance_km NUMERIC;
   ALTER TABLE express_jobs ADD COLUMN IF NOT EXISTS is_corp_premium BOOLEAN DEFAULT false;
+  ALTER TABLE express_jobs ADD COLUMN IF NOT EXISTS customer_signature_url TEXT;
+  ALTER TABLE express_jobs ADD COLUMN IF NOT EXISTS invoice_url TEXT;
+  ALTER TABLE express_jobs ADD COLUMN IF NOT EXISTS signer_name TEXT;
+  ALTER TABLE express_jobs ADD COLUMN IF NOT EXISTS signed_at TIMESTAMPTZ;
 END $$;
 
 -- -----------------------------------------------------------

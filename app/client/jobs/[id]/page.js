@@ -320,14 +320,36 @@ export default function ClientJobDetail({ params }) {
                 </div>
               )}
             </div>
-            {(job.pickup_photo || job.delivery_photo || job.invoice_file) && (
+            {(job.pickup_photo || job.delivery_photo || job.invoice_file || job.customer_signature_url) && (
               <div style={card}>
                 <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b', marginBottom: '14px' }}>📸 Delivery Evidence</h3>
                 <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                   {job.pickup_photo && <div><div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '6px' }}>Pickup</div><img src={job.pickup_photo} alt="Pickup evidence" style={{ width: '160px', height: '120px', objectFit: 'cover', borderRadius: '10px' }} /></div>}
                   {job.delivery_photo && <div><div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '6px' }}>Delivery</div><img src={job.delivery_photo} alt="Delivery evidence" style={{ width: '160px', height: '120px', objectFit: 'cover', borderRadius: '10px' }} /></div>}
+                  {job.customer_signature_url && (
+                    <div>
+                      <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '6px' }}>Customer Signature</div>
+                      <img src={job.customer_signature_url} alt="Customer signature" style={{ width: '160px', height: '100px', objectFit: 'contain', borderRadius: '10px', background: '#f8fafc', padding: '6px', border: '1px solid #e2e8f0' }} />
+                      {job.signer_name && <div style={{ fontSize: '12px', color: '#374151', marginTop: '4px' }}>Signed by: {job.signer_name}</div>}
+                      {job.signed_at && <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>{new Date(job.signed_at).toLocaleString()}</div>}
+                    </div>
+                  )}
                   {job.invoice_file && <div><div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '6px' }}>Invoice</div><a href={job.invoice_file} target="_blank" style={{ color: '#3b82f6', fontSize: '14px' }}>📄 View Invoice</a></div>}
                 </div>
+              </div>
+            )}
+            {/* Download Receipt */}
+            {job.invoice_url && ['delivered', 'confirmed', 'completed'].includes(job.status) && (
+              <div style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                <div>
+                  <div style={{ fontSize: '14px', fontWeight: '700', color: '#059669' }}>Delivery Receipt</div>
+                  <div style={{ fontSize: '12px', color: '#64748b' }}>Auto-generated PDF receipt with proof of delivery</div>
+                </div>
+                <a href={job.invoice_url} target="_blank" rel="noopener noreferrer" style={{
+                  padding: '10px 20px', borderRadius: '8px', border: 'none',
+                  background: '#059669', color: 'white', fontSize: '13px', fontWeight: '600',
+                  textDecoration: 'none', display: 'inline-block',
+                }}>Download Receipt</a>
               </div>
             )}
             {/* Dispute info card */}
