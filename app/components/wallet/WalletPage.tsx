@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import useMobile from '../useMobile';
 import { useWallet } from '@/lib/hooks/useWallet';
 import { formatSGD } from '@/lib/paynow';
@@ -20,11 +21,22 @@ const card: React.CSSProperties = {
 
 export default function WalletPage() {
   const m = useMobile();
+  const searchParams = useSearchParams();
   const { data, loading, error, refetch } = useWallet();
 
   const [showTopup, setShowTopup] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [prefillAmount, setPrefillAmount] = useState<string>('');
+
+  // Auto-open top-up modal when redirected from insufficient balance
+  useEffect(() => {
+    const topupAmount = searchParams.get('topup');
+    if (topupAmount && parseFloat(topupAmount) > 0) {
+      setPrefillAmount(topupAmount);
+      setShowTopup(true);
+    }
+  }, [searchParams]);
 
   if (loading) {
     return (
@@ -162,8 +174,9 @@ export default function WalletPage() {
       {/* Modals */}
       <TopupModal
         open={showTopup}
-        onClose={() => setShowTopup(false)}
+        onClose={() => { setShowTopup(false); setPrefillAmount(''); }}
         onSuccess={refetch}
+        initialAmount={prefillAmount}
       />
       <WithdrawalModal
         open={showWithdraw}

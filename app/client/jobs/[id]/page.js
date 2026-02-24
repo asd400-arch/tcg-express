@@ -37,6 +37,7 @@ export default function ClientJobDetail({ params }) {
   const [assignedDriver, setAssignedDriver] = useState(null);
   const [acceptingBid, setAcceptingBid] = useState(null);
   const [confirming, setConfirming] = useState(false);
+  const [topUpModal, setTopUpModal] = useState(null); // { available, required, shortfall, bid }
   useEffect(() => {
     if (!loading && !user) router.push('/login');
     if (jobId && user) loadData();
@@ -54,8 +55,19 @@ export default function ClientJobDetail({ params }) {
     const params = new URLSearchParams(window.location.search);
     if (params.get('payment') === 'success') {
       toast.success('Payment successful! Bid accepted.');
-      // Clean up URL
       window.history.replaceState({}, '', window.location.pathname);
+    }
+    // Auto-retry bid acceptance after returning from wallet top-up
+    const pending = sessionStorage.getItem('pendingBidAccept');
+    if (pending) {
+      try {
+        const { jobId: pJobId, bidId: pBidId } = JSON.parse(pending);
+        if (pJobId === jobId) {
+          sessionStorage.removeItem('pendingBidAccept');
+          // Small delay to let page load, then retry
+          setTimeout(() => acceptBid({ id: pBidId }), 1000);
+        }
+      } catch { sessionStorage.removeItem('pendingBidAccept'); }
     }
   }, []);
 
@@ -151,7 +163,10 @@ export default function ClientJobDetail({ params }) {
         return;
       }
       if (result.error === 'Insufficient wallet balance') {
-        toast.error(`Insufficient wallet balance ($${result.available} available, $${result.required} needed). Please top up your wallet first.`);
+        const available = parseFloat(result.available || 0);
+        const required = parseFloat(result.required || 0);
+        const shortfall = Math.ceil((required - available) * 100) / 100;
+        setTopUpModal({ available: available.toFixed(2), required: required.toFixed(2), shortfall: shortfall.toFixed(2), bid });
         return;
       }
       toast.error(result.error || 'Payment failed');
@@ -160,6 +175,14 @@ export default function ClientJobDetail({ params }) {
     } finally {
       setAcceptingBid(null);
     }
+  };
+
+  const handleTopUpAndRetry = () => {
+    if (!topUpModal?.bid) return;
+    // Save pending bid info to sessionStorage so we can retry after top-up
+    sessionStorage.setItem('pendingBidAccept', JSON.stringify({ jobId, bidId: topUpModal.bid.id, amount: topUpModal.shortfall }));
+    setTopUpModal(null);
+    router.push(`/client/wallet?topup=${topUpModal.shortfall}`);
   };
 
   const confirmDelivery = async () => {
@@ -514,6 +537,39 @@ export default function ClientJobDetail({ params }) {
             onClose={() => setShowDispute(false)}
             onSubmitted={() => loadData()}
           />
+        )}
+
+        {/* Insufficient Balance Modal */}
+        {topUpModal && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }} onClick={() => setTopUpModal(null)}>
+            <div onClick={e => e.stopPropagation()} style={{ background: 'white', borderRadius: '16px', padding: '28px', maxWidth: '400px', width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+              <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                <div style={{ fontSize: '48px', marginBottom: '8px' }}>💳</div>
+                <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b', margin: 0 }}>Insufficient Balance</h3>
+              </div>
+              <div style={{ background: '#fef2f2', borderRadius: '10px', padding: '16px', marginBottom: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <span style={{ color: '#64748b', fontSize: '14px' }}>Required</span>
+                  <span style={{ color: '#ef4444', fontSize: '14px', fontWeight: '700' }}>${topUpModal.required}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <span style={{ color: '#64748b', fontSize: '14px' }}>Your balance</span>
+                  <span style={{ color: '#1e293b', fontSize: '14px', fontWeight: '600' }}>${topUpModal.available}</span>
+                </div>
+                <div style={{ borderTop: '1px solid #fecaca', paddingTop: '8px', display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#ef4444', fontSize: '14px', fontWeight: '600' }}>Shortfall</span>
+                  <span style={{ color: '#ef4444', fontSize: '16px', fontWeight: '800' }}>${topUpModal.shortfall}</span>
+                </div>
+              </div>
+              <p style={{ color: '#64748b', fontSize: '13px', textAlign: 'center', marginBottom: '20px', lineHeight: '1.4' }}>
+                Top up at least <strong>${topUpModal.shortfall}</strong> to accept this bid. After top-up, the bid will be accepted automatically.
+              </p>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button onClick={() => setTopUpModal(null)} style={{ flex: 1, padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0', background: 'white', color: '#64748b', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>Cancel</button>
+                <button onClick={handleTopUpAndRetry} style={{ flex: 2, padding: '12px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontSize: '14px', fontWeight: '700', cursor: 'pointer' }}>Top Up Now</button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>

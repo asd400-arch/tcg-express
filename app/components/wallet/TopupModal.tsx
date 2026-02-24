@@ -14,11 +14,12 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  initialAmount?: string;
 }
 
 const QUICK_AMOUNTS = WALLET_CONSTANTS.TOPUP_AMOUNTS_QUICK;
 
-export default function TopupModal({ open, onClose, onSuccess }: Props) {
+export default function TopupModal({ open, onClose, onSuccess, initialAmount }: Props) {
   const m = useMobile();
   const toast = useToast();
   const { createTopup, loading } = useTopup();
@@ -34,7 +35,7 @@ export default function TopupModal({ open, onClose, onSuccess }: Props) {
   useEffect(() => {
     if (open) {
       setStep('amount');
-      setAmount('');
+      setAmount(initialAmount ? Math.max(10, Math.ceil(parseFloat(initialAmount))) : '');
       setMethod('paynow');
       setQrData(null);
       setQrImage('');
