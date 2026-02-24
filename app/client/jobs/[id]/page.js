@@ -35,6 +35,8 @@ export default function ClientJobDetail({ params }) {
   const [showDispute, setShowDispute] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [assignedDriver, setAssignedDriver] = useState(null);
+  const [acceptingBid, setAcceptingBid] = useState(null);
+  const [confirming, setConfirming] = useState(false);
   useEffect(() => {
     if (!loading && !user) router.push('/login');
     if (jobId && user) loadData();
@@ -134,7 +136,8 @@ export default function ClientJobDetail({ params }) {
   };
 
   const acceptBid = async (bid) => {
-    // Pay with wallet balance (card payments paused)
+    if (acceptingBid) return;
+    setAcceptingBid(bid.id);
     try {
       const res = await fetch('/api/wallet/pay', {
         method: 'POST',
@@ -147,7 +150,6 @@ export default function ClientJobDetail({ params }) {
         loadData();
         return;
       }
-      // Insufficient balance — prompt to top up
       if (result.error === 'Insufficient wallet balance') {
         toast.error(`Insufficient wallet balance ($${result.available} available, $${result.required} needed). Please top up your wallet first.`);
         return;
@@ -155,13 +157,17 @@ export default function ClientJobDetail({ params }) {
       toast.error(result.error || 'Payment failed');
     } catch (e) {
       toast.error('Payment failed. Please try again.');
+    } finally {
+      setAcceptingBid(null);
     }
   };
 
   const confirmDelivery = async () => {
+    if (confirming) return;
+    setConfirming(true);
     try {
       await supabase.from('express_jobs').update({ status: 'confirmed', confirmed_at: new Date().toISOString() }).eq('id', jobId);
-      // Release held payment via server API
+      // Release held payment via server API (atomic RPC)
       const releaseRes = await fetch('/api/transactions/release', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ jobId }),
@@ -172,7 +178,7 @@ export default function ClientJobDetail({ params }) {
         loadData();
         return;
       }
-      // Notify driver (in-app + email + push via unified endpoint)
+      // Notify driver (non-critical)
       fetch('/api/notify', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -187,6 +193,8 @@ export default function ClientJobDetail({ params }) {
       loadData();
     } catch (e) {
       toast.error('Failed to confirm delivery. Please try again.');
+    } finally {
+      setConfirming(false);
     }
   };
 
@@ -228,7 +236,7 @@ export default function ClientJobDetail({ params }) {
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>
       <Sidebar active="My Deliveries" />
-      <div style={{ flex: 1, padding: m ? '20px 16px' : '30px', overflowX: 'hidden' }}>
+      <div style={{ flex: 1, padding: m ? '80px 16px 20px' : '30px', overflowX: 'hidden' }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
           <div>
@@ -390,7 +398,7 @@ export default function ClientJobDetail({ params }) {
                 }}>🗺️ Track Live</a>
               )}
               {job.status === 'delivered' && (
-                <button onClick={confirmDelivery} style={{ padding: '12px 24px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>✅ Confirm Delivery & Pay</button>
+                <button onClick={confirmDelivery} disabled={confirming} style={{ padding: '12px 24px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontSize: '14px', fontWeight: '600', cursor: confirming ? 'not-allowed' : 'pointer', fontFamily: "'Inter', sans-serif", opacity: confirming ? 0.7 : 1 }}>{confirming ? 'Processing...' : '✅ Confirm Delivery & Pay'}</button>
               )}
               {job.status === 'confirmed' && !hasReview && (
                 <button onClick={() => setShowRating(true)} style={{ padding: '12px 24px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: 'white', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>⭐ Rate Driver</button>
@@ -442,8 +450,8 @@ export default function ClientJobDetail({ params }) {
                     <span style={{ fontSize: '12px', color: '#94a3b8' }}>{new Date(bid.created_at).toLocaleString()}</span>
                     {bid.status === 'pending' && ['open', 'bidding'].includes(job.status) ? (
                       <div style={{ display: 'flex', gap: '8px' }}>
-                        <button onClick={() => rejectBid(bid)} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #ef4444', background: 'white', color: '#ef4444', fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>Reject</button>
-                        <button onClick={() => acceptBid(bid)} style={{ padding: '8px 20px', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>✅ Accept Bid</button>
+                        <button onClick={() => rejectBid(bid)} disabled={!!acceptingBid} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #ef4444', background: 'white', color: '#ef4444', fontSize: '13px', fontWeight: '600', cursor: acceptingBid ? 'not-allowed' : 'pointer', fontFamily: "'Inter', sans-serif", opacity: acceptingBid ? 0.5 : 1 }}>Reject</button>
+                        <button onClick={() => acceptBid(bid)} disabled={!!acceptingBid} style={{ padding: '8px 20px', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontSize: '13px', fontWeight: '600', cursor: acceptingBid ? 'not-allowed' : 'pointer', fontFamily: "'Inter', sans-serif", opacity: acceptingBid === bid.id ? 0.7 : 1 }}>{acceptingBid === bid.id ? 'Processing...' : '✅ Accept Bid'}</button>
                       </div>
                     ) : (
                       <span style={{ padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', background: bid.status === 'accepted' ? '#f0fdf4' : bid.status === 'outbid' ? '#fffbeb' : '#fef2f2', color: bid.status === 'accepted' ? '#10b981' : bid.status === 'outbid' ? '#d97706' : '#ef4444', textTransform: 'capitalize' }}>{bid.status === 'outbid' ? 'not selected' : bid.status}</span>

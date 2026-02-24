@@ -43,7 +43,7 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
     }
 
-    // Find the held transaction for this job
+    // Find the held transaction for this job (lock row to prevent double refund)
     const { data: txn, error: txnErr } = await supabaseAdmin
       .from('express_transactions')
       .select('*')
@@ -53,6 +53,12 @@ export async function POST(req) {
 
     if (txnErr || !txn) {
       return NextResponse.json({ error: 'No held transaction found for this job' }, { status: 404 });
+    }
+
+    // Validate amounts
+    const refundAmt = parseFloat(txn.total_amount);
+    if (!refundAmt || !isFinite(refundAmt) || refundAmt <= 0) {
+      return NextResponse.json({ error: 'Invalid refund amount' }, { status: 400 });
     }
 
     const now = new Date().toISOString();
@@ -74,16 +80,40 @@ export async function POST(req) {
       }
     }
 
-    // Update transaction: refund
+    // Optimistic lock: only refund if still 'held'
     const txnUpdate = { payment_status: 'refunded', refunded_at: now };
     if (stripeRefundId) txnUpdate.stripe_refund_id = stripeRefundId;
-    const { error: txnUpdateErr } = await supabaseAdmin
+    const { data: updatedTxn, error: txnUpdateErr } = await supabaseAdmin
       .from('express_transactions')
       .update(txnUpdate)
-      .eq('id', txn.id);
+      .eq('id', txn.id)
+      .eq('payment_status', 'held')
+      .select()
+      .single();
 
-    if (txnUpdateErr) {
-      return NextResponse.json({ error: 'Failed to refund transaction' }, { status: 500 });
+    if (txnUpdateErr || !updatedTxn) {
+      return NextResponse.json({ error: 'Transaction already refunded or status changed' }, { status: 409 });
+    }
+
+    // Credit client wallet back (if wallet payment was made)
+    if (txn.client_id) {
+      try {
+        const { data: clientWallet } = await supabaseAdmin
+          .from('wallets').select('id').eq('user_id', txn.client_id).single();
+        if (clientWallet) {
+          await supabaseAdmin.rpc('wallet_credit', {
+            p_wallet_id: clientWallet.id,
+            p_user_id: txn.client_id,
+            p_amount: refundAmt,
+            p_type: 'refund',
+            p_reference_type: 'job',
+            p_reference_id: jobId,
+            p_description: `Refund for cancelled job ${job.job_number || jobId}`,
+          });
+        }
+      } catch (walletRefundErr) {
+        console.error('Wallet refund failed (non-critical if Stripe refunded):', walletRefundErr.message);
+      }
     }
 
     // Update job: cancel

@@ -82,14 +82,21 @@ export async function POST(request, { params }) {
     if (normalizedStatus === 'delivered' || status === 'delivered') updates.delivered_at = new Date().toISOString();
     if (normalizedStatus === 'confirmed' || normalizedStatus === 'completed') updates.completed_at = new Date().toISOString();
 
+    // Optimistic lock: only update if status hasn't changed since we read it
     const { data, error } = await supabaseAdmin
       .from('express_jobs')
       .update(updates)
       .eq('id', id)
+      .eq('status', job.status)
       .select()
       .single();
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return NextResponse.json({ error: 'Job status has already changed. Please refresh and try again.' }, { status: 409 });
+      }
+      return NextResponse.json({ error: 'Failed to update status' }, { status: 500 });
+    }
 
     // Fire-and-forget PDF invoice generation on delivery
     if (normalizedStatus === 'delivered' || status === 'delivered') {

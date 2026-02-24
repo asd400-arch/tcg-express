@@ -36,6 +36,7 @@ export default function DriverMyJobs() {
   const [deliveryCoords, setDeliveryCoords] = useState(null);
   const [queue, setQueue] = useState([]);
   const [queueLoading, setQueueLoading] = useState(false);
+  const [statusUpdating, setStatusUpdating] = useState(false);
   const { unreadByJob, markJobRead } = useUnreadMessages();
   const gps = useGpsTracking(user?.id, selected?.id, pickupCoords, deliveryCoords);
 
@@ -207,6 +208,8 @@ export default function DriverMyJobs() {
       setShowSignature(true);
       return;
     }
+    if (statusUpdating) return;
+    setStatusUpdating(true);
     try {
       const res = await fetch(`/api/jobs/${selected.id}/status`, {
         method: 'POST',
@@ -231,6 +234,8 @@ export default function DriverMyJobs() {
       loadQueue();
     } catch (e) {
       toast.error('Failed to update status');
+    } finally {
+      setStatusUpdating(false);
     }
   };
 
@@ -408,7 +413,7 @@ export default function DriverMyJobs() {
               const isScheduledJob = selected.job_type === 'scheduled' || selected.job_type === 'regular';
               const scheduledFuture = nextStatus === 'delivered' && isScheduledJob && selected.deliver_by && new Date(selected.deliver_by) > new Date();
               const scheduledDateStr = selected.deliver_by ? new Date(selected.deliver_by).toLocaleDateString('en-SG', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
-              const isDisabled = needsPhoto || scheduledFuture;
+              const isDisabled = needsPhoto || scheduledFuture || statusUpdating;
               return (
                 <div style={{ marginBottom: '10px' }}>
                   <button onClick={() => !isDisabled && updateStatus(nextStatus)} disabled={isDisabled} style={{
@@ -419,7 +424,7 @@ export default function DriverMyJobs() {
                     color: 'white', fontSize: '18px', fontWeight: '700', cursor: isDisabled ? 'not-allowed' : 'pointer', fontFamily: "'Inter', sans-serif",
                     boxShadow: isDisabled ? 'none' : `0 4px 14px ${statusFlow[selected.status].color}40`,
                     opacity: isDisabled ? 0.7 : 1,
-                  }}>{statusFlow[selected.status].label}</button>
+                  }}>{statusUpdating ? 'Processing...' : statusFlow[selected.status].label}</button>
                   {needsPhoto && photoHint && (
                     <div style={{ textAlign: 'center', fontSize: '12px', color: '#f59e0b', fontWeight: '600', marginTop: '6px' }}>
                       {photoHint}
