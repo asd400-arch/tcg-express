@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../lib/supabase-server';
 import { getSession } from '../../../lib/auth';
 import { notify } from '../../../lib/notify';
+import { rateLimiters, applyRateLimit } from '../../../lib/rate-limiters';
+import { requireUUID, requirePositiveNumber, cleanString } from '../../../lib/validate';
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function GET(request) {
   try {
@@ -10,6 +14,11 @@ export async function GET(request) {
 
     const { searchParams } = new URL(request.url);
     const jobId = searchParams.get('jobId');
+
+    // Validate jobId format if provided
+    if (jobId && !UUID_RE.test(jobId)) {
+      return NextResponse.json({ error: 'Invalid job ID format' }, { status: 400 });
+    }
 
     let query = supabaseAdmin.from('express_bids').select('*, driver:driver_id(contact_name, driver_rating, vehicle_type, total_deliveries)');
 
@@ -47,8 +56,19 @@ export async function POST(request) {
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     if (session.role !== 'driver') return NextResponse.json({ error: 'Only drivers can bid' }, { status: 403 });
 
-    const { job_id, amount, message } = await request.json();
-    if (!job_id || !amount) return NextResponse.json({ error: 'Job ID and amount required' }, { status: 400 });
+    const blocked = applyRateLimit(rateLimiters.bids, session.userId);
+    if (blocked) return blocked;
+
+    const body = await request.json();
+    const jobIdCheck = requireUUID(body.job_id, 'Job ID');
+    if (jobIdCheck.error) return NextResponse.json({ error: jobIdCheck.error }, { status: 400 });
+    const amountCheck = requirePositiveNumber(body.amount, 'Amount');
+    if (amountCheck.error) return NextResponse.json({ error: amountCheck.error }, { status: 400 });
+    if (amountCheck.value > 100000) return NextResponse.json({ error: 'Amount exceeds maximum' }, { status: 400 });
+
+    const job_id = jobIdCheck.value;
+    const amount = amountCheck.value;
+    const message = cleanString(body.message, 500);
 
     // Check job exists and is open
     const { data: job } = await supabaseAdmin

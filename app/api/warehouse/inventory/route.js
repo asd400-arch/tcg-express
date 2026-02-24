@@ -26,7 +26,11 @@ export async function GET(request) {
   }
 
   if (search) {
-    query = query.or(`sku.ilike.%${search}%,product_name.ilike.%${search}%,barcode.ilike.%${search}%`);
+    // Sanitize search input: strip special PostgREST characters to prevent filter injection
+    const safeSearch = search.replace(/[%_(),.'"\\\n\r]/g, '').slice(0, 100);
+    if (safeSearch) {
+      query = query.or(`sku.ilike.%${safeSearch}%,product_name.ilike.%${safeSearch}%,barcode.ilike.%${safeSearch}%`);
+    }
   }
 
   const { data, error } = await query.limit(200);

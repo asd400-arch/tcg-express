@@ -2,6 +2,8 @@ import { supabaseAdmin } from '../../../../lib/supabase-server';
 import { NextResponse } from 'next/server';
 import { getSession } from '../../../../lib/auth';
 import { notify } from '../../../../lib/notify';
+import { rateLimiters, applyRateLimit } from '../../../../lib/rate-limiters';
+import { requireUUID } from '../../../../lib/validate';
 
 export async function POST(req) {
   const controller = new AbortController();
@@ -13,11 +15,13 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const blocked = applyRateLimit(rateLimiters.payment, session.userId);
+    if (blocked) return blocked;
+
     const body = await req.json();
-    const jobId = body?.jobId;
-    if (!jobId) {
-      return NextResponse.json({ error: 'Missing jobId' }, { status: 400 });
-    }
+    const jobIdCheck = requireUUID(body?.jobId, 'Job ID');
+    if (jobIdCheck.error) return NextResponse.json({ error: jobIdCheck.error }, { status: 400 });
+    const jobId = jobIdCheck.value;
 
     // Verify user is the job's client
     const { data: job, error: jobErr } = await supabaseAdmin

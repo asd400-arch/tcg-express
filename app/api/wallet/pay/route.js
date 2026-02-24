@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../../lib/supabase-server';
 import { getSession } from '../../../../lib/auth';
 import { notify } from '../../../../lib/notify';
+import { rateLimiters, applyRateLimit } from '../../../../lib/rate-limiters';
+import { requireUUID, validateAll, cleanString } from '../../../../lib/validate';
 
 // Pay for a job using wallet balance + optional promo code
 // Uses atomic process_bid_acceptance RPC — all-or-nothing
@@ -14,9 +16,17 @@ export async function POST(request) {
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     if (session.role !== 'client') return NextResponse.json({ error: 'Only clients can pay' }, { status: 403 });
 
+    const blocked = applyRateLimit(rateLimiters.payment, session.userId);
+    if (blocked) return blocked;
+
     const body = await request.json();
-    const { jobId, bidId, couponCode } = body;
-    if (!jobId || !bidId) return NextResponse.json({ error: 'jobId and bidId required' }, { status: 400 });
+    const { error: vErr, values: v } = validateAll(
+      ['jobId', requireUUID(body.jobId, 'Job ID')],
+      ['bidId', requireUUID(body.bidId, 'Bid ID')],
+    );
+    if (vErr) return NextResponse.json({ error: vErr }, { status: 400 });
+    const { jobId, bidId } = v;
+    const couponCode = cleanString(body.couponCode, 50);
 
     // Resolve coupon discount if provided
     let couponDiscount = 0;

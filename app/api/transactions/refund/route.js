@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 import { getSession } from '../../../../lib/auth';
 import { notify } from '../../../../lib/notify';
 import { getStripe } from '../../../../lib/stripe';
+import { rateLimiters, applyRateLimit } from '../../../../lib/rate-limiters';
+import { requireUUID } from '../../../../lib/validate';
 
 export async function POST(req) {
   try {
@@ -11,10 +13,13 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { jobId } = await req.json();
-    if (!jobId) {
-      return NextResponse.json({ error: 'Missing jobId' }, { status: 400 });
-    }
+    const blocked = applyRateLimit(rateLimiters.payment, session.userId);
+    if (blocked) return blocked;
+
+    const body = await req.json();
+    const jobIdCheck = requireUUID(body?.jobId, 'Job ID');
+    if (jobIdCheck.error) return NextResponse.json({ error: jobIdCheck.error }, { status: 400 });
+    const jobId = jobIdCheck.value;
 
     // Fetch job with client info
     const { data: job, error: jobErr } = await supabaseAdmin

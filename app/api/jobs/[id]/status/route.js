@@ -4,6 +4,8 @@ import { getSession } from '../../../../../lib/auth';
 import { notify } from '../../../../../lib/notify';
 import { calculateCO2Saved, calculateGreenPoints, SAVE_MODE_GREEN_POINTS } from '../../../../../lib/fares';
 import { generateInvoice } from '../../../../../lib/generate-invoice';
+import { rateLimiters, applyRateLimit } from '../../../../../lib/rate-limiters';
+import { requireEnum, cleanString } from '../../../../../lib/validate';
 
 const VALID_TRANSITIONS = {
   assigned: ['pickup_confirmed', 'picked_up'],
@@ -23,12 +25,18 @@ export async function POST(request, { params }) {
     const session = getSession(request);
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+    const blocked = applyRateLimit(rateLimiters.general, session.userId);
+    if (blocked) return blocked;
+
     const { id } = await params;
     const body = await request.json();
-    let { status } = body;
-    const photoUrl = body.proof_photo_url || body.photo_url;
 
-    if (!status) return NextResponse.json({ error: 'Status required' }, { status: 400 });
+    const allStatuses = ['pickup_confirmed', 'picked_up', 'in_transit', 'delivered', 'confirmed', 'completed'];
+    const statusCheck = requireEnum(body.status, allStatuses, 'Status');
+    if (statusCheck.error) return NextResponse.json({ error: statusCheck.error }, { status: 400 });
+    let status = statusCheck.value;
+
+    const photoUrl = cleanString(body.proof_photo_url || body.photo_url, 2000);
 
     const { data: job, error: jobErr } = await supabaseAdmin
       .from('express_jobs')

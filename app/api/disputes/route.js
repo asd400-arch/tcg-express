@@ -3,6 +3,8 @@ import { createNotification } from '../../../lib/notifications';
 import { NextResponse } from 'next/server';
 import { getSession } from '../../../lib/auth';
 import { notify } from '../../../lib/notify';
+import { rateLimiters, applyRateLimit } from '../../../lib/rate-limiters';
+import { requireUUID, requireEnum, requireString, cleanString } from '../../../lib/validate';
 
 const VALID_REASONS = ['damaged_item', 'wrong_delivery', 'late_delivery', 'wrong_address', 'item_not_as_described', 'driver_no_show', 'other'];
 const DISPUTABLE_STATUSES = ['assigned', 'pickup_confirmed', 'in_transit', 'delivered'];
@@ -14,14 +16,20 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { jobId, reason, description } = await req.json();
-    if (!jobId || !reason || !description) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-    }
+    const blocked = applyRateLimit(rateLimiters.general, session.userId);
+    if (blocked) return blocked;
 
-    if (!VALID_REASONS.includes(reason)) {
-      return NextResponse.json({ error: 'Invalid reason' }, { status: 400 });
-    }
+    const body = await req.json();
+    const jobIdCheck = requireUUID(body.jobId, 'Job ID');
+    if (jobIdCheck.error) return NextResponse.json({ error: jobIdCheck.error }, { status: 400 });
+    const reasonCheck = requireEnum(body.reason, VALID_REASONS, 'Reason');
+    if (reasonCheck.error) return NextResponse.json({ error: reasonCheck.error }, { status: 400 });
+    const descCheck = requireString(body.description, 'Description', 2000);
+    if (descCheck.error) return NextResponse.json({ error: descCheck.error }, { status: 400 });
+
+    const jobId = jobIdCheck.value;
+    const reason = reasonCheck.value;
+    const description = descCheck.value;
 
     // Look up user role
     const { data: user, error: userErr } = await supabaseAdmin

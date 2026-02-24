@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../../lib/supabase-server';
 import { getSession } from '../../../../lib/auth';
 import { getStripe } from '../../../../lib/stripe';
+import { rateLimiters, applyRateLimit } from '../../../../lib/rate-limiters';
+import { requireNumberInRange } from '../../../../lib/validate';
 
 const BONUS_TIERS = [
   { min: 500, bonus: 50 },
@@ -20,12 +22,14 @@ export async function POST(request) {
   const session = getSession(request);
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { amount, platform } = await request.json();
-  const numAmount = parseFloat(amount);
+  const blocked = applyRateLimit(rateLimiters.payment, session.userId);
+  if (blocked) return blocked;
 
-  if (!numAmount || numAmount < 10 || numAmount > 10000) {
-    return NextResponse.json({ error: 'Amount must be between $10 and $10,000' }, { status: 400 });
-  }
+  const body = await request.json();
+  const amtCheck = requireNumberInRange(body.amount, 'Amount', 10, 10000);
+  if (amtCheck.error) return NextResponse.json({ error: amtCheck.error }, { status: 400 });
+  const numAmount = amtCheck.value;
+  const platform = body.platform;
 
   const bonus = getBonus(numAmount);
   const stripe = getStripe();

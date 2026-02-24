@@ -39,8 +39,49 @@ const ROLE_PREFIXES = {
   '/driver': 'driver',
 };
 
+// Allowed origins for CSRF validation
+const ALLOWED_ORIGINS = [
+  process.env.NEXT_PUBLIC_SITE_URL,
+  process.env.NEXT_PUBLIC_APP_URL,
+  'https://tcgexpress.sg',
+  'https://www.tcgexpress.sg',
+].filter(Boolean);
+
+function checkOrigin(request) {
+  const origin = request.headers.get('origin');
+  const referer = request.headers.get('referer');
+  // Mobile apps send Bearer tokens and no origin — allow them
+  const authHeader = request.headers.get('authorization');
+  if (authHeader?.startsWith('Bearer ')) return true;
+  // Stripe webhooks have no origin
+  if (request.headers.get('stripe-signature')) return true;
+  // Cron/internal requests may have no origin
+  if (!origin && !referer) return true;
+  // Check origin header
+  if (origin) {
+    if (ALLOWED_ORIGINS.some(ao => origin.startsWith(ao))) return true;
+    // Allow localhost in development
+    if (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1')) return true;
+    return false;
+  }
+  // Check referer header
+  if (referer) {
+    if (ALLOWED_ORIGINS.some(ao => referer.startsWith(ao))) return true;
+    if (referer.startsWith('http://localhost') || referer.startsWith('http://127.0.0.1')) return true;
+    return false;
+  }
+  return true;
+}
+
 export async function middleware(request) {
   const { pathname } = request.nextUrl;
+
+  // CSRF: validate Origin/Referer on state-changing API requests
+  if (pathname.startsWith('/api/') && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)) {
+    if (!checkOrigin(request)) {
+      return NextResponse.json({ error: 'Forbidden: invalid origin' }, { status: 403 });
+    }
+  }
 
   // Public pages — no auth required
   if (PUBLIC_PATHS.includes(pathname)) {

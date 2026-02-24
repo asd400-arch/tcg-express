@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../lib/supabase-server';
 import { getSession } from '../../../lib/auth';
+import { rateLimiters, applyRateLimit } from '../../../lib/rate-limiters';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_PREFIXES = ['jobs/', 'chat/', 'kyc/', 'delivery/', 'rfq/'];
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const ALLOWED_DOC_TYPES = ['application/pdf'];
+const ALL_ALLOWED_TYPES = [...ALLOWED_IMAGE_TYPES, ...ALLOWED_DOC_TYPES];
 
 async function ensureBucket(name, options = {}) {
   const { data: buckets } = await supabaseAdmin.storage.listBuckets();
@@ -24,6 +28,9 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const blocked = applyRateLimit(rateLimiters.upload, session.userId);
+    if (blocked) return blocked;
+
     const formData = await request.formData();
     const file = formData.get('file');
     let uploadPath = formData.get('path');
@@ -32,8 +39,20 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Missing file' }, { status: 400 });
     }
 
-    // Detect content type
+    // Detect and validate content type
     const contentType = file.type || 'application/octet-stream';
+
+    // Validate file type (images for most uploads, PDFs for rfq/kyc)
+    const isDocPath = uploadPath && (uploadPath.startsWith('rfq/') || uploadPath.startsWith('kyc/'));
+    if (isDocPath) {
+      if (!ALL_ALLOWED_TYPES.includes(contentType)) {
+        return NextResponse.json({ error: 'Invalid file type. Allowed: images, PDF' }, { status: 400 });
+      }
+    } else {
+      if (!ALLOWED_IMAGE_TYPES.includes(contentType)) {
+        return NextResponse.json({ error: 'Invalid file type. Only images allowed (JPEG, PNG, WebP, GIF)' }, { status: 400 });
+      }
+    }
 
     // Auto-generate path if not provided
     if (!uploadPath) {

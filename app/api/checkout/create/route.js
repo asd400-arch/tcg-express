@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../../lib/supabase-server';
 import { getSession } from '../../../../lib/auth';
 import { getStripe } from '../../../../lib/stripe';
+import { rateLimiters, applyRateLimit } from '../../../../lib/rate-limiters';
+import { requireUUID, requirePositiveNumber } from '../../../../lib/validate';
 
 export async function POST(request) {
   try {
@@ -10,15 +12,26 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
+    const blocked = applyRateLimit(rateLimiters.payment, session.userId);
+    if (blocked) return blocked;
+
     const stripe = getStripe();
     if (!stripe) {
       return NextResponse.json({ error: 'Stripe not configured' }, { status: 503 });
     }
 
-    const { jobId, bidId, amount, platform } = await request.json();
-    if (!jobId || !bidId || !amount) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-    }
+    const body = await request.json();
+    const jobIdCheck = requireUUID(body.jobId, 'Job ID');
+    if (jobIdCheck.error) return NextResponse.json({ error: jobIdCheck.error }, { status: 400 });
+    const bidIdCheck = requireUUID(body.bidId, 'Bid ID');
+    if (bidIdCheck.error) return NextResponse.json({ error: bidIdCheck.error }, { status: 400 });
+    const amountCheck = requirePositiveNumber(body.amount, 'Amount');
+    if (amountCheck.error) return NextResponse.json({ error: amountCheck.error }, { status: 400 });
+
+    const jobId = jobIdCheck.value;
+    const bidId = bidIdCheck.value;
+    const amount = amountCheck.value;
+    const platform = body.platform;
 
     // Verify job belongs to client
     const { data: job, error: jobErr } = await supabaseAdmin

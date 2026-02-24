@@ -1,13 +1,25 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../lib/supabase-server';
 import { getSession } from '../../../lib/auth';
+import { rateLimiters, applyRateLimit } from '../../../lib/rate-limiters';
+import { requireUUID, requireNumberInRange, cleanString } from '../../../lib/validate';
 
 export async function POST(request) {
   const session = getSession(request);
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { job_id, rating, review, review_text } = await request.json();
-  if (!job_id || !rating) return NextResponse.json({ error: 'Job ID and rating required' }, { status: 400 });
+  const blocked = applyRateLimit(rateLimiters.general, session.userId);
+  if (blocked) return blocked;
+
+  const body = await request.json();
+  const jobIdCheck = requireUUID(body.job_id, 'Job ID');
+  if (jobIdCheck.error) return NextResponse.json({ error: jobIdCheck.error }, { status: 400 });
+  const ratingCheck = requireNumberInRange(body.rating, 'Rating', 1, 5);
+  if (ratingCheck.error) return NextResponse.json({ error: ratingCheck.error }, { status: 400 });
+
+  const job_id = jobIdCheck.value;
+  const rating = Math.round(ratingCheck.value);
+  const review_text = cleanString(body.review_text || body.review, 2000);
 
   const { data: job } = await supabaseAdmin
     .from('express_jobs')
@@ -20,8 +32,8 @@ export async function POST(request) {
   const reviewerRole = session.role;
   const reviewData = {
     job_id,
-    rating: Math.min(5, Math.max(1, parseInt(rating))),
-    review_text: review_text || review || null,
+    rating,
+    review_text: review_text || null,
     reviewer_role: reviewerRole,
   };
 
