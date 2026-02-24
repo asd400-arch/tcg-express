@@ -29,8 +29,21 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
     }
 
-    // Bcrypt only
-    const passwordValid = await bcrypt.compare(password, user.password_hash);
+    // Verify password (bcrypt hash or legacy plain-text with auto-upgrade)
+    let passwordValid = false;
+    if (user.password_hash && user.password_hash.startsWith('$2')) {
+      passwordValid = await bcrypt.compare(password, user.password_hash);
+    } else if (user.password_hash === password) {
+      // Legacy plain-text match — auto-upgrade to bcrypt
+      passwordValid = true;
+      try {
+        const hashed = await bcrypt.hash(password, 12);
+        await supabaseAdmin
+          .from('express_users')
+          .update({ password_hash: hashed })
+          .eq('id', user.id);
+      } catch {}
+    }
 
     if (!passwordValid) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
