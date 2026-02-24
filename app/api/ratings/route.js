@@ -28,9 +28,13 @@ export async function POST(request) {
   if (reviewerRole === 'client') {
     reviewData.client_id = session.userId;
     reviewData.driver_id = job.assigned_driver_id;
+    reviewData.reviewer_id = session.userId;
+    reviewData.reviewee_id = job.assigned_driver_id;
   } else {
     reviewData.driver_id = session.userId;
     reviewData.client_id = job.client_id;
+    reviewData.reviewer_id = session.userId;
+    reviewData.reviewee_id = job.client_id;
   }
 
   const { data, error } = await supabaseAdmin

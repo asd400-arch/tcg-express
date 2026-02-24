@@ -1,0 +1,5168 @@
+[
+  {
+    "table_name": "Leads",
+    "column_name": "id",
+    "data_type": "bigint",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "Leads",
+    "column_name": "name",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "Leads",
+    "column_name": "email",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "Leads",
+    "column_name": "company",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "Leads",
+    "column_name": "message",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "Leads",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "blog_posts",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "uuid_generate_v4()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "blog_posts",
+    "column_name": "title",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "blog_posts",
+    "column_name": "slug",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "blog_posts",
+    "column_name": "excerpt",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "blog_posts",
+    "column_name": "content",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "blog_posts",
+    "column_name": "cover_image",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "blog_posts",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "chatbot_sessions",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "gen_random_uuid()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "chatbot_sessions",
+    "column_name": "user_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "chatbot_sessions",
+    "column_name": "session_token",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "chatbot_sessions",
+    "column_name": "messages",
+    "data_type": "jsonb",
+    "column_default": "'[]'::jsonb",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "chatbot_sessions",
+    "column_name": "message_count",
+    "data_type": "integer",
+    "column_default": "0",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "chatbot_sessions",
+    "column_name": "resolved",
+    "data_type": "boolean",
+    "column_default": "false",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "chatbot_sessions",
+    "column_name": "escalated_to_ticket",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "chatbot_sessions",
+    "column_name": "topics",
+    "data_type": "ARRAY",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "chatbot_sessions",
+    "column_name": "satisfaction_rating",
+    "data_type": "integer",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "chatbot_sessions",
+    "column_name": "started_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "chatbot_sessions",
+    "column_name": "last_message_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "chatbot_sessions",
+    "column_name": "ended_at",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "consolidation_groups",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "gen_random_uuid()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "consolidation_groups",
+    "column_name": "driver_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "consolidation_groups",
+    "column_name": "vehicle_mode",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "consolidation_groups",
+    "column_name": "status",
+    "data_type": "character varying",
+    "column_default": "'forming'::character varying",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "consolidation_groups",
+    "column_name": "route_optimized",
+    "data_type": "boolean",
+    "column_default": "false",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "consolidation_groups",
+    "column_name": "total_jobs",
+    "data_type": "integer",
+    "column_default": "0",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "consolidation_groups",
+    "column_name": "max_jobs",
+    "data_type": "integer",
+    "column_default": "5",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "consolidation_groups",
+    "column_name": "cluster_center_lat",
+    "data_type": "double precision",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "consolidation_groups",
+    "column_name": "cluster_center_lng",
+    "data_type": "double precision",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "consolidation_groups",
+    "column_name": "cluster_radius_km",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "consolidation_groups",
+    "column_name": "discount_percent",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "consolidation_groups",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "consolidation_groups",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "contracts",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "gen_random_uuid()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "contracts",
+    "column_name": "contract_number",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "contracts",
+    "column_name": "contract_type",
+    "data_type": "character varying",
+    "column_default": "'premium'::character varying",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "contracts",
+    "column_name": "party_a_name",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "contracts",
+    "column_name": "party_b_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "contracts",
+    "column_name": "corp_premium_request_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "contracts",
+    "column_name": "effective_date",
+    "data_type": "date",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "contracts",
+    "column_name": "expiry_date",
+    "data_type": "date",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "contracts",
+    "column_name": "contract_value",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "contracts",
+    "column_name": "status",
+    "data_type": "character varying",
+    "column_default": "'draft'::character varying",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "contracts",
+    "column_name": "document_url",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "contracts",
+    "column_name": "signed_document_url",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "contracts",
+    "column_name": "signed_at",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "contracts",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "contracts",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "corp_premium_bids",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "gen_random_uuid()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "corp_premium_bids",
+    "column_name": "request_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "corp_premium_bids",
+    "column_name": "partner_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "corp_premium_bids",
+    "column_name": "bid_amount",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "corp_premium_bids",
+    "column_name": "fleet_size",
+    "data_type": "integer",
+    "column_default": "1",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "corp_premium_bids",
+    "column_name": "proposed_vehicles",
+    "data_type": "ARRAY",
+    "column_default": "'{}'::text[]",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "corp_premium_bids",
+    "column_name": "proposal_text",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "corp_premium_bids",
+    "column_name": "certifications",
+    "data_type": "ARRAY",
+    "column_default": "'{}'::text[]",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "corp_premium_bids",
+    "column_name": "status",
+    "data_type": "character varying",
+    "column_default": "'pending'::character varying",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "corp_premium_bids",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "corp_premium_bids",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "corp_premium_requests",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "gen_random_uuid()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "corp_premium_requests",
+    "column_name": "client_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "corp_premium_requests",
+    "column_name": "request_number",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "corp_premium_requests",
+    "column_name": "title",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "corp_premium_requests",
+    "column_name": "description",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "corp_premium_requests",
+    "column_name": "start_date",
+    "data_type": "date",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "corp_premium_requests",
+    "column_name": "end_date",
+    "data_type": "date",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "corp_premium_requests",
+    "column_name": "estimated_budget",
+    "data_type": "numeric",
+    "column_default": "NULL::numeric",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "corp_premium_requests",
+    "column_name": "locations",
+    "data_type": "jsonb",
+    "column_default": "'[]'::jsonb",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "corp_premium_requests",
+    "column_name": "vehicle_modes",
+    "data_type": "ARRAY",
+    "column_default": "'{}'::text[]",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "corp_premium_requests",
+    "column_name": "special_requirements",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "corp_premium_requests",
+    "column_name": "certifications_required",
+    "data_type": "ARRAY",
+    "column_default": "'{}'::text[]",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "corp_premium_requests",
+    "column_name": "min_fleet_size",
+    "data_type": "integer",
+    "column_default": "1",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "corp_premium_requests",
+    "column_name": "min_rating",
+    "data_type": "numeric",
+    "column_default": "4.5",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "corp_premium_requests",
+    "column_name": "nda_accepted",
+    "data_type": "boolean",
+    "column_default": "false",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "corp_premium_requests",
+    "column_name": "status",
+    "data_type": "character varying",
+    "column_default": "'draft'::character varying",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "corp_premium_requests",
+    "column_name": "awarded_partner_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "corp_premium_requests",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "corp_premium_requests",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "corp_premium_requests",
+    "column_name": "attachments",
+    "data_type": "jsonb",
+    "column_default": "'[]'::jsonb",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "corp_premium_requests",
+    "column_name": "contract_duration",
+    "data_type": "integer",
+    "column_default": "3",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "corp_premium_requests",
+    "column_name": "estimated_volume",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "corp_premium_requests",
+    "column_name": "pickup_regions",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "corp_premium_requests",
+    "column_name": "delivery_regions",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "corp_premium_requests",
+    "column_name": "vehicle_types",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "driver_job_queue",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "gen_random_uuid()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "driver_job_queue",
+    "column_name": "driver_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "driver_job_queue",
+    "column_name": "job_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "driver_job_queue",
+    "column_name": "queue_position",
+    "data_type": "integer",
+    "column_default": "0",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "driver_job_queue",
+    "column_name": "status",
+    "data_type": "character varying",
+    "column_default": "'queued'::character varying",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "driver_job_queue",
+    "column_name": "assigned_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "driver_job_queue",
+    "column_name": "started_at",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "driver_job_queue",
+    "column_name": "picked_up_at",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "driver_job_queue",
+    "column_name": "completed_at",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_bids",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "uuid_generate_v4()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_bids",
+    "column_name": "job_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_bids",
+    "column_name": "driver_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_bids",
+    "column_name": "amount",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_bids",
+    "column_name": "estimated_time",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_bids",
+    "column_name": "message",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_bids",
+    "column_name": "status",
+    "data_type": "text",
+    "column_default": "'pending'::text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_bids",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_bids",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_disputes",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "gen_random_uuid()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_disputes",
+    "column_name": "job_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_disputes",
+    "column_name": "opened_by",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_disputes",
+    "column_name": "opened_by_role",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_disputes",
+    "column_name": "reason",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_disputes",
+    "column_name": "description",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_disputes",
+    "column_name": "status",
+    "data_type": "text",
+    "column_default": "'open'::text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_disputes",
+    "column_name": "resolution",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_disputes",
+    "column_name": "admin_notes",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_disputes",
+    "column_name": "resolved_by",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_disputes",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_disputes",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_disputes",
+    "column_name": "resolved_at",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_driver_locations",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "uuid_generate_v4()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_driver_locations",
+    "column_name": "driver_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_driver_locations",
+    "column_name": "job_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_driver_locations",
+    "column_name": "latitude",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_driver_locations",
+    "column_name": "longitude",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_driver_locations",
+    "column_name": "heading",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_driver_locations",
+    "column_name": "speed",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_driver_locations",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_driver_locations",
+    "column_name": "accuracy",
+    "data_type": "double precision",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_driver_locations",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "uuid_generate_v4()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "client_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "job_number",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "pickup_address",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "pickup_lat",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "pickup_lng",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "pickup_contact",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "pickup_phone",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "pickup_instructions",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "delivery_address",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "delivery_lat",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "delivery_lng",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "delivery_contact",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "delivery_phone",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "delivery_instructions",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "item_description",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "item_category",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "item_weight",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "item_dimensions",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "item_photos",
+    "data_type": "jsonb",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "urgency",
+    "data_type": "text",
+    "column_default": "'standard'::text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "budget_min",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "budget_max",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "special_requirements",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "vehicle_required",
+    "data_type": "text",
+    "column_default": "'any'::text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "status",
+    "data_type": "text",
+    "column_default": "'open'::text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "assigned_driver_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "assigned_bid_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "pickup_photo",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "delivery_photo",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "signature_image",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "invoice_file",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "completed_at",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "confirmed_at",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "final_amount",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "commission_rate",
+    "data_type": "numeric",
+    "column_default": "15.00",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "commission_amount",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "driver_payout",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "pickup_by",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "deliver_by",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "equipment_needed",
+    "data_type": "ARRAY",
+    "column_default": "'{}'::text[]",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "manpower_count",
+    "data_type": "integer",
+    "column_default": "1",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "co2_saved_kg",
+    "data_type": "numeric",
+    "column_default": "0",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "green_points_earned",
+    "data_type": "integer",
+    "column_default": "0",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "is_ev_selected",
+    "data_type": "boolean",
+    "column_default": "false",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "delivery_mode",
+    "data_type": "character varying",
+    "column_default": "'express'::character varying",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "save_mode_window",
+    "data_type": "integer",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "save_mode_deadline",
+    "data_type": "timestamp without time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "consolidation_group_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "queue_position",
+    "data_type": "integer",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "is_consolidated",
+    "data_type": "boolean",
+    "column_default": "false",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "job_type",
+    "data_type": "character varying",
+    "column_default": "'spot'::character varying",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "coupon_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "coupon_discount",
+    "data_type": "numeric",
+    "column_default": "0",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "points_used",
+    "data_type": "integer",
+    "column_default": "0",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "points_discount",
+    "data_type": "numeric",
+    "column_default": "0",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "wallet_paid",
+    "data_type": "boolean",
+    "column_default": "false",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "cancelled_at",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "cancelled_by",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "delivered_at",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_jobs",
+    "column_name": "distance_km",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_messages",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "uuid_generate_v4()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_messages",
+    "column_name": "job_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_messages",
+    "column_name": "sender_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_messages",
+    "column_name": "receiver_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_messages",
+    "column_name": "content",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_messages",
+    "column_name": "message_type",
+    "data_type": "text",
+    "column_default": "'text'::text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_messages",
+    "column_name": "attachment_url",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_messages",
+    "column_name": "is_read",
+    "data_type": "boolean",
+    "column_default": "false",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_messages",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_notifications",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "uuid_generate_v4()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_notifications",
+    "column_name": "user_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_notifications",
+    "column_name": "title",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_notifications",
+    "column_name": "body",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_notifications",
+    "column_name": "type",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_notifications",
+    "column_name": "reference_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_notifications",
+    "column_name": "is_read",
+    "data_type": "boolean",
+    "column_default": "false",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_notifications",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_promo_banners",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "gen_random_uuid()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_promo_banners",
+    "column_name": "title",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_promo_banners",
+    "column_name": "subtitle",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_promo_banners",
+    "column_name": "image_url",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_promo_banners",
+    "column_name": "link",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_promo_banners",
+    "column_name": "bg_color",
+    "data_type": "text",
+    "column_default": "'#3b82f6'::text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_promo_banners",
+    "column_name": "sort_order",
+    "data_type": "integer",
+    "column_default": "0",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_promo_banners",
+    "column_name": "is_active",
+    "data_type": "boolean",
+    "column_default": "true",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_promo_banners",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_push_subscriptions",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "gen_random_uuid()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_push_subscriptions",
+    "column_name": "user_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_push_subscriptions",
+    "column_name": "endpoint",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_push_subscriptions",
+    "column_name": "p256dh",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_push_subscriptions",
+    "column_name": "auth",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_push_subscriptions",
+    "column_name": "user_agent",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_push_subscriptions",
+    "column_name": "last_used_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_push_subscriptions",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_push_subscriptions",
+    "column_name": "type",
+    "data_type": "character varying",
+    "column_default": "'web'::character varying",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_push_subscriptions",
+    "column_name": "expo_token",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_push_subscriptions",
+    "column_name": "platform",
+    "data_type": "character varying",
+    "column_default": "'web'::character varying",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_reviews",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "uuid_generate_v4()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_reviews",
+    "column_name": "job_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_reviews",
+    "column_name": "reviewer_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_reviews",
+    "column_name": "reviewee_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_reviews",
+    "column_name": "rating",
+    "data_type": "integer",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_reviews",
+    "column_name": "comment",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_reviews",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_reviews",
+    "column_name": "reviewer_role",
+    "data_type": "text",
+    "column_default": "'client'::text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_reviews",
+    "column_name": "client_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_reviews",
+    "column_name": "driver_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_reviews",
+    "column_name": "review_text",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_schedules",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "gen_random_uuid()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_schedules",
+    "column_name": "client_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_schedules",
+    "column_name": "schedule_type",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_schedules",
+    "column_name": "status",
+    "data_type": "text",
+    "column_default": "'active'::text",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_schedules",
+    "column_name": "next_run_at",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_schedules",
+    "column_name": "day_of_week",
+    "data_type": "integer",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_schedules",
+    "column_name": "day_of_month",
+    "data_type": "integer",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_schedules",
+    "column_name": "run_time",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_schedules",
+    "column_name": "ends_at",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_schedules",
+    "column_name": "pickup_address",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_schedules",
+    "column_name": "pickup_contact",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_schedules",
+    "column_name": "pickup_phone",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_schedules",
+    "column_name": "pickup_instructions",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_schedules",
+    "column_name": "delivery_address",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_schedules",
+    "column_name": "delivery_contact",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_schedules",
+    "column_name": "delivery_phone",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_schedules",
+    "column_name": "delivery_instructions",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_schedules",
+    "column_name": "item_description",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_schedules",
+    "column_name": "item_category",
+    "data_type": "text",
+    "column_default": "'general'::text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_schedules",
+    "column_name": "item_weight",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_schedules",
+    "column_name": "item_dimensions",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_schedules",
+    "column_name": "urgency",
+    "data_type": "text",
+    "column_default": "'standard'::text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_schedules",
+    "column_name": "budget_min",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_schedules",
+    "column_name": "budget_max",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_schedules",
+    "column_name": "vehicle_required",
+    "data_type": "text",
+    "column_default": "'any'::text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_schedules",
+    "column_name": "special_requirements",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_schedules",
+    "column_name": "jobs_created",
+    "data_type": "integer",
+    "column_default": "0",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_schedules",
+    "column_name": "last_run_at",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_schedules",
+    "column_name": "last_job_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_schedules",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_schedules",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_schedules",
+    "column_name": "equipment_needed",
+    "data_type": "ARRAY",
+    "column_default": "'{}'::text[]",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_schedules",
+    "column_name": "manpower_count",
+    "data_type": "integer",
+    "column_default": "1",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_settings",
+    "column_name": "key",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_settings",
+    "column_name": "value",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_settings",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_support_messages",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "gen_random_uuid()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_support_messages",
+    "column_name": "ticket_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_support_messages",
+    "column_name": "sender_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_support_messages",
+    "column_name": "sender_type",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_support_messages",
+    "column_name": "content",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_support_messages",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_support_tickets",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "gen_random_uuid()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_support_tickets",
+    "column_name": "user_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_support_tickets",
+    "column_name": "category",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_support_tickets",
+    "column_name": "subject",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_support_tickets",
+    "column_name": "status",
+    "data_type": "character varying",
+    "column_default": "'open'::character varying",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_support_tickets",
+    "column_name": "ai_resolved",
+    "data_type": "boolean",
+    "column_default": "false",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_support_tickets",
+    "column_name": "assigned_admin",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_support_tickets",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_support_tickets",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_transactions",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "uuid_generate_v4()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_transactions",
+    "column_name": "job_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_transactions",
+    "column_name": "client_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_transactions",
+    "column_name": "driver_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_transactions",
+    "column_name": "total_amount",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_transactions",
+    "column_name": "commission_amount",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_transactions",
+    "column_name": "driver_payout",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_transactions",
+    "column_name": "payment_status",
+    "data_type": "text",
+    "column_default": "'pending'::text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_transactions",
+    "column_name": "payment_method",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_transactions",
+    "column_name": "payment_reference",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_transactions",
+    "column_name": "paid_at",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_transactions",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_transactions",
+    "column_name": "stripe_checkout_session_id",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_transactions",
+    "column_name": "stripe_payment_intent_id",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_transactions",
+    "column_name": "stripe_refund_id",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_transactions",
+    "column_name": "held_at",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_transactions",
+    "column_name": "released_at",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_transactions",
+    "column_name": "refunded_at",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "uuid_generate_v4()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "auth_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "email",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "role",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "company_name",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "contact_name",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "phone",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "profile_image",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "vehicle_type",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "vehicle_plate",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "license_number",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "driver_documents",
+    "data_type": "jsonb",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "driver_status",
+    "data_type": "text",
+    "column_default": "'pending'::text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "driver_rating",
+    "data_type": "numeric",
+    "column_default": "5.00",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "total_deliveries",
+    "data_type": "integer",
+    "column_default": "0",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "company_registration",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "billing_address",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "is_active",
+    "data_type": "boolean",
+    "column_default": "true",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "is_verified",
+    "data_type": "boolean",
+    "column_default": "false",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "password_hash",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "driver_type",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "nric_number",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "business_reg_number",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "nric_front_url",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "nric_back_url",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "license_photo_url",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "business_reg_cert_url",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "vehicle_insurance_url",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "client_rating",
+    "data_type": "numeric",
+    "column_default": "5.0",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "verification_code",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "verification_code_expires",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "first_name",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "last_name",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "tc_accepted",
+    "data_type": "boolean",
+    "column_default": "false",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "is_ev_vehicle",
+    "data_type": "boolean",
+    "column_default": "false",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "ev_vehicle_type",
+    "data_type": "character varying",
+    "column_default": "NULL::character varying",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "ev_certification_url",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "preferred_nav_app",
+    "data_type": "character varying",
+    "column_default": "'google_maps'::character varying",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "auto_navigate",
+    "data_type": "boolean",
+    "column_default": "true",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "nearby_job_alerts",
+    "data_type": "boolean",
+    "column_default": "true",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "green_tier",
+    "data_type": "character varying",
+    "column_default": "'bronze'::character varying",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "green_points_balance",
+    "data_type": "integer",
+    "column_default": "0",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "green_streak_count",
+    "data_type": "integer",
+    "column_default": "0",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "green_streak_last_month",
+    "data_type": "character varying",
+    "column_default": "NULL::character varying",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "tc_accepted_at",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "tc_version",
+    "data_type": "character varying",
+    "column_default": "'1.0'::character varying",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "driver_liability_accepted",
+    "data_type": "boolean",
+    "column_default": "false",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "notification_preferences",
+    "data_type": "jsonb",
+    "column_default": "'{\"job_updates\": {\"push\": true, \"email\": true}, \"bid_activity\": {\"push\": true, \"email\": true}, \"account_alerts\": {\"push\": true, \"email\": true}, \"delivery_status\": {\"push\": true, \"email\": true}}'::jsonb",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "reset_code",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "reset_code_expires",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "express_users",
+    "column_name": "reset_attempts",
+    "data_type": "integer",
+    "column_default": "0",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "faq_articles",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "gen_random_uuid()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "faq_articles",
+    "column_name": "category_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "faq_articles",
+    "column_name": "slug",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "faq_articles",
+    "column_name": "question",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "faq_articles",
+    "column_name": "question_ko",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "faq_articles",
+    "column_name": "answer",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "faq_articles",
+    "column_name": "answer_ko",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "faq_articles",
+    "column_name": "keywords",
+    "data_type": "ARRAY",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "faq_articles",
+    "column_name": "ai_context",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "faq_articles",
+    "column_name": "target_audience",
+    "data_type": "character varying",
+    "column_default": "'all'::character varying",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "faq_articles",
+    "column_name": "display_order",
+    "data_type": "integer",
+    "column_default": "0",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "faq_articles",
+    "column_name": "view_count",
+    "data_type": "integer",
+    "column_default": "0",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "faq_articles",
+    "column_name": "helpful_count",
+    "data_type": "integer",
+    "column_default": "0",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "faq_articles",
+    "column_name": "not_helpful_count",
+    "data_type": "integer",
+    "column_default": "0",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "faq_articles",
+    "column_name": "is_active",
+    "data_type": "boolean",
+    "column_default": "true",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "faq_articles",
+    "column_name": "is_pinned",
+    "data_type": "boolean",
+    "column_default": "false",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "faq_articles",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "faq_articles",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "faq_categories",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "gen_random_uuid()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "faq_categories",
+    "column_name": "slug",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "faq_categories",
+    "column_name": "title",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "faq_categories",
+    "column_name": "title_ko",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "faq_categories",
+    "column_name": "description",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "faq_categories",
+    "column_name": "icon",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "faq_categories",
+    "column_name": "display_order",
+    "data_type": "integer",
+    "column_default": "0",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "faq_categories",
+    "column_name": "target_audience",
+    "data_type": "character varying",
+    "column_default": "'all'::character varying",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "faq_categories",
+    "column_name": "is_active",
+    "data_type": "boolean",
+    "column_default": "true",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "faq_categories",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "green_points_ledger",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "gen_random_uuid()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "green_points_ledger",
+    "column_name": "user_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "green_points_ledger",
+    "column_name": "user_type",
+    "data_type": "character varying",
+    "column_default": "'driver'::character varying",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "green_points_ledger",
+    "column_name": "job_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "green_points_ledger",
+    "column_name": "points_earned",
+    "data_type": "integer",
+    "column_default": "0",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "green_points_ledger",
+    "column_name": "points_type",
+    "data_type": "character varying",
+    "column_default": "'delivery'::character varying",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "green_points_ledger",
+    "column_name": "co2_saved_kg",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "green_points_ledger",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "green_points_redemption",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "gen_random_uuid()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "green_points_redemption",
+    "column_name": "user_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "green_points_redemption",
+    "column_name": "points_redeemed",
+    "data_type": "integer",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "green_points_redemption",
+    "column_name": "cashback_amount",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "green_points_redemption",
+    "column_name": "status",
+    "data_type": "character varying",
+    "column_default": "'pending'::character varying",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "green_points_redemption",
+    "column_name": "payment_method",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "green_points_redemption",
+    "column_name": "processed_at",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "green_points_redemption",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "leads",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "uuid_generate_v4()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "leads",
+    "column_name": "name",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "leads",
+    "column_name": "company",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "leads",
+    "column_name": "email",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "leads",
+    "column_name": "phone",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "leads",
+    "column_name": "service_type",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "leads",
+    "column_name": "message",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "leads",
+    "column_name": "country",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "leads",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "pages",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "uuid_generate_v4()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "pages",
+    "column_name": "slug",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "pages",
+    "column_name": "title",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "pages",
+    "column_name": "content",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "pages",
+    "column_name": "hero_image",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "pages",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "payments",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "gen_random_uuid()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "payments",
+    "column_name": "job_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "payments",
+    "column_name": "customer_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "payments",
+    "column_name": "driver_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "payments",
+    "column_name": "total_amount",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "payments",
+    "column_name": "platform_commission",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "payments",
+    "column_name": "driver_earning",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "payments",
+    "column_name": "commission_rate",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "payments",
+    "column_name": "base_fare",
+    "data_type": "numeric",
+    "column_default": "0",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "payments",
+    "column_name": "distance_surcharge",
+    "data_type": "numeric",
+    "column_default": "0",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "payments",
+    "column_name": "urgency_surcharge",
+    "data_type": "numeric",
+    "column_default": "0",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "payments",
+    "column_name": "helper_fee",
+    "data_type": "numeric",
+    "column_default": "0",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "payments",
+    "column_name": "special_handling_fee",
+    "data_type": "numeric",
+    "column_default": "0",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "payments",
+    "column_name": "save_mode_discount",
+    "data_type": "numeric",
+    "column_default": "0",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "payments",
+    "column_name": "ev_discount",
+    "data_type": "numeric",
+    "column_default": "0",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "payments",
+    "column_name": "promo_discount",
+    "data_type": "numeric",
+    "column_default": "0",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "payments",
+    "column_name": "payment_method",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "payments",
+    "column_name": "payment_status",
+    "data_type": "character varying",
+    "column_default": "'pending'::character varying",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "payments",
+    "column_name": "customer_wallet_tx_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "payments",
+    "column_name": "driver_wallet_tx_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "payments",
+    "column_name": "stripe_payment_intent_id",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "payments",
+    "column_name": "paynow_reference",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "payments",
+    "column_name": "invoice_number",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "payments",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "payments",
+    "column_name": "paid_at",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "payments",
+    "column_name": "settled_at",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "promo_codes",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "gen_random_uuid()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "promo_codes",
+    "column_name": "code",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "promo_codes",
+    "column_name": "description",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "promo_codes",
+    "column_name": "discount_type",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "promo_codes",
+    "column_name": "discount_value",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "promo_codes",
+    "column_name": "max_discount",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "promo_codes",
+    "column_name": "min_order_amount",
+    "data_type": "numeric",
+    "column_default": "0",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "promo_codes",
+    "column_name": "usage_limit",
+    "data_type": "integer",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "promo_codes",
+    "column_name": "usage_count",
+    "data_type": "integer",
+    "column_default": "0",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "promo_codes",
+    "column_name": "per_user_limit",
+    "data_type": "integer",
+    "column_default": "1",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "promo_codes",
+    "column_name": "valid_from",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "promo_codes",
+    "column_name": "valid_until",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "promo_codes",
+    "column_name": "applicable_job_types",
+    "data_type": "ARRAY",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "promo_codes",
+    "column_name": "applicable_vehicle_modes",
+    "data_type": "ARRAY",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "promo_codes",
+    "column_name": "is_active",
+    "data_type": "boolean",
+    "column_default": "true",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "promo_codes",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "uuid_generate_v4()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "company",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "name",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "email",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "phone",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "country",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "city",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "serviceType",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "wh_region",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "wh_storageType",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "wh_volumeUnit",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "wh_volumeAmount",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "wh_duration",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "wh_valueAddedServices",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "wh_specialRequirements",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "del_origin",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "del_destination",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "del_deliveryType",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "del_leadTime",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "del_frequency",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "del_cargoType",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "del_weight",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "del_dimensions",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "del_specialHandling",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "tech_region",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "tech_scope",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "tech_serviceTypes",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "tech_equipmentType",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "tech_numSites",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "tech_slaRequirement",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "tech_duration",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "tech_specialRequirements",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "eol_region",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "eol_productType",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "eol_volume",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "eol_services",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "eol_certificationNeeded",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "eol_specialRequirements",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "projectDescription",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "estimatedBudget",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "timeline",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "additionalNotes",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "files",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "submitted_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "status",
+    "data_type": "text",
+    "column_default": "'new'::text",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "quote_requests",
+    "column_name": "notes",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "regular_schedules",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "gen_random_uuid()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "regular_schedules",
+    "column_name": "customer_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "regular_schedules",
+    "column_name": "title",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "regular_schedules",
+    "column_name": "description",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "regular_schedules",
+    "column_name": "frequency",
+    "data_type": "character varying",
+    "column_default": "'weekly'::character varying",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "regular_schedules",
+    "column_name": "day_of_week",
+    "data_type": "integer",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "regular_schedules",
+    "column_name": "time_slot",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "regular_schedules",
+    "column_name": "locations",
+    "data_type": "jsonb",
+    "column_default": "'[]'::jsonb",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "regular_schedules",
+    "column_name": "vehicle_mode",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "regular_schedules",
+    "column_name": "package_category",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "regular_schedules",
+    "column_name": "weight_range",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "regular_schedules",
+    "column_name": "special_requirements",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "regular_schedules",
+    "column_name": "start_date",
+    "data_type": "date",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "regular_schedules",
+    "column_name": "end_date",
+    "data_type": "date",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "regular_schedules",
+    "column_name": "monthly_estimated_jobs",
+    "data_type": "integer",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "regular_schedules",
+    "column_name": "agreed_rate",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "regular_schedules",
+    "column_name": "is_active",
+    "data_type": "boolean",
+    "column_default": "true",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "regular_schedules",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "regular_schedules",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "service_zones",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "gen_random_uuid()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "service_zones",
+    "column_name": "name",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "service_zones",
+    "column_name": "description",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "service_zones",
+    "column_name": "zone_type",
+    "data_type": "character varying",
+    "column_default": "'standard'::character varying",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "service_zones",
+    "column_name": "status",
+    "data_type": "character varying",
+    "column_default": "'active'::character varying",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "service_zones",
+    "column_name": "lat_min",
+    "data_type": "double precision",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "service_zones",
+    "column_name": "lat_max",
+    "data_type": "double precision",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "service_zones",
+    "column_name": "lng_min",
+    "data_type": "double precision",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "service_zones",
+    "column_name": "lng_max",
+    "data_type": "double precision",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "service_zones",
+    "column_name": "surcharge_rate",
+    "data_type": "numeric",
+    "column_default": "0",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "service_zones",
+    "column_name": "surcharge_flat",
+    "data_type": "numeric",
+    "column_default": "0",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "service_zones",
+    "column_name": "color",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "service_zones",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "service_zones",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "site_content",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "uuid_generate_v4()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "site_content",
+    "column_name": "page",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "site_content",
+    "column_name": "section",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "site_content",
+    "column_name": "content",
+    "data_type": "jsonb",
+    "column_default": "'{}'::jsonb",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "site_content",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "support_messages",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "gen_random_uuid()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "support_messages",
+    "column_name": "ticket_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "support_messages",
+    "column_name": "sender_type",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "support_messages",
+    "column_name": "sender_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "support_messages",
+    "column_name": "message",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "support_messages",
+    "column_name": "attachments",
+    "data_type": "jsonb",
+    "column_default": "'[]'::jsonb",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "support_messages",
+    "column_name": "is_internal",
+    "data_type": "boolean",
+    "column_default": "false",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "support_messages",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "support_tickets",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "gen_random_uuid()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "support_tickets",
+    "column_name": "ticket_number",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "support_tickets",
+    "column_name": "user_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "support_tickets",
+    "column_name": "subject",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "support_tickets",
+    "column_name": "category",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "support_tickets",
+    "column_name": "priority",
+    "data_type": "character varying",
+    "column_default": "'normal'::character varying",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "support_tickets",
+    "column_name": "status",
+    "data_type": "character varying",
+    "column_default": "'open'::character varying",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "support_tickets",
+    "column_name": "contact_email",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "support_tickets",
+    "column_name": "contact_phone",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "support_tickets",
+    "column_name": "description",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "support_tickets",
+    "column_name": "attachments",
+    "data_type": "jsonb",
+    "column_default": "'[]'::jsonb",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "support_tickets",
+    "column_name": "chat_history",
+    "data_type": "jsonb",
+    "column_default": "'[]'::jsonb",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "support_tickets",
+    "column_name": "ai_summary",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "support_tickets",
+    "column_name": "assigned_to",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "support_tickets",
+    "column_name": "resolved_at",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "support_tickets",
+    "column_name": "resolution_note",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "support_tickets",
+    "column_name": "satisfaction_rating",
+    "data_type": "integer",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "support_tickets",
+    "column_name": "related_job_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "support_tickets",
+    "column_name": "related_payment_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "support_tickets",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "support_tickets",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "wallet_topups",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "gen_random_uuid()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "wallet_topups",
+    "column_name": "wallet_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "wallet_topups",
+    "column_name": "user_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "wallet_topups",
+    "column_name": "amount",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "wallet_topups",
+    "column_name": "currency",
+    "data_type": "character varying",
+    "column_default": "'SGD'::character varying",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "wallet_topups",
+    "column_name": "payment_method",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "wallet_topups",
+    "column_name": "paynow_qr_data",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "wallet_topups",
+    "column_name": "paynow_reference",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "wallet_topups",
+    "column_name": "paynow_expiry",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "wallet_topups",
+    "column_name": "stripe_payment_intent_id",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "wallet_topups",
+    "column_name": "stripe_client_secret",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "wallet_topups",
+    "column_name": "status",
+    "data_type": "character varying",
+    "column_default": "'pending'::character varying",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "wallet_topups",
+    "column_name": "admin_verified_by",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "wallet_topups",
+    "column_name": "admin_verified_at",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "wallet_topups",
+    "column_name": "admin_notes",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "wallet_topups",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "wallet_topups",
+    "column_name": "completed_at",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "wallet_topups",
+    "column_name": "expires_at",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "wallet_transactions",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "gen_random_uuid()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "wallet_transactions",
+    "column_name": "wallet_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "wallet_transactions",
+    "column_name": "user_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "wallet_transactions",
+    "column_name": "type",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "wallet_transactions",
+    "column_name": "amount",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "wallet_transactions",
+    "column_name": "direction",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "wallet_transactions",
+    "column_name": "balance_before",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "wallet_transactions",
+    "column_name": "balance_after",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "wallet_transactions",
+    "column_name": "reference_type",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "wallet_transactions",
+    "column_name": "reference_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "wallet_transactions",
+    "column_name": "payment_method",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "wallet_transactions",
+    "column_name": "payment_provider_ref",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "wallet_transactions",
+    "column_name": "description",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "wallet_transactions",
+    "column_name": "metadata",
+    "data_type": "jsonb",
+    "column_default": "'{}'::jsonb",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "wallet_transactions",
+    "column_name": "status",
+    "data_type": "character varying",
+    "column_default": "'completed'::character varying",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "wallet_transactions",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "wallet_transactions",
+    "column_name": "completed_at",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "wallet_withdrawals",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "gen_random_uuid()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "wallet_withdrawals",
+    "column_name": "wallet_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "wallet_withdrawals",
+    "column_name": "user_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "wallet_withdrawals",
+    "column_name": "amount",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "wallet_withdrawals",
+    "column_name": "currency",
+    "data_type": "character varying",
+    "column_default": "'SGD'::character varying",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "wallet_withdrawals",
+    "column_name": "method",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "wallet_withdrawals",
+    "column_name": "bank_name",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "wallet_withdrawals",
+    "column_name": "bank_account_number",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "wallet_withdrawals",
+    "column_name": "bank_account_holder",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "wallet_withdrawals",
+    "column_name": "paynow_number",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "wallet_withdrawals",
+    "column_name": "status",
+    "data_type": "character varying",
+    "column_default": "'pending'::character varying",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "wallet_withdrawals",
+    "column_name": "processing_fee",
+    "data_type": "numeric",
+    "column_default": "0",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "wallet_withdrawals",
+    "column_name": "net_amount",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "wallet_withdrawals",
+    "column_name": "transfer_reference",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "wallet_withdrawals",
+    "column_name": "transfer_completed_at",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "wallet_withdrawals",
+    "column_name": "approved_by",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "wallet_withdrawals",
+    "column_name": "approved_at",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "wallet_withdrawals",
+    "column_name": "rejected_reason",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "wallet_withdrawals",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "wallets",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "gen_random_uuid()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "wallets",
+    "column_name": "user_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "wallets",
+    "column_name": "balance",
+    "data_type": "numeric",
+    "column_default": "0",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "wallets",
+    "column_name": "currency",
+    "data_type": "character varying",
+    "column_default": "'SGD'::character varying",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "wallets",
+    "column_name": "status",
+    "data_type": "character varying",
+    "column_default": "'active'::character varying",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "wallets",
+    "column_name": "bank_name",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "wallets",
+    "column_name": "bank_account_number",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "wallets",
+    "column_name": "bank_account_holder",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "wallets",
+    "column_name": "paynow_number",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "wallets",
+    "column_name": "paynow_type",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "wallets",
+    "column_name": "preferred_withdrawal",
+    "data_type": "character varying",
+    "column_default": "'paynow'::character varying",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "wallets",
+    "column_name": "daily_withdrawal_limit",
+    "data_type": "numeric",
+    "column_default": "5000",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "wallets",
+    "column_name": "monthly_withdrawal_limit",
+    "data_type": "numeric",
+    "column_default": "50000",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "wallets",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "wallets",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "warehouse_inventory",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "gen_random_uuid()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "warehouse_inventory",
+    "column_name": "client_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "warehouse_inventory",
+    "column_name": "sku",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "warehouse_inventory",
+    "column_name": "product_name",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "warehouse_inventory",
+    "column_name": "description",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_inventory",
+    "column_name": "category",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_inventory",
+    "column_name": "quantity",
+    "data_type": "integer",
+    "column_default": "0",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "warehouse_inventory",
+    "column_name": "reserved_quantity",
+    "data_type": "integer",
+    "column_default": "0",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "warehouse_inventory",
+    "column_name": "min_stock_level",
+    "data_type": "integer",
+    "column_default": "0",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_inventory",
+    "column_name": "max_stock_level",
+    "data_type": "integer",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_inventory",
+    "column_name": "weight_kg",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_inventory",
+    "column_name": "length_cm",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_inventory",
+    "column_name": "width_cm",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_inventory",
+    "column_name": "height_cm",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_inventory",
+    "column_name": "warehouse_zone",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_inventory",
+    "column_name": "rack_number",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_inventory",
+    "column_name": "shelf_level",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_inventory",
+    "column_name": "bin_code",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_inventory",
+    "column_name": "barcode",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_inventory",
+    "column_name": "barcode_type",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_inventory",
+    "column_name": "unit_cost",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_inventory",
+    "column_name": "unit_price",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_inventory",
+    "column_name": "currency",
+    "data_type": "character varying",
+    "column_default": "'SGD'::character varying",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_inventory",
+    "column_name": "status",
+    "data_type": "character varying",
+    "column_default": "'active'::character varying",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_inventory",
+    "column_name": "last_counted_at",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_inventory",
+    "column_name": "last_received_at",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_inventory",
+    "column_name": "last_shipped_at",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_inventory",
+    "column_name": "tags",
+    "data_type": "ARRAY",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_inventory",
+    "column_name": "custom_fields",
+    "data_type": "jsonb",
+    "column_default": "'{}'::jsonb",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_inventory",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_inventory",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_orders",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "gen_random_uuid()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "warehouse_orders",
+    "column_name": "order_number",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_orders",
+    "column_name": "client_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "warehouse_orders",
+    "column_name": "order_type",
+    "data_type": "character varying",
+    "column_default": "'outbound'::character varying",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "warehouse_orders",
+    "column_name": "status",
+    "data_type": "character varying",
+    "column_default": "'pending'::character varying",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "warehouse_orders",
+    "column_name": "origin_address",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_orders",
+    "column_name": "destination_address",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_orders",
+    "column_name": "contact_name",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_orders",
+    "column_name": "contact_phone",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_orders",
+    "column_name": "contact_email",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_orders",
+    "column_name": "items",
+    "data_type": "jsonb",
+    "column_default": "'[]'::jsonb",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "warehouse_orders",
+    "column_name": "total_items",
+    "data_type": "integer",
+    "column_default": "0",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_orders",
+    "column_name": "total_quantity",
+    "data_type": "integer",
+    "column_default": "0",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_orders",
+    "column_name": "subtotal",
+    "data_type": "numeric",
+    "column_default": "0",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_orders",
+    "column_name": "handling_fee",
+    "data_type": "numeric",
+    "column_default": "0",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_orders",
+    "column_name": "shipping_fee",
+    "data_type": "numeric",
+    "column_default": "0",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_orders",
+    "column_name": "total_amount",
+    "data_type": "numeric",
+    "column_default": "0",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_orders",
+    "column_name": "currency",
+    "data_type": "character varying",
+    "column_default": "'SGD'::character varying",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_orders",
+    "column_name": "express_job_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_orders",
+    "column_name": "notes",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_orders",
+    "column_name": "special_instructions",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_orders",
+    "column_name": "expected_date",
+    "data_type": "date",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_orders",
+    "column_name": "confirmed_at",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_orders",
+    "column_name": "processing_at",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_orders",
+    "column_name": "packed_at",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_orders",
+    "column_name": "shipped_at",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_orders",
+    "column_name": "received_at",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_orders",
+    "column_name": "completed_at",
+    "data_type": "timestamp with time zone",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_orders",
+    "column_name": "created_by",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_orders",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_orders",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_rates",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "gen_random_uuid()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "warehouse_rates",
+    "column_name": "rate_name",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "warehouse_rates",
+    "column_name": "rate_category",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "warehouse_rates",
+    "column_name": "description",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_rates",
+    "column_name": "unit_price",
+    "data_type": "numeric",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "warehouse_rates",
+    "column_name": "unit_type",
+    "data_type": "character varying",
+    "column_default": "'per_item'::character varying",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "warehouse_rates",
+    "column_name": "currency",
+    "data_type": "character varying",
+    "column_default": "'SGD'::character varying",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_rates",
+    "column_name": "tier_pricing",
+    "data_type": "jsonb",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_rates",
+    "column_name": "min_order_value",
+    "data_type": "numeric",
+    "column_default": "0",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_rates",
+    "column_name": "status",
+    "data_type": "character varying",
+    "column_default": "'active'::character varying",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_rates",
+    "column_name": "sort_order",
+    "data_type": "integer",
+    "column_default": "0",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_rates",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_rates",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_stock_movements",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "gen_random_uuid()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "warehouse_stock_movements",
+    "column_name": "inventory_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "warehouse_stock_movements",
+    "column_name": "order_id",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_stock_movements",
+    "column_name": "movement_type",
+    "data_type": "character varying",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "warehouse_stock_movements",
+    "column_name": "quantity_change",
+    "data_type": "integer",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "warehouse_stock_movements",
+    "column_name": "quantity_before",
+    "data_type": "integer",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "warehouse_stock_movements",
+    "column_name": "quantity_after",
+    "data_type": "integer",
+    "column_default": null,
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "warehouse_stock_movements",
+    "column_name": "reference",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_stock_movements",
+    "column_name": "performed_by",
+    "data_type": "uuid",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouse_stock_movements",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouses",
+    "column_name": "id",
+    "data_type": "uuid",
+    "column_default": "uuid_generate_v4()",
+    "is_nullable": "NO"
+  },
+  {
+    "table_name": "warehouses",
+    "column_name": "name",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouses",
+    "column_name": "location",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouses",
+    "column_name": "size_sqm",
+    "data_type": "integer",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouses",
+    "column_name": "features",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouses",
+    "column_name": "image",
+    "data_type": "text",
+    "column_default": null,
+    "is_nullable": "YES"
+  },
+  {
+    "table_name": "warehouses",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "column_default": "now()",
+    "is_nullable": "YES"
+  }
+]
