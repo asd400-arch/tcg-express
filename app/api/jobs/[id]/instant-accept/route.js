@@ -112,14 +112,23 @@ export async function POST(request, { params }) {
 
     if (!wallet) {
       await revertBid();
-      return NextResponse.json({ error: 'Client wallet not found' }, { status: 500 });
+      return NextResponse.json({ error: 'This job cannot be accepted right now. Please try again later.' }, { status: 400 });
     }
 
     const balance = parseFloat(wallet.balance || 0);
 
     if (balance < bidAmount) {
       await revertBid();
-      return NextResponse.json({ error: 'Client has insufficient wallet balance for instant accept' }, { status: 400 });
+      // Notify client about insufficient balance — drivers should never see client wallet details
+      try {
+        await notify(job.client_id, {
+          type: 'wallet', category: 'payment',
+          title: 'Insufficient wallet balance',
+          message: `A driver tried to accept ${job.job_number} but your wallet balance is too low ($${balance.toFixed(2)} < $${bidAmount.toFixed(2)}). Please top up your wallet.`,
+          referenceId: jobId,
+        });
+      } catch {}
+      return NextResponse.json({ error: 'This job cannot be accepted right now. Please try another job.' }, { status: 400 });
     }
 
     // Get commission rate

@@ -117,25 +117,67 @@ export default function DriverMyJobs() {
   const handleSignatureSubmit = async (dataUrl, signerName) => {
     setShowSignature(false);
     try {
-      // Convert base64 data URL to blob
-      const res = await fetch(dataUrl);
-      const blob = await res.blob();
+      // Convert base64 data URL to blob — use Blob constructor fallback for mobile browsers
+      let blob;
+      try {
+        if (dataUrl.startsWith('data:')) {
+          const parts = dataUrl.split(',');
+          const mime = parts[0].match(/:(.*?);/)?.[1] || 'image/png';
+          const byteStr = atob(parts[1]);
+          const ab = new ArrayBuffer(byteStr.length);
+          const ia = new Uint8Array(ab);
+          for (let i = 0; i < byteStr.length; i++) ia[i] = byteStr.charCodeAt(i);
+          blob = new Blob([ab], { type: mime });
+        } else {
+          const res = await fetch(dataUrl);
+          blob = await res.blob();
+        }
+      } catch (blobErr) {
+        console.error('Signature blob conversion failed:', blobErr);
+        toast.error(`Signature capture failed: ${blobErr.message}`);
+        return;
+      }
+
+      if (!blob || blob.size === 0) {
+        toast.error('Signature is empty — please draw again');
+        return;
+      }
+
       const file = new File([blob], `signature_${Date.now()}.png`, { type: 'image/png' });
       const path = `delivery/${selected.id}/signature_${Date.now()}.png`;
       const formData = new FormData();
       formData.append('file', file);
       formData.append('path', path);
-      const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
+
+      let uploadRes;
+      try {
+        uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
+      } catch (netErr) {
+        console.error('Signature upload network error:', netErr);
+        toast.error(`Upload network error: ${netErr.message}`);
+        return;
+      }
+
       const uploadResult = await uploadRes.json();
-      if (!uploadResult.url) { toast.error('Signature upload failed'); return; }
+      if (!uploadRes.ok || !uploadResult.url) {
+        console.error('Signature upload failed:', uploadResult);
+        toast.error(`Signature upload failed: ${uploadResult.error || 'no URL returned'}`);
+        return;
+      }
 
       // Save signature data to job
       const signedAt = new Date().toISOString();
-      await supabase.from('express_jobs').update({
+      const { error: dbErr } = await supabase.from('express_jobs').update({
         customer_signature_url: uploadResult.url,
         signer_name: signerName,
         signed_at: signedAt,
       }).eq('id', selected.id);
+
+      if (dbErr) {
+        console.error('Signature DB save failed:', dbErr);
+        toast.error(`Signature saved to storage but DB update failed: ${dbErr.message}`);
+        return;
+      }
 
       setSelected(prev => ({ ...prev, customer_signature_url: uploadResult.url, signer_name: signerName, signed_at: signedAt }));
       toast.success('Signature captured');
@@ -143,7 +185,8 @@ export default function DriverMyJobs() {
       // Auto-proceed to mark delivered
       await updateStatus('delivered', true);
     } catch (e) {
-      toast.error('Failed to save signature');
+      console.error('Signature save error:', e);
+      toast.error(`Failed to save signature: ${e.message}`);
     }
   };
 
@@ -238,7 +281,7 @@ export default function DriverMyJobs() {
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>
       <Sidebar active="My Jobs" />
-      <div style={{ flex: 1, padding: m ? '20px 16px' : '30px', overflowX: 'hidden' }}>
+      <div style={{ flex: 1, padding: m ? '80px 16px 20px' : '30px', overflowX: 'hidden' }}>
         {!selected ? (
           <>
             <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', marginBottom: '20px' }}>My Jobs</h1>
