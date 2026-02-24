@@ -103,6 +103,7 @@ export default function NewJob() {
   const [isEvSelected, setIsEvSelected] = useState(false);
   const [deliveryMode, setDeliveryMode] = useState('express');
   const [saveModeWindow, setSaveModeWindow] = useState(null);
+  const [balanceModal, setBalanceModal] = useState(null); // { available, required, shortfall }
   const [form, setForm] = useState({
     pickup_address: '', pickup_contact: '', pickup_phone: '', pickup_instructions: '',
     delivery_address: '', delivery_contact: '', delivery_phone: '', delivery_instructions: '',
@@ -205,6 +206,20 @@ export default function NewJob() {
 
   const handleSubmit = async () => {
     if (!form.pickup_address || !form.delivery_address || !form.item_description) return;
+
+    // Check wallet balance before creating job
+    const minBudget = parseFloat(form.budget_min) || fare?.total || 0;
+    if (minBudget > 0) {
+      try {
+        const { data: wallet } = await supabase.from('wallets').select('balance').eq('user_id', user.id).single();
+        const balance = parseFloat(wallet?.balance) || 0;
+        if (balance < minBudget) {
+          const shortfall = Math.ceil((minBudget - balance) * 100) / 100;
+          setBalanceModal({ available: balance.toFixed(2), required: minBudget.toFixed(2), shortfall: shortfall.toFixed(2) });
+          return;
+        }
+      } catch {}
+    }
 
     // Build fare info for special_requirements
     const fareInfo = {};
@@ -963,6 +978,43 @@ export default function NewJob() {
           </div>
         )}
       </div>
+
+      {/* Insufficient Balance Modal */}
+      {balanceModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: m ? 'flex-end' : 'center', justifyContent: 'center', padding: m ? '0' : '20px' }}>
+          <div style={{ background: 'white', borderRadius: m ? '20px 20px 0 0' : '20px', padding: '28px 24px', maxWidth: '420px', width: '100%', boxShadow: '0 4px 24px rgba(0,0,0,0.12)' }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: '#fef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: '28px' }}>💰</div>
+              <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b', marginBottom: '8px' }}>Insufficient Balance</h3>
+              <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '20px' }}>
+                You need at least <strong>${balanceModal.required}</strong> to post this job.
+              </p>
+            </div>
+            <div style={{ background: '#f8fafc', borderRadius: '12px', padding: '14px', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span style={{ fontSize: '13px', color: '#64748b' }}>Required</span>
+                <span style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b' }}>${balanceModal.required}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span style={{ fontSize: '13px', color: '#64748b' }}>Current Balance</span>
+                <span style={{ fontSize: '13px', fontWeight: '700', color: '#ef4444' }}>${balanceModal.available}</span>
+              </div>
+              <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '8px', display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '13px', fontWeight: '600', color: '#64748b' }}>Shortfall</span>
+                <span style={{ fontSize: '14px', fontWeight: '800', color: '#dc2626' }}>${balanceModal.shortfall}</span>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button onClick={() => setBalanceModal(null)} style={{ flex: 1, padding: '13px', borderRadius: '12px', border: '1px solid #e2e8f0', background: 'white', color: '#64748b', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>
+                Cancel
+              </button>
+              <button onClick={() => { setBalanceModal(null); router.push(`/client/wallet?topup=${balanceModal.shortfall}`); }} style={{ flex: 1, padding: '13px', borderRadius: '12px', border: 'none', background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: 'white', fontSize: '14px', fontWeight: '700', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>
+                Top Up Now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

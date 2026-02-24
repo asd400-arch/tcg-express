@@ -48,6 +48,25 @@ export async function POST(request) {
 
     const body = await request.json();
 
+    // Check wallet balance before allowing job creation
+    const minBudget = parseFloat(body.budget_min) || parseFloat(body.budget) || parseFloat(body.estimated_fare) || 0;
+    if (minBudget > 0) {
+      const { data: wallet } = await supabaseAdmin
+        .from('wallets')
+        .select('balance')
+        .eq('user_id', session.userId)
+        .single();
+
+      const balance = parseFloat(wallet?.balance) || 0;
+      if (balance < minBudget) {
+        return NextResponse.json({
+          error: 'Insufficient wallet balance to create this job',
+          available: balance.toFixed(2),
+          required: minBudget.toFixed(2),
+        }, { status: 400 });
+      }
+    }
+
     // Build special_requirements JSON: merge fare data + special instructions
     const fareInfo = {};
     if (body.size_tier) fareInfo.size_tier = body.size_tier;
