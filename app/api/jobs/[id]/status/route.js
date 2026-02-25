@@ -133,6 +133,7 @@ export async function POST(request, { params }) {
           title: msg.title,
           message: msg.message,
           referenceId: id,
+          url: `/client/jobs/${id}`,
         });
       }
     } catch {}

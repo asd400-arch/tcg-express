@@ -71,6 +71,14 @@ export async function POST(request) {
     const amount = amountCheck.value;
     const message = cleanString(body.message, 500);
 
+    // Fetch driver name for notification
+    const { data: driverInfo } = await supabaseAdmin
+      .from('express_users')
+      .select('contact_name')
+      .eq('id', session.userId)
+      .single();
+    const driverName = driverInfo?.contact_name || 'A driver';
+
     // Check job exists and is open
     const { data: job } = await supabaseAdmin
       .from('express_jobs')
@@ -143,7 +151,8 @@ export async function POST(request) {
             type: 'new_bid',
             category: 'bid_activity',
             title: 'New bid received',
-            message: `A driver bid $${parseFloat(amount).toFixed(2)} on job ${job.job_number || ''}`,
+            message: `New bid $${parseFloat(amount).toFixed(2)} from ${driverName} on job ${job.job_number || ''}`,
+            url: `/client/jobs/${job_id}`,
           });
         } catch {}
 
@@ -182,7 +191,8 @@ export async function POST(request) {
         type: 'new_bid',
         category: 'bid_activity',
         title: 'New bid received',
-        message: `A driver bid $${parseFloat(amount).toFixed(2)} on job ${job.job_number || ''}`,
+        message: `New bid $${parseFloat(amount).toFixed(2)} from ${driverName} on job ${job.job_number || ''}`,
+        url: `/client/jobs/${job_id}`,
       });
     } catch {}
 

@@ -14,7 +14,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Missing receiverId or content' }, { status: 400 });
     }
 
-    const preview = content.length > 80 ? content.substring(0, 80) + '...' : content;
+    const preview = content.length > 50 ? content.substring(0, 50) + '...' : content;
 
     await sendPushToUser(receiverId, {
       title: `Message from ${senderName || 'Someone'}`,
