@@ -10,7 +10,7 @@
 
 Stage 1 code audit complete. The TCG Express delivery platform is **functionally complete** with all core flows working (signup, jobs, bids, delivery, wallet, reviews, disputes). The corporate site (Tech Chain Global) is a separate marketing website. Both projects have been audited and critical bugs fixed.
 
-**Overall Status: PASS** — 20 bugs fixed, 7 RLS vulnerabilities patched, 1 GPS API bug fixed, push notifications fixed & verified, images optimized (95% reduction), both projects deployed to Vercel production. Stress test passed (50 concurrent users, 0% error on all endpoints). 4 architectural items flagged for post-launch.
+**Overall Status: PASS** — 24 bugs fixed (13 tcg-express + 11 techchain-global), 7 RLS vulnerabilities patched, GPS API and push notifications fixed & verified, images optimized (95% reduction), both projects deployed to Vercel production. Stress test passed (50 concurrent users, 0% error on all endpoints). 4 architectural items flagged for post-launch.
 
 ---
 
@@ -120,9 +120,9 @@ Stage 1 code audit complete. The TCG Express delivery platform is **functionally
 | ANTHROPIC_API_KEY | SET | For AI help center |
 | NEXT_PUBLIC_GOOGLE_MAPS_API_KEY | SET | |
 | RESEND_API_KEY | MISSING | Email notifications will not work — get from resend.com |
-| NEXT_PUBLIC_VAPID_PUBLIC_KEY | GENERATED | Ready to set in Vercel env |
-| VAPID_PRIVATE_KEY | GENERATED | Ready to set in Vercel env |
-| CRON_SECRET | GENERATED | Ready to set in Vercel env |
+| NEXT_PUBLIC_VAPID_PUBLIC_KEY | SET | DONE: Generated and deployed to Vercel |
+| VAPID_PRIVATE_KEY | SET | DONE: Generated and deployed to Vercel |
+| CRON_SECRET | SET | DONE: Generated and deployed to Vercel |
 
 ### 4b. Environment Variables — Tech Chain Global
 
