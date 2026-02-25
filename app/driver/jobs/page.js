@@ -8,7 +8,7 @@ import { useToast } from '../../components/Toast';
 import { supabase } from '../../../lib/supabase';
 import useMobile from '../../components/useMobile';
 import { getCategoryByKey, getEquipmentLabel } from '../../../lib/constants';
-import { VEHICLE_MODES, ADDON_OPTIONS, legacyVehicleLabel } from '../../../lib/fares';
+import { VEHICLE_MODES, ADDON_OPTIONS, legacyVehicleLabel, checkVehicleFit } from '../../../lib/fares';
 
 function getAreaFromAddress(addr) {
   if (!addr) return '—';
@@ -75,8 +75,15 @@ export default function DriverJobs() {
       supabase.from('express_jobs').select('*, client:client_id(contact_name, company_name)').in('status', ['open', 'bidding']).order('created_at', { ascending: false }),
       supabase.from('express_bids').select('*').eq('driver_id', user.id),
     ]);
-    // Filter out corp_premium/RFQ jobs — those are admin-assigned only
-    const allJobs = (jobsRes.data || []).filter(j => !j.is_corp_premium);
+    // Filter out corp_premium/RFQ jobs and jobs requiring a larger vehicle
+    const allJobs = (jobsRes.data || []).filter(j => {
+      if (j.is_corp_premium) return false;
+      if (j.vehicle_required && j.vehicle_required !== 'any' && user.vehicle_type) {
+        const fit = checkVehicleFit(user.vehicle_type, j.vehicle_required);
+        if (!fit.ok) return false;
+      }
+      return true;
+    });
     setJobs(allJobs);
     const bm = {};
     (bidsRes.data || []).forEach(b => { bm[b.job_id] = b; });

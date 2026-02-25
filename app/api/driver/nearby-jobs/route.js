@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../../lib/supabase-server';
 import { getSession } from '../../../../lib/auth';
+import { checkVehicleFit } from '../../../../lib/fares';
 
 // GET: Find nearby pending jobs within radius
 export async function GET(request) {
@@ -54,9 +55,10 @@ export async function GET(request) {
       const minBudget = parseFloat(job.budget_min) || 0;
       if (minBudget < 10) return false;
 
-      // Vehicle match (if specified)
-      if (job.vehicle_required && job.vehicle_required !== 'any') {
-        if (driver?.vehicle_type && driver.vehicle_type !== job.vehicle_required) return false;
+      // Vehicle rank filter: driver can only see jobs their vehicle can handle
+      if (job.vehicle_required && job.vehicle_required !== 'any' && driver?.vehicle_type) {
+        const fit = checkVehicleFit(driver.vehicle_type, job.vehicle_required);
+        if (!fit.ok) return false;
       }
 
       return true;
