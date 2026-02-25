@@ -37,6 +37,7 @@ export default function DriverMyJobs() {
   const [queue, setQueue] = useState([]);
   const [queueLoading, setQueueLoading] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
+  const [navModal, setNavModal] = useState(null);
   const { unreadByJob, markJobRead } = useUnreadMessages();
   const gps = useGpsTracking(user?.id, selected?.id, pickupCoords, deliveryCoords);
 
@@ -275,21 +276,25 @@ export default function DriverMyJobs() {
   const totalQueued = queue.length;
 
   const openNavigation = (lat, lng, address) => {
-    const ua = navigator.userAgent || '';
-    const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    const isAndroid = /android/i.test(ua);
-    const dest = (lat && lng) ? `${lat},${lng}` : null;
+    setNavModal({ lat, lng, address });
+  };
+  const navTo = (app) => {
+    if (!navModal) return;
+    const { lat, lng, address } = navModal;
+    const dest = (lat && lng) ? `${lat},${lng}` : encodeURIComponent(address);
+    const hasCoords = lat && lng;
     let url;
-    if (isAndroid && dest) {
-      url = `google.navigation:q=${dest}`;
-    } else if (isIOS && dest) {
-      url = `maps://maps.apple.com/?daddr=${dest}`;
-    } else if (dest) {
-      url = `https://www.google.com/maps/dir/?api=1&destination=${dest}`;
+    if (app === 'google') {
+      url = hasCoords
+        ? `https://www.google.com/maps/dir/?api=1&destination=${dest}`
+        : `https://www.google.com/maps/dir/?api=1&destination=${dest}`;
     } else {
-      url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`;
+      url = hasCoords
+        ? `https://waze.com/ul?ll=${lat},${lng}&navigate=yes`
+        : `https://waze.com/ul?q=${dest}&navigate=yes`;
     }
     window.open(url, '_blank');
+    setNavModal(null);
   };
 
   const filtered = jobs.filter(j => {
@@ -723,6 +728,35 @@ export default function DriverMyJobs() {
             onSave={handleSignatureSubmit}
             onClose={() => setShowSignature(false)}
           />
+        )}
+
+        {/* Navigation App Picker */}
+        {navModal && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 9999, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '20px' }} onClick={() => setNavModal(null)}>
+            <div onClick={e => e.stopPropagation()} style={{ background: 'white', borderRadius: '20px 20px 16px 16px', padding: '24px', maxWidth: '400px', width: '100%' }}>
+              <div style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', textAlign: 'center', marginBottom: '18px' }}>Open with</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <button onClick={() => navTo('google')} style={{
+                  padding: '14px', borderRadius: '12px', border: '1px solid #e2e8f0', background: 'white',
+                  fontSize: '15px', fontWeight: '600', color: '#1e293b', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                }}>
+                  <span style={{ fontSize: '20px' }}>🗺️</span> Google Maps
+                </button>
+                <button onClick={() => navTo('waze')} style={{
+                  padding: '14px', borderRadius: '12px', border: '1px solid #e2e8f0', background: 'white',
+                  fontSize: '15px', fontWeight: '600', color: '#1e293b', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                }}>
+                  <span style={{ fontSize: '20px' }}>🚗</span> Waze
+                </button>
+              </div>
+              <button onClick={() => setNavModal(null)} style={{
+                width: '100%', padding: '12px', borderRadius: '10px', border: 'none', background: '#f1f5f9',
+                color: '#64748b', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif", marginTop: '10px',
+              }}>Cancel</button>
+            </div>
+          </div>
         )}
       </div>
     </div>
