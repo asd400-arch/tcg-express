@@ -54,17 +54,17 @@ export default function usePushSubscription() {
         applicationServerKey: urlBase64ToUint8Array(vapidKey),
       });
 
-      const key = sub.getKey('p256dh');
-      const auth = sub.getKey('auth');
+      // sub.toJSON() returns keys in base64url format (required by web-push)
+      const subJson = sub.toJSON();
 
       await fetch('/api/push/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          endpoint: sub.endpoint,
+          endpoint: subJson.endpoint,
           keys: {
-            p256dh: btoa(String.fromCharCode(...new Uint8Array(key))),
-            auth: btoa(String.fromCharCode(...new Uint8Array(auth))),
+            p256dh: subJson.keys.p256dh,
+            auth: subJson.keys.auth,
           },
           userAgent: navigator.userAgent,
         }),
