@@ -618,7 +618,7 @@ export default function DriverMyJobs() {
                         <label style={{ cursor: 'pointer', display: 'block' }}>
                           <div style={{ fontSize: '32px', marginBottom: '8px' }}>{item.key === 'invoice' ? '📄' : '📷'}</div>
                           <div style={{ fontSize: '12px', color: '#64748b' }}>Tap to upload</div>
-                          <input type="file" accept={item.key === 'invoice' ? '.pdf,.jpg,.png' : 'image/*'} onChange={e => handleFileUpload(e, item.key)} style={{ display: 'none' }} disabled={uploading} />
+                          <input type="file" accept={item.key === 'invoice' ? '.pdf,.jpg,.png' : 'image/*'} capture={item.key !== 'invoice' ? 'environment' : undefined} onChange={e => handleFileUpload(e, item.key)} style={{ display: 'none' }} disabled={uploading} />
                         </label>
                       )}
                     </div>
