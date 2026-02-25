@@ -274,7 +274,23 @@ export default function DriverMyJobs() {
   const maxSlots = hasSaveMode ? 8 : 3;
   const totalQueued = queue.length;
 
-  const navLink = (address) => `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`;
+  const openNavigation = (lat, lng, address) => {
+    const ua = navigator.userAgent || '';
+    const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isAndroid = /android/i.test(ua);
+    const dest = (lat && lng) ? `${lat},${lng}` : null;
+    let url;
+    if (isAndroid && dest) {
+      url = `google.navigation:q=${dest}`;
+    } else if (isIOS && dest) {
+      url = `maps://maps.apple.com/?daddr=${dest}`;
+    } else if (dest) {
+      url = `https://www.google.com/maps/dir/?api=1&destination=${dest}`;
+    } else {
+      url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`;
+    }
+    window.open(url, '_blank');
+  };
 
   const filtered = jobs.filter(j => {
     if (filter === 'active') return ['assigned','pickup_confirmed','in_transit','delivered','disputed'].includes(j.status);
@@ -440,6 +456,26 @@ export default function DriverMyJobs() {
               );
             })()}
 
+            {/* Navigation Button */}
+            {['assigned', 'pickup_confirmed'].includes(selected.status) && selected.pickup_address && (
+              <button onClick={() => openNavigation(selected.pickup_lat, selected.pickup_lng, selected.pickup_address)} style={{
+                width: '100%', padding: '14px 24px', borderRadius: '12px', border: 'none',
+                background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: 'white',
+                fontSize: '16px', fontWeight: '700', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
+                boxShadow: '0 4px 14px rgba(59,130,246,0.3)', marginBottom: '10px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              }}>🧭 Navigate to Pickup</button>
+            )}
+            {selected.status === 'in_transit' && selected.delivery_address && (
+              <button onClick={() => openNavigation(selected.delivery_lat, selected.delivery_lng, selected.delivery_address)} style={{
+                width: '100%', padding: '14px 24px', borderRadius: '12px', border: 'none',
+                background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white',
+                fontSize: '16px', fontWeight: '700', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
+                boxShadow: '0 4px 14px rgba(16,185,129,0.3)', marginBottom: '10px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              }}>🧭 Navigate to Delivery</button>
+            )}
+
             {/* GPS Tracking indicator */}
             {gps.tracking && (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', marginBottom: '10px' }}>
@@ -513,11 +549,11 @@ export default function DriverMyJobs() {
                     {selected.pickup_contact && <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>👤 {selected.pickup_contact} {selected.pickup_phone}</div>}
                     {selected.pickup_instructions && <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>📝 {selected.pickup_instructions}</div>}
                     {['assigned', 'pickup_confirmed'].includes(selected.status) && selected.pickup_address && (
-                      <a href={navLink(selected.pickup_address)} target="_blank" rel="noopener noreferrer" style={{
+                      <button onClick={() => openNavigation(selected.pickup_lat, selected.pickup_lng, selected.pickup_address)} style={{
                         display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '10px', padding: '8px 14px',
                         borderRadius: '8px', background: '#3b82f6', color: 'white', fontSize: '12px', fontWeight: '600',
-                        textDecoration: 'none',
-                      }}>🧭 Navigate to Pickup</a>
+                        border: 'none', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
+                      }}>🧭 Navigate</button>
                     )}
                   </div>
                   <div style={card}>
@@ -526,11 +562,11 @@ export default function DriverMyJobs() {
                     {selected.delivery_contact && <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>👤 {selected.delivery_contact} {selected.delivery_phone}</div>}
                     {selected.delivery_instructions && <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>📝 {selected.delivery_instructions}</div>}
                     {selected.status === 'in_transit' && selected.delivery_address && (
-                      <a href={navLink(selected.delivery_address)} target="_blank" rel="noopener noreferrer" style={{
+                      <button onClick={() => openNavigation(selected.delivery_lat, selected.delivery_lng, selected.delivery_address)} style={{
                         display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '10px', padding: '8px 14px',
                         borderRadius: '8px', background: '#10b981', color: 'white', fontSize: '12px', fontWeight: '600',
-                        textDecoration: 'none',
-                      }}>🧭 Navigate to Delivery</a>
+                        border: 'none', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
+                      }}>🧭 Navigate</button>
                     )}
                   </div>
                 </div>
