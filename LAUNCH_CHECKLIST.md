@@ -10,7 +10,7 @@
 
 Stage 1 code audit complete. The TCG Express delivery platform is **functionally complete** with all core flows working (signup, jobs, bids, delivery, wallet, reviews, disputes). The corporate site (Tech Chain Global) is a separate marketing website. Both projects have been audited and critical bugs fixed.
 
-**Overall Status: PASS** — 16 bugs fixed, 7 RLS vulnerabilities patched, 1 GPS API bug fixed, images optimized (95% reduction), both projects deployed to Vercel production. Stress test passed (50 concurrent users, 0% error on all endpoints). 4 architectural items flagged for post-launch.
+**Overall Status: PASS** — 20 bugs fixed, 7 RLS vulnerabilities patched, 1 GPS API bug fixed, push notifications fixed & verified, images optimized (95% reduction), both projects deployed to Vercel production. Stress test passed (50 concurrent users, 0% error on all endpoints). 4 architectural items flagged for post-launch.
 
 ---
 
@@ -68,7 +68,7 @@ Stage 1 code audit complete. The TCG Express delivery platform is **functionally
 
 ## 3. Bugs Found & Fixed (This Audit)
 
-### TCG Express (tcg-express) — 10 Fixes
+### TCG Express (tcg-express) — 13 Fixes
 
 | # | Severity | Issue | Fix |
 |---|----------|-------|-----|
@@ -81,6 +81,10 @@ Stage 1 code audit complete. The TCG Express delivery platform is **functionally
 | 7 | LOW | Unused bidTime state variable and UI field in driver jobs page | Removed dead code |
 | 8 | NEW | Missing robots.txt for platform | Created app/robots.js (block /client/, /driver/, /admin/, /api/) |
 | 9 | CRITICAL | 7 tables missing RLS (warehouse + corp_premium) — full read/write by any user | Enabled RLS + scoped policies via fix-missing-rls-warehouse-corp.sql |
+| 10 | HIGH | GPS location API returns 500 on all calls — missing UNIQUE(job_id) on express_driver_locations | Migration adds constraint after deduplicating rows |
+| 11 | HIGH | Push notification keys encoded as standard base64 (btoa) instead of base64url — sendNotification() fails | Switched to sub.toJSON() which returns correct base64url keys |
+| 12 | MEDIUM | notify.js never fetches user notification_preferences — always uses defaults | Added notification_preferences to SELECT query |
+| 13 | NEW | No way to test push notification delivery | Created GET /api/push/test endpoint |
 
 ### Tech Chain Global (techchain-global) — 10 Fixes
 
@@ -229,11 +233,45 @@ Stress test scripts at `tests/load-test.js` (K6) and `tests/stress-test.js` (Nod
 
 ---
 
-## 7. RLS Security Audit
+## 7. Push Notification Verification
+
+### 7a. Component Status
+
+| Component | Status |
+|-----------|--------|
+| VAPID keys in Vercel env | **SET** |
+| `web-push` package (3.6.7) | **Installed** |
+| Service worker (`sw.js`) push + click handlers | **Working** |
+| `ServiceWorkerRegister` in root layout | **Mounted** |
+| `/api/push/subscribe` (save subscription to DB) | **Working** |
+| `/api/push/unsubscribe` (remove subscription) | **Working** |
+| `/api/push/test` (debug endpoint) | **Working** (new) |
+| `sendPushToUser()` delivery via web-push | **Working** |
+| `notify()` unified dispatch (in-app + email + push) | **Working** |
+| `usePushSubscription` hook (client-side) | **Fixed** (base64url encoding) |
+| `NotificationPreferences` UI (client + driver settings) | **Working** |
+
+### 7b. Bugs Fixed
+
+| Issue | Severity | Fix |
+|-------|----------|-----|
+| Push subscription keys encoded with `btoa()` (standard base64) instead of base64url — `sendNotification()` fails on key decryption for keys containing `+`, `/`, or `=` | HIGH | Switched to `sub.toJSON()` which returns base64url-encoded keys natively |
+| `notify.js` SELECT only fetches `email`, never `notification_preferences` — user push/email preferences always ignored | MEDIUM | Added `notification_preferences` to SELECT query |
+
+### 7c. End-to-End Test Result
+
+Tested against production (`https://tcg-express.vercel.app/api/push/test`):
+- beta-driver1: **1 active subscription found**, push sent **successfully** (`status: fulfilled`)
+- beta-customer1: **0 subscriptions** (never enabled push from browser — expected)
+- Subscribe → test → unsubscribe flow: **all working**
+
+---
+
+## 8. RLS Security Audit
 
 Full audit in `RLS_AUDIT_REPORT.md`. Summary:
 
-### 6a. RLS Status — All 41 Tables
+### 8a. RLS Status — All 41 Tables
 
 | Category | Count | Status |
 |----------|-------|--------|
@@ -245,7 +283,7 @@ Full audit in `RLS_AUDIT_REPORT.md`. Summary:
 | Warehouse tables | 5 | FIXED — was missing RLS entirely |
 | Corp premium tables | 2 | FIXED — was missing RLS entirely |
 
-### 6b. Vulnerabilities Found & Fixed
+### 8b. Vulnerabilities Found & Fixed
 
 | Table | Vulnerability | Fix Applied |
 |-------|--------------|-------------|
@@ -259,7 +297,7 @@ Full audit in `RLS_AUDIT_REPORT.md`. Summary:
 
 **Migration applied:** `20260225120000_fix_missing_rls_warehouse_corp.sql` — pushed to production Supabase via `supabase db push`.
 
-### 6c. Key Security Controls Verified
+### 8c. Key Security Controls Verified
 
 - Wallet balance: UPDATE REVOKED from `authenticated` role — only `SECURITY DEFINER` functions can modify
 - `password_hash`: column access REVOKED from `anon` + `authenticated` roles
@@ -268,7 +306,7 @@ Full audit in `RLS_AUDIT_REPORT.md`. Summary:
 
 ---
 
-## 8. Deployment Status
+## 9. Deployment Status
 
 | Project | Platform | Status | URL |
 |---------|----------|--------|-----|
@@ -293,11 +331,11 @@ Full audit in `RLS_AUDIT_REPORT.md`. Summary:
 
 ---
 
-## 9. Known Issues — Defer to Post-Launch (unchanged)
+## 10. Known Issues — Defer to Post-Launch (unchanged)
 
 These are architectural issues identified during audit that require significant refactoring. They should be tracked and addressed after launch.
 
-### 9a. Client-Side Direct Database Writes (tcg-express)
+### 10a. Client-Side Direct Database Writes (tcg-express)
 Several pages use the Supabase anon-key client to write directly to the database, bypassing server-side API validation:
 - `client/jobs/[id]/page.js` — confirmDelivery(), cancelJob()
 - `client/jobs/new/page.js` — handleSubmit() creates jobs
@@ -308,18 +346,18 @@ Several pages use the Supabase anon-key client to write directly to the database
 
 **Recommendation:** Migrate all writes to server-side API routes. Priority: confirmDelivery (race condition with payment release).
 
-### 9b. Plaintext Password Legacy Support (tcg-express)
+### 10b. Plaintext Password Legacy Support (tcg-express)
 Login route still supports plaintext password comparison with auto-upgrade to bcrypt. Run `migrate-passwords.sql` to batch-upgrade all remaining plaintext passwords, then remove the fallback code.
 
-### 9c. Admin Dashboard Scalability (tcg-express)
+### 10c. Admin Dashboard Scalability (tcg-express)
 Dashboard loads ALL jobs, users, and transactions into browser memory. Add server-side pagination and aggregation before user base grows.
 
-### 9d. Blog/Site Editor Disconnected (techchain-global)
+### 10d. Blog/Site Editor Disconnected (techchain-global)
 Admin site editor saves to Supabase `site_content` table but public pages render hardcoded content. Blog page has hardcoded posts instead of fetching from `blog_posts` table. Newsletter subscribe button is non-functional.
 
 ---
 
-## 10. Pre-Launch Action Items (Updated)
+## 11. Pre-Launch Action Items (Updated)
 
 ### Must Do Before Launch
 - [x] ~~Generate a cryptographically random SESSION_SECRET~~ — DONE (64-byte hex generated)
@@ -353,7 +391,7 @@ Admin site editor saves to Supabase `site_content` table but public pages render
 
 ---
 
-## 11. BETA_TEST_REPORT.md Status
+## 12. BETA_TEST_REPORT.md Status
 
 All items in the beta test report have been resolved:
 - Driver login (FIXED) — bcrypt + plain-text fallback with auto-upgrade
@@ -373,3 +411,4 @@ Known follow-ups from beta test:
 *Generated by automated launch readiness audit — 2026-02-25*
 *Updated with RLS audit, WebP optimization, and Vercel deployment — 2026-02-25*
 *Updated with stress test results, GPS fix, and migration history — 2026-02-25*
+*Updated with push notification fix, verification, and test endpoint — 2026-02-25*
