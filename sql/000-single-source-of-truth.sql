@@ -500,7 +500,7 @@ END $$;
 CREATE TABLE IF NOT EXISTS express_driver_locations (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   driver_id  UUID NOT NULL REFERENCES express_users(id),
-  job_id     UUID REFERENCES express_jobs(id),
+  job_id     UUID REFERENCES express_jobs(id) UNIQUE,
   latitude   NUMERIC NOT NULL,
   longitude  NUMERIC NOT NULL,
   heading    NUMERIC,

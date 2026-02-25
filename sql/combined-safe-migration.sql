@@ -91,14 +91,15 @@ CREATE INDEX IF NOT EXISTS idx_schedules_next ON express_schedules(next_run_at);
 -- 1e. express_driver_locations
 CREATE TABLE IF NOT EXISTS express_driver_locations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  job_id UUID REFERENCES express_jobs(id),
+  job_id UUID REFERENCES express_jobs(id) UNIQUE,
   driver_id UUID REFERENCES express_users(id),
   latitude DOUBLE PRECISION,
   longitude DOUBLE PRECISION,
   heading DOUBLE PRECISION,
   speed DOUBLE PRECISION,
   accuracy DOUBLE PRECISION,
-  created_at TIMESTAMPTZ DEFAULT now()
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_driver_loc_job ON express_driver_locations(job_id);
 CREATE INDEX IF NOT EXISTS idx_driver_loc_driver ON express_driver_locations(driver_id);
