@@ -288,10 +288,10 @@ Admin site editor saves to Supabase `site_content` table but public pages render
 - [x] ~~Verify Supabase RLS policies are applied~~ — DONE (full audit, 7 fixes applied)
 - [x] ~~Compress techchain-global images~~ — DONE (36MB → 1.7MB WebP)
 - [x] ~~Deploy both projects to Vercel~~ — DONE
+- [x] ~~Set VAPID keys + CRON_SECRET + SESSION_SECRET in Vercel env~~ — DONE (all set and deployed)
+- [x] ~~Run migrate-passwords.sql~~ — DONE (31/31 users hashed, 0 plaintext remaining)
 - [ ] Set RESEND_API_KEY in Vercel env (get from resend.com)
-- [ ] Set VAPID keys + CRON_SECRET + SESSION_SECRET in Vercel env (values generated — see session output)
 - [ ] Switch Stripe keys from test to live (sk_test_ → sk_live_)
-- [ ] Run migrate-passwords.sql in Supabase SQL Editor
 - [ ] Fix historical wallet balance for beta-customer1 via SQL
 - [ ] Add favicon-32.png and favicon-192.png to techchain-global public/
 
@@ -322,7 +322,7 @@ All items in the beta test report have been resolved:
 
 Known follow-ups from beta test:
 - Historical beta-customer1 balance: needs manual DB correction
-- migrate-passwords.sql: needs to be run in production
+- migrate-passwords.sql: APPLIED — 31/31 users migrated to bcrypt
 - sameSite cookie: monitor for cross-site navigation issues
 - RLS policies: APPLIED — full audit complete, 7 missing tables fixed
 
