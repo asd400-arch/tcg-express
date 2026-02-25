@@ -77,6 +77,16 @@ export async function POST(request) {
       }
     }
 
+    // Validate pickup time is at least 30 minutes from now
+    const pickupBy = body.pickup_date || body.pickup_by || null;
+    if (pickupBy) {
+      const pickupTime = new Date(pickupBy);
+      const minPickup = new Date(Date.now() + 29 * 60000); // 29 min to allow slight clock drift
+      if (pickupTime < minPickup) {
+        return NextResponse.json({ error: 'Minimum pickup time is 30 minutes from now' }, { status: 400 });
+      }
+    }
+
     // Build special_requirements JSON: merge fare data + special instructions
     const fareInfo = {};
     if (body.size_tier) fareInfo.size_tier = body.size_tier;
@@ -222,7 +232,8 @@ export async function POST(request) {
         const pickupArea = getAreaFromAddress(jobData.pickup_address);
         const deliveryArea = getAreaFromAddress(jobData.delivery_address);
         const budgetStr = jobData.budget_min ? `$${jobData.budget_min}` : (jobData.budget_max ? `$${jobData.budget_max}` : '');
-        const pushBody = `New job: ${data.job_number} - ${pickupArea} → ${deliveryArea}${budgetStr ? ` - ${budgetStr}` : ''}`;
+        const pushBody = `${data.job_number} - ${pickupArea} → ${deliveryArea}${budgetStr ? ` - ${budgetStr}` : ''}`;
+        console.log(`[jobs/create] Sending push to ${eligibleDrivers.length} eligible driver(s): "${pushBody}"`);
         Promise.allSettled(
           eligibleDrivers.map(d =>
             sendPushToUser(d.id, {
@@ -231,10 +242,16 @@ export async function POST(request) {
               url: '/driver/jobs',
             })
           )
-        ).catch(() => {});
+        ).then(results => {
+          const ok = results.filter(r => r.status === 'fulfilled').length;
+          const fail = results.filter(r => r.status === 'rejected').length;
+          console.log(`[jobs/create] Push notification results: ${ok} succeeded, ${fail} failed out of ${eligibleDrivers.length} drivers`);
+        }).catch(err => {
+          console.error('[jobs/create] Push notification error:', err?.message || err);
+        });
       }
-    } catch {
-      // Don't fail the job creation if notifications fail
+    } catch (notifErr) {
+      console.error('[jobs/create] Notification block error:', notifErr?.message || notifErr);
     }
 
     // Record green points for EV delivery

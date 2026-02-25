@@ -373,17 +373,34 @@ export default function ClientJobDetail({ params }) {
               </div>
             )}
             {/* Download Receipt */}
-            {job.invoice_url && ['delivered', 'confirmed', 'completed'].includes(job.status) && (
-              <div style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+            {['delivered', 'confirmed', 'completed'].includes(job.status) && (
+              <div style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: job.invoice_url ? '#f0fdf4' : '#f8fafc', border: job.invoice_url ? '1px solid #bbf7d0' : '1px solid #e2e8f0' }}>
                 <div>
-                  <div style={{ fontSize: '14px', fontWeight: '700', color: '#059669' }}>Delivery Receipt</div>
-                  <div style={{ fontSize: '12px', color: '#64748b' }}>Auto-generated PDF receipt with proof of delivery</div>
+                  <div style={{ fontSize: '14px', fontWeight: '700', color: job.invoice_url ? '#059669' : '#374151' }}>{job.invoice_url ? 'Delivery Receipt' : 'Invoice'}</div>
+                  <div style={{ fontSize: '12px', color: '#64748b' }}>{job.invoice_url ? 'Auto-generated PDF receipt with proof of delivery' : 'Generate a PDF receipt for this delivery'}</div>
                 </div>
-                <a href={job.invoice_url} target="_blank" rel="noopener noreferrer" style={{
-                  padding: '10px 20px', borderRadius: '8px', border: 'none',
-                  background: '#059669', color: 'white', fontSize: '13px', fontWeight: '600',
-                  textDecoration: 'none', display: 'inline-block',
-                }}>Download Receipt</a>
+                {job.invoice_url ? (
+                  <a href={job.invoice_url} target="_blank" rel="noopener noreferrer" style={{
+                    padding: '10px 20px', borderRadius: '8px', border: 'none',
+                    background: '#059669', color: 'white', fontSize: '13px', fontWeight: '600',
+                    textDecoration: 'none', display: 'inline-block',
+                  }}>Download Receipt</a>
+                ) : (
+                  <button onClick={async () => {
+                    try {
+                      const res = await fetch(`/api/jobs/${job.id}/invoice`, { method: 'POST' });
+                      const result = await res.json();
+                      if (!res.ok) { toast.error(result.error || 'Failed to generate invoice'); return; }
+                      toast.success('Invoice generated');
+                      window.open(result.url, '_blank');
+                      loadData();
+                    } catch { toast.error('Failed to generate invoice'); }
+                  }} style={{
+                    padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                    background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: 'white',
+                    fontSize: '13px', fontWeight: '600', fontFamily: "'Inter', sans-serif",
+                  }}>Generate Invoice</button>
+                )}
               </div>
             )}
             {/* Dispute info card */}

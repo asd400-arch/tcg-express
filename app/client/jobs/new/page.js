@@ -274,6 +274,16 @@ export default function NewJob() {
     if (Object.keys(errs).length > 0) { setErrors(errs); toast.error('Please fill in all required fields'); return; }
     if (zoneWarning?.type === 'restricted') { toast.error(zoneWarning.message); return; }
 
+    // Validate pickup time is at least 30 minutes from now
+    const minPickup = new Date(Date.now() + 30 * 60000);
+    if (form.pickup_by) {
+      const pickupTime = new Date(form.pickup_by);
+      if (pickupTime < minPickup) {
+        toast.error('Minimum pickup time is 30 minutes from now');
+        return;
+      }
+    }
+
     // Check wallet balance before creating job
     const minBudget = parseFloat(form.budget_min) || fare?.total || 0;
     if (minBudget > 0) {
@@ -985,8 +995,8 @@ export default function NewJob() {
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
-                <div><label style={label}>Pickup By</label><input type="datetime-local" style={input} value={form.pickup_by} onChange={e => set('pickup_by', e.target.value)} /></div>
-                <div><label style={label}>Deliver By</label><input type="datetime-local" style={input} value={form.deliver_by} onChange={e => set('deliver_by', e.target.value)} /></div>
+                <div><label style={label}>Pickup By</label><input type="datetime-local" style={input} value={form.pickup_by} onChange={e => set('pickup_by', e.target.value)} min={new Date(Date.now() + 30 * 60000).toISOString().slice(0, 16)} /></div>
+                <div><label style={label}>Deliver By</label><input type="datetime-local" style={input} value={form.deliver_by} onChange={e => set('deliver_by', e.target.value)} min={form.pickup_by || new Date(Date.now() + 30 * 60000).toISOString().slice(0, 16)} /></div>
               </div>
               <div><label style={label}>Special Requirements</label><textarea style={{ ...input, height: '60px', resize: 'vertical' }} value={form.special_requirements} onChange={e => set('special_requirements', e.target.value)} placeholder="Handling instructions, insurance needs, etc." /></div>
             </div>
