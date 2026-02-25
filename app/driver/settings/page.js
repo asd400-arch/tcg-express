@@ -136,7 +136,7 @@ export default function DriverSettings() {
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>
       <Sidebar active="Settings" />
-      <div style={{ flex: 1, padding: m ? '20px 16px' : '30px', maxWidth: '600px' }}>
+      <div style={{ flex: 1, padding: m ? '80px 16px 20px' : '30px', maxWidth: '600px' }}>
         <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', marginBottom: '20px' }}>Account Settings</h1>
 
         <div style={card}>

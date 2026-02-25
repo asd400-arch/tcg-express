@@ -20,7 +20,7 @@ export async function POST(request, { params }) {
     // Fetch job to get budget and client_id
     const { data: job, error: jobErr } = await supabaseAdmin
       .from('express_jobs')
-      .select('id, client_id, status, job_number, budget_max, budget_min, vehicle_required')
+      .select('id, client_id, status, job_number, budget_max, budget_min, estimated_fare, vehicle_required')
       .eq('id', jobId)
       .single();
 
@@ -45,9 +45,9 @@ export async function POST(request, { params }) {
       }
     }
 
-    const bidAmount = parseFloat(job.budget_min) || parseFloat(job.budget_max);
+    const bidAmount = parseFloat(job.budget_min) || parseFloat(job.budget_max) || parseFloat(job.estimated_fare);
     if (!bidAmount || !isFinite(bidAmount) || bidAmount <= 0) {
-      return NextResponse.json({ error: 'Job has no valid budget set' }, { status: 400 });
+      return NextResponse.json({ error: 'Job has no valid budget or estimated fare' }, { status: 400 });
     }
 
     // Create or update bid first (separate from atomic payment)

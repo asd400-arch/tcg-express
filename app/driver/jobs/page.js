@@ -58,7 +58,6 @@ export default function DriverJobs() {
   const [selectedJob, setSelectedJob] = useState(null);
   const [detailJob, setDetailJob] = useState(null);
   const [bidAmount, setBidAmount] = useState('');
-  const [bidTime, setBidTime] = useState('');
   const [bidMsg, setBidMsg] = useState('');
   const [bidding, setBidding] = useState(false);
   const [bidErrors, setBidErrors] = useState({});
@@ -116,7 +115,7 @@ export default function DriverJobs() {
         return;
       }
       toast.success('Bid submitted!');
-      setBidding(false); setSelectedJob(null); setBidAmount(''); setBidTime(''); setBidMsg(''); setBidErrors({});
+      setBidding(false); setSelectedJob(null); setBidAmount(''); setBidMsg(''); setBidErrors({});
       loadData();
     } catch (e) {
       toast.error('Failed to submit bid');
@@ -209,10 +208,6 @@ export default function DriverJobs() {
                 <label style={{ fontSize: '13px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>Your Bid Amount ($)<span style={{ color: '#ef4444', marginLeft: '2px' }}>*</span></label>
                 <input type="number" style={{ ...input, border: bidErrors.bidAmount ? '1.5px solid #ef4444' : '1px solid #e2e8f0' }} value={bidAmount} onChange={e => { setBidAmount(e.target.value); setBidErrors(prev => { const n = { ...prev }; delete n.bidAmount; return n; }); }} placeholder="Enter amount" />
                 {bidErrors.bidAmount && <div style={{ fontSize: '11px', color: '#ef4444', marginTop: '4px' }}>{bidErrors.bidAmount}</div>}
-              </div>
-              <div style={{ marginBottom: '14px' }}>
-                <label style={{ fontSize: '13px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>Estimated Time</label>
-                <input style={input} value={bidTime} onChange={e => setBidTime(e.target.value)} placeholder="e.g. 30 mins, 1 hour" />
               </div>
               <div style={{ marginBottom: '20px' }}>
                 <label style={{ fontSize: '13px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>Message</label>

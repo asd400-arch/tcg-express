@@ -24,7 +24,7 @@ export async function GET(request) {
     }
 
     // Strip password_hash before returning
-    const { password_hash, ...safeUser } = user;
+    const { password_hash, verification_code, verification_code_expires, reset_code, reset_code_expires, ...safeUser } = user;
     return NextResponse.json({ data: safeUser });
   } catch (err) {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });

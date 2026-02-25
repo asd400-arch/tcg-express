@@ -65,7 +65,7 @@ export async function POST(request) {
 
     // Create session and set cookie
     const token = await createSession(user);
-    const { password_hash, ...safeUser } = user;
+    const { password_hash, verification_code, verification_code_expires, reset_code, reset_code_expires, ...safeUser } = user;
     const response = NextResponse.json({ data: safeUser, token });
     setSessionCookie(response, token);
     return response;

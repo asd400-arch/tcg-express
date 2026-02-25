@@ -29,6 +29,13 @@ export async function POST(request) {
 
   if (!job) return NextResponse.json({ error: 'Job not found' }, { status: 404 });
 
+  if (session.role === 'client' && job.client_id !== session.userId) {
+    return NextResponse.json({ error: 'You are not authorized to review this job' }, { status: 403 });
+  }
+  if (session.role === 'driver' && job.assigned_driver_id !== session.userId) {
+    return NextResponse.json({ error: 'You are not authorized to review this job' }, { status: 403 });
+  }
+
   const reviewerRole = session.role;
   const reviewData = {
     job_id,
