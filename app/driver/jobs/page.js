@@ -27,13 +27,13 @@ function getVehicleLabel(key) {
   return legacyVehicleLabel(key);
 }
 
-/** Get the display budget for a job, with fallbacks */
+/** Get the instant-accept price for a job (minimum budget = base rate) */
 function getJobBudget(job) {
-  const max = parseFloat(job.budget_max);
   const min = parseFloat(job.budget_min);
+  const max = parseFloat(job.budget_max);
   const fare = parseFloat(job.estimated_fare);
-  if (max > 0) return max;
   if (min > 0) return min;
+  if (max > 0) return max;
   if (fare > 0) return fare;
   return null;
 }

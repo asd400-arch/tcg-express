@@ -45,7 +45,7 @@ export async function POST(request, { params }) {
       }
     }
 
-    const bidAmount = parseFloat(job.budget_max) || parseFloat(job.budget_min);
+    const bidAmount = parseFloat(job.budget_min) || parseFloat(job.budget_max);
     if (!bidAmount || !isFinite(bidAmount) || bidAmount <= 0) {
       return NextResponse.json({ error: 'Job has no valid budget set' }, { status: 400 });
     }
