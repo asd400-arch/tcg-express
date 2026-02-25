@@ -66,6 +66,7 @@ export default function DriverJobs() {
   const [equipmentCharges, setEquipmentCharges] = useState([]);
   const [customEquipName, setCustomEquipName] = useState('');
   const [customEquipAmount, setCustomEquipAmount] = useState('');
+  const [activeTab, setActiveTab] = useState('spot');
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -188,6 +189,43 @@ export default function DriverJobs() {
     } catch {
       return job.special_requirements;
     }
+  };
+
+  // Categorize jobs into tabs
+  const urgencyRank = { urgent: 0, rush: 0, express: 1, standard: 2 };
+  const sortByUrgencyThenTime = (a, b) => {
+    const ua = urgencyRank[a.urgency] ?? 2;
+    const ub = urgencyRank[b.urgency] ?? 2;
+    if (ua !== ub) return ua - ub;
+    const ta = a.pickup_by ? new Date(a.pickup_by).getTime() : Infinity;
+    const tb = b.pickup_by ? new Date(b.pickup_by).getTime() : Infinity;
+    return ta - tb;
+  };
+
+  const spotJobs = jobs.filter(j => (j.job_type || 'spot') === 'spot').sort(sortByUrgencyThenTime);
+  const scheduledJobs = jobs.filter(j => (j.job_type || 'spot') === 'spot' ? false : j.pickup_by || j.schedule_date).sort((a, b) => {
+    const ua = urgencyRank[a.urgency] ?? 2;
+    const ub = urgencyRank[b.urgency] ?? 2;
+    if (ua !== ub) return ua - ub;
+    const ta = new Date(a.pickup_by || a.schedule_date || a.created_at).getTime();
+    const tb = new Date(b.pickup_by || b.schedule_date || b.created_at).getTime();
+    return ta - tb;
+  });
+  const regularJobs = jobs.filter(j => j.job_type === 'regular').sort(sortByUrgencyThenTime);
+
+  // Re-categorize: scheduled tab gets non-spot, non-regular jobs that have a date
+  const filteredJobs = activeTab === 'spot' ? spotJobs : activeTab === 'scheduled' ? scheduledJobs : regularJobs;
+  const tabCounts = { spot: spotJobs.length, scheduled: scheduledJobs.length, regular: regularJobs.length };
+
+  const getCountdown = (dateStr) => {
+    if (!dateStr) return null;
+    const diff = new Date(dateStr).getTime() - Date.now();
+    if (diff <= 0) return 'Now';
+    const hrs = Math.floor(diff / 3600000);
+    const mins = Math.floor((diff % 3600000) / 60000);
+    if (hrs > 24) return `${Math.floor(hrs / 24)}d ${hrs % 24}h`;
+    if (hrs > 0) return `${hrs}h ${mins}m`;
+    return `${mins}m`;
   };
 
   return (
@@ -423,26 +461,54 @@ export default function DriverJobs() {
         ) : (
           /* List View */
           <>
-            <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', marginBottom: '20px' }}>Available Jobs ({jobs.length})</h1>
+            <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>Available Jobs ({jobs.length})</h1>
 
-            {jobs.length === 0 ? (
+            {/* Tabs */}
+            <div style={{ display: 'flex', gap: '6px', marginBottom: '20px', flexWrap: 'wrap' }}>
+              {[
+                { key: 'spot', label: 'Immediate', icon: '🚚' },
+                { key: 'scheduled', label: 'Scheduled', icon: '📅' },
+                { key: 'regular', label: 'Recurring', icon: '🔁' },
+              ].map(tab => (
+                <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{
+                  padding: '10px 18px', borderRadius: '10px', border: 'none', cursor: 'pointer',
+                  background: activeTab === tab.key ? '#1e293b' : '#f1f5f9',
+                  color: activeTab === tab.key ? 'white' : '#64748b',
+                  fontSize: '13px', fontWeight: '600', fontFamily: "'Inter', sans-serif",
+                  display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.15s',
+                }}>
+                  <span>{tab.icon}</span>
+                  <span>{tab.label}</span>
+                  <span style={{
+                    padding: '1px 7px', borderRadius: '10px', fontSize: '11px', fontWeight: '700',
+                    background: activeTab === tab.key ? 'rgba(255,255,255,0.2)' : (tabCounts[tab.key] > 0 ? '#e11d48' : '#cbd5e1'),
+                    color: activeTab === tab.key ? 'white' : (tabCounts[tab.key] > 0 ? 'white' : '#94a3b8'),
+                  }}>{tabCounts[tab.key]}</span>
+                </button>
+              ))}
+            </div>
+
+            {filteredJobs.length === 0 ? (
               <div style={{ ...card, textAlign: 'center', padding: '40px' }}>
-                <div style={{ fontSize: '40px', marginBottom: '12px' }}>🔍</div>
-                <p style={{ color: '#64748b', fontSize: '14px' }}>No available jobs right now. Check back soon!</p>
+                <div style={{ fontSize: '40px', marginBottom: '12px' }}>{activeTab === 'spot' ? '🚚' : activeTab === 'scheduled' ? '📅' : '🔁'}</div>
+                <p style={{ color: '#64748b', fontSize: '14px' }}>No {activeTab === 'spot' ? 'immediate' : activeTab === 'scheduled' ? 'scheduled' : 'recurring'} jobs available. Check back soon!</p>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {jobs.map(job => {
+                {filteredJobs.map(job => {
                   const hasBid = myBids[job.id];
                   const jType = job.job_type || 'spot';
+                  const countdown = getCountdown(job.pickup_by);
                   return (
                     <div key={job.id} onClick={() => setDetailJob(job)} style={{ ...card, cursor: 'pointer', transition: 'box-shadow 0.15s', borderLeft: `4px solid ${jobTypeColor[jType] || '#3b82f6'}` }}>
                       {/* Row 1: Job number + badges + budget */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                           <span style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b' }}>{job.job_number || '—'}</span>
-                          <span style={badge(jType, `${jobTypeColor[jType] || jobTypeColor.spot}15`, jobTypeColor[jType] || jobTypeColor.spot)}>{jType}</span>
                           <span style={badge(job.urgency || 'standard', `${urgencyColor[job.urgency]}15`, urgencyColor[job.urgency])}>{job.urgency || 'standard'}</span>
+                          {countdown && (
+                            <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '700', background: '#fef3c7', color: '#92400e' }}>Pickup in {countdown}</span>
+                          )}
                         </div>
                         <div style={{ fontSize: '17px', fontWeight: '800', color: '#10b981', flexShrink: 0 }}>{formatBudgetRange(job)}</div>
                       </div>
@@ -456,8 +522,11 @@ export default function DriverJobs() {
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center', marginBottom: '10px' }}>
                         <span style={{ fontSize: '12px', color: '#64748b' }}>{getVehicleLabel(job.vehicle_required)}</span>
                         {job.item_weight && <span style={{ fontSize: '12px', color: '#64748b' }}>{job.item_weight} kg</span>}
-                        {job.pickup_by && (
+                        {activeTab === 'scheduled' && job.pickup_by && (
                           <span style={{ fontSize: '12px', color: '#8b5cf6', fontWeight: '600' }}>📅 {new Date(job.pickup_by).toLocaleDateString()} {new Date(job.pickup_by).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        )}
+                        {activeTab === 'regular' && (
+                          <span style={{ fontSize: '12px', color: '#059669', fontWeight: '600' }}>🔁 {job.recurrence || 'Regular'}</span>
                         )}
                       </div>
 

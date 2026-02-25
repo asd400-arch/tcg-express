@@ -87,8 +87,15 @@ export async function POST(request) {
 
     if (rpcErr) {
       const msg = rpcErr.message || '';
+      console.error('[wallet/pay] RPC error:', { msg, jobId, bidId, userId: session.userId, couponDiscount, idempotencyKey });
       if (msg.includes('Job not found')) {
-        console.error('Wallet pay — Job not found in RPC:', { jobId, bidId, userId: session.userId, rpcError: msg });
+        // Additional diagnostic: check if job and bid actually exist
+        const [jobCheck, bidCheck] = await Promise.all([
+          supabaseAdmin.from('express_jobs').select('id, status, client_id').eq('id', jobId).maybeSingle(),
+          supabaseAdmin.from('express_bids').select('id, status, job_id, driver_id').eq('id', bidId).maybeSingle(),
+        ]);
+        console.error('[wallet/pay] Diagnostic — Job exists:', !!jobCheck.data, 'status:', jobCheck.data?.status, 'client:', jobCheck.data?.client_id);
+        console.error('[wallet/pay] Diagnostic — Bid exists:', !!bidCheck.data, 'status:', bidCheck.data?.status, 'bid.job_id:', bidCheck.data?.job_id, 'matches jobId:', bidCheck.data?.job_id === jobId);
       }
       if (msg.includes('Insufficient balance')) {
         // Extract amounts from error message

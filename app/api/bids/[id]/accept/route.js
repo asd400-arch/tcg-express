@@ -19,8 +19,14 @@ export async function POST(request, { params }) {
       .eq('id', id)
       .single();
 
-    if (bidErr || !bid) return NextResponse.json({ error: 'Bid not found' }, { status: 404 });
-    if (bid.status !== 'pending') return NextResponse.json({ error: 'Bid is no longer pending' }, { status: 400 });
+    if (bidErr || !bid) {
+      console.error('[bid/accept] Bid not found:', { bidId: id, bidErr: bidErr?.message, bidData: bid });
+      return NextResponse.json({ error: 'Bid not found' }, { status: 404 });
+    }
+    if (bid.status !== 'pending') {
+      console.warn('[bid/accept] Bid no longer pending:', { bidId: id, bidStatus: bid.status, jobId: bid.job_id });
+      return NextResponse.json({ error: 'Bid is no longer pending' }, { status: 400 });
+    }
 
     // Verify job belongs to this client
     const { data: job, error: jobErr } = await supabaseAdmin
@@ -65,6 +71,7 @@ export async function POST(request, { params }) {
 
     if (rpcErr) {
       const msg = rpcErr.message || '';
+      console.error('[bid/accept] RPC error:', { msg, bidId: id, jobId: job.id, payerId: session.userId, bidAmount: bid.amount, idempotencyKey });
       if (msg.includes('Insufficient balance')) {
         const match = msg.match(/Available: ([0-9.]+), Required: ([0-9.]+)/);
         return NextResponse.json({

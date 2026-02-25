@@ -197,11 +197,18 @@ export async function POST(request) {
 
     // Notify all active drivers about the new job
     try {
-      const { data: drivers } = await supabaseAdmin
+      console.log(`[jobs/create] Step 1: Querying active drivers...`);
+      const { data: drivers, error: driverQueryErr } = await supabaseAdmin
         .from('express_users')
         .select('id, vehicle_type')
         .eq('role', 'driver')
         .eq('is_active', true);
+
+      if (driverQueryErr) {
+        console.error('[jobs/create] Driver query failed:', driverQueryErr.message);
+      }
+
+      console.log(`[jobs/create] Step 2: Found ${drivers?.length || 0} active driver(s)`);
 
       if (drivers && drivers.length > 0) {
         // Filter drivers by vehicle fit if job requires specific vehicle
@@ -217,6 +224,8 @@ export async function POST(request) {
               return driverIdx >= jobIdx;
             });
 
+        console.log(`[jobs/create] Step 3: ${eligibleDrivers.length} eligible (vehicle: ${jobVehicle || 'any'}, filtered out: ${drivers.length - eligibleDrivers.length})`);
+
         // In-app notifications
         const notifications = eligibleDrivers.map(d => ({
           user_id: d.id,
@@ -226,14 +235,32 @@ export async function POST(request) {
           reference_id: String(data.id),
           is_read: false,
         }));
-        await supabaseAdmin.from('express_notifications').insert(notifications);
+        const { error: notifInsertErr } = await supabaseAdmin.from('express_notifications').insert(notifications);
+        if (notifInsertErr) console.error('[jobs/create] In-app notification insert error:', notifInsertErr.message);
+        else console.log(`[jobs/create] Step 4: In-app notifications inserted for ${notifications.length} driver(s)`);
 
         // Push notifications (fire-and-forget)
         const pickupArea = getAreaFromAddress(jobData.pickup_address);
         const deliveryArea = getAreaFromAddress(jobData.delivery_address);
-        const budgetStr = jobData.budget_min ? `$${jobData.budget_min}` : (jobData.budget_max ? `$${jobData.budget_max}` : '');
+        const budgetMin = jobData.budget_min ? `$${jobData.budget_min}` : '';
+        const budgetMax = jobData.budget_max ? `$${jobData.budget_max}` : '';
+        const budgetStr = budgetMin && budgetMax ? `${budgetMin}-${budgetMax}` : budgetMin || budgetMax;
         const pushBody = `${data.job_number} - ${pickupArea} → ${deliveryArea}${budgetStr ? ` - ${budgetStr}` : ''}`;
-        console.log(`[jobs/create] Sending push to ${eligibleDrivers.length} eligible driver(s): "${pushBody}"`);
+        console.log(`[jobs/create] Step 5: Sending push to ${eligibleDrivers.length} driver(s): "${pushBody}"`);
+
+        // Check subscription counts before sending
+        const { data: subCounts } = await supabaseAdmin
+          .from('express_push_subscriptions')
+          .select('user_id, type')
+          .in('user_id', eligibleDrivers.map(d => d.id));
+        const totalSubs = subCounts?.length || 0;
+        const driversWithSubs = new Set(subCounts?.map(s => s.user_id)).size;
+        console.log(`[jobs/create] Step 6: Push subscriptions — ${totalSubs} total across ${driversWithSubs}/${eligibleDrivers.length} drivers`);
+
+        if (totalSubs === 0) {
+          console.warn('[jobs/create] WARNING: No push subscriptions found for any eligible driver — push notifications will not be delivered');
+        }
+
         Promise.allSettled(
           eligibleDrivers.map(d =>
             sendPushToUser(d.id, {
@@ -245,10 +272,17 @@ export async function POST(request) {
         ).then(results => {
           const ok = results.filter(r => r.status === 'fulfilled').length;
           const fail = results.filter(r => r.status === 'rejected').length;
-          console.log(`[jobs/create] Push notification results: ${ok} succeeded, ${fail} failed out of ${eligibleDrivers.length} drivers`);
+          console.log(`[jobs/create] Step 7: Push results — ${ok} succeeded, ${fail} failed out of ${eligibleDrivers.length} drivers`);
+          results.forEach((r, i) => {
+            if (r.status === 'rejected') {
+              console.error(`[jobs/create] Push failed for driver ${eligibleDrivers[i]?.id}:`, r.reason?.message || r.reason);
+            }
+          });
         }).catch(err => {
           console.error('[jobs/create] Push notification error:', err?.message || err);
         });
+      } else {
+        console.warn('[jobs/create] No active drivers found — skipping notifications');
       }
     } catch (notifErr) {
       console.error('[jobs/create] Notification block error:', notifErr?.message || notifErr);
