@@ -4,7 +4,7 @@ import { getSession } from '../../../lib/auth';
 import { rateLimiters, applyRateLimit } from '../../../lib/rate-limiters';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-const ALLOWED_PREFIXES = ['jobs/', 'chat/', 'kyc/', 'delivery/', 'rfq/'];
+const ALLOWED_PREFIXES = ['jobs/', 'chat/', 'kyc/', 'delivery/', 'rfq/', 'disputes/'];
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const ALLOWED_DOC_TYPES = ['application/pdf'];
 const ALL_ALLOWED_TYPES = [...ALLOWED_IMAGE_TYPES, ...ALLOWED_DOC_TYPES];

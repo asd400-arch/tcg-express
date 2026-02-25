@@ -9,6 +9,7 @@ import LiveMap from '../../../components/LiveMap';
 import { useToast } from '../../../components/Toast';
 import RatingModal from '../../../components/RatingModal';
 import DisputeModal from '../../../components/DisputeModal';
+import DisputeResolveModal from '../../../components/DisputeResolveModal';
 import EditJobModal from '../../../components/EditJobModal';
 import CallButtons from '../../../components/CallButtons';
 import { supabase } from '../../../../lib/supabase';
@@ -33,6 +34,8 @@ export default function ClientJobDetail({ params }) {
   const [heldTxn, setHeldTxn] = useState(null);
   const [dispute, setDispute] = useState(null);
   const [showDispute, setShowDispute] = useState(false);
+  const [showResolve, setShowResolve] = useState(false);
+  const [acceptingProposal, setAcceptingProposal] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [assignedDriver, setAssignedDriver] = useState(null);
   const [acceptingBid, setAcceptingBid] = useState(null);
@@ -389,10 +392,55 @@ export default function ClientJobDetail({ params }) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
                   <span style={{ fontSize: '18px' }}>⚠️</span>
                   <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#991b1b' }}>Active Dispute</h3>
-                  <span style={{ padding: '3px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '700', background: dispute.status === 'open' ? '#ef444420' : '#f59e0b20', color: dispute.status === 'open' ? '#ef4444' : '#d97706', textTransform: 'uppercase' }}>{dispute.status.replace(/_/g, ' ')}</span>
+                  <span style={{ padding: '3px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '700', background: dispute.status === 'open' ? '#ef444420' : dispute.status === 'resolved' ? '#10b98120' : '#f59e0b20', color: dispute.status === 'open' ? '#ef4444' : dispute.status === 'resolved' ? '#10b981' : '#d97706', textTransform: 'uppercase' }}>{dispute.status.replace(/_/g, ' ')}</span>
                 </div>
                 <div style={{ fontSize: '13px', color: '#991b1b', marginBottom: '4px' }}><strong>Reason:</strong> {dispute.reason.replace(/_/g, ' ')}</div>
                 <div style={{ fontSize: '13px', color: '#7f1d1d' }}>{dispute.description}</div>
+                {dispute.evidence_photos && dispute.evidence_photos.length > 0 && (
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '10px' }}>
+                    {dispute.evidence_photos.map((url, i) => (
+                      <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                        <img src={url} alt={`Evidence ${i + 1}`} style={{ width: '70px', height: '70px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #fecaca' }} />
+                      </a>
+                    ))}
+                  </div>
+                )}
+                {/* Proposal status */}
+                {dispute.proposed_by && dispute.proposed_resolution && dispute.status !== 'resolved' && (
+                  <div style={{ marginTop: '10px', padding: '10px 12px', background: '#fffbeb', borderRadius: '8px', border: '1px solid #fde68a' }}>
+                    <div style={{ fontSize: '13px', color: '#92400e', fontWeight: '600' }}>
+                      {dispute.proposed_by === user?.id ? 'You' : 'Driver'} proposed: {dispute.proposed_resolution === 'full_refund' ? 'Full refund to customer' : dispute.proposed_resolution === 'full_release' ? 'Full payment to driver' : `Adjusted amount: $${parseFloat(dispute.proposed_amount).toFixed(2)} to driver`}
+                    </div>
+                    {dispute.proposed_by !== user?.id && (
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                        <button onClick={async () => {
+                          setAcceptingProposal(true);
+                          try {
+                            const res = await fetch('/api/disputes/propose', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ disputeId: dispute.id, action: 'accept' }) });
+                            const result = await res.json();
+                            if (res.ok) { toast.success('Settlement accepted!'); loadData(); } else { toast.error(result.error || 'Failed'); }
+                          } catch { toast.error('Failed to accept'); }
+                          setAcceptingProposal(false);
+                        }} disabled={acceptingProposal} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: '#10b981', color: 'white', fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif", opacity: acceptingProposal ? 0.7 : 1 }}>{acceptingProposal ? 'Processing...' : 'Accept'}</button>
+                        <button onClick={() => setShowResolve(true)} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #f59e0b', background: 'white', color: '#f59e0b', fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>Counter</button>
+                      </div>
+                    )}
+                    {dispute.proposed_by === user?.id && (
+                      <div style={{ fontSize: '12px', color: '#64748b', marginTop: '6px' }}>Waiting for the other party to accept or counter...</div>
+                    )}
+                  </div>
+                )}
+                {/* Resolve button */}
+                {['open', 'under_review'].includes(dispute.status) && !dispute.proposed_by && (
+                  <button onClick={() => setShowResolve(true)} style={{ marginTop: '10px', padding: '10px 20px', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: 'white', fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>Resolve Dispute</button>
+                )}
+                {dispute.resolution_type && (
+                  <div style={{ marginTop: '10px', padding: '10px 12px', background: '#f0fdf4', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
+                    <div style={{ fontSize: '13px', color: '#059669', fontWeight: '600' }}>
+                      Resolved: {dispute.resolution_type === 'full_refund' ? 'Full refund to customer' : dispute.resolution_type === 'full_release' ? 'Full payment to driver' : `Adjusted: $${parseFloat(dispute.resolved_amount).toFixed(2)}`}
+                    </div>
+                  </div>
+                )}
                 <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '8px' }}>Opened {new Date(dispute.created_at).toLocaleString()}</div>
               </div>
             )}
@@ -548,6 +596,16 @@ export default function ClientJobDetail({ params }) {
             jobId={jobId}
             onClose={() => setShowDispute(false)}
             onSubmitted={() => loadData()}
+          />
+        )}
+
+        {/* Dispute Resolve Modal */}
+        {showResolve && dispute && (
+          <DisputeResolveModal
+            dispute={dispute}
+            jobAmount={job.final_amount}
+            onClose={() => setShowResolve(false)}
+            onResolved={() => loadData()}
           />
         )}
 

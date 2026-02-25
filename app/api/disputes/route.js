@@ -82,6 +82,12 @@ export async function POST(req) {
       return NextResponse.json({ error: 'An active dispute already exists for this job' }, { status: 400 });
     }
 
+    // Validate evidence photos if provided
+    let evidence_photos = [];
+    if (body.evidence_photos && Array.isArray(body.evidence_photos)) {
+      evidence_photos = body.evidence_photos.filter(url => typeof url === 'string' && url.startsWith('http')).slice(0, 5);
+    }
+
     // Insert dispute
     const { data: dispute, error: insertErr } = await supabaseAdmin
       .from('express_disputes')
@@ -91,6 +97,7 @@ export async function POST(req) {
         opened_by_role: user.role,
         reason,
         description,
+        evidence_photos,
         status: 'open',
       }])
       .select()

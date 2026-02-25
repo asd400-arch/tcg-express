@@ -173,6 +173,37 @@ export default function AdminDisputes() {
                   <div style={{ fontSize: '14px', color: '#374151', marginTop: '4px', padding: '12px', background: '#f8fafc', borderRadius: '8px' }}>{d.description}</div>
                 </div>
 
+                {d.evidence_photos && d.evidence_photos.length > 0 && (
+                  <div style={{ marginBottom: '16px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: '600', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Evidence Photos</label>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '6px' }}>
+                      {d.evidence_photos.map((url, i) => (
+                        <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                          <img src={url} alt={`Evidence ${i + 1}`} style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0' }} />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Party settlement proposal */}
+                {d.proposed_by && d.proposed_resolution && d.status !== 'resolved' && (
+                  <div style={{ marginBottom: '16px', padding: '10px 14px', background: '#fffbeb', borderRadius: '8px', border: '1px solid #fde68a' }}>
+                    <div style={{ fontSize: '13px', color: '#92400e', fontWeight: '600' }}>
+                      Settlement proposed: {d.proposed_resolution === 'full_refund' ? 'Full refund' : d.proposed_resolution === 'full_release' ? 'Full release' : `Adjusted: $${parseFloat(d.proposed_amount).toFixed(2)}`}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>Awaiting other party acceptance</div>
+                  </div>
+                )}
+
+                {d.resolution_type && d.status === 'resolved' && (
+                  <div style={{ marginBottom: '16px', padding: '10px 14px', background: '#f0fdf4', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
+                    <div style={{ fontSize: '13px', color: '#059669', fontWeight: '600' }}>
+                      Party settlement: {d.resolution_type === 'full_refund' ? 'Full refund' : d.resolution_type === 'full_release' ? 'Full release' : `Adjusted: $${parseFloat(d.resolved_amount).toFixed(2)}`}
+                    </div>
+                  </div>
+                )}
+
                 {d.job?.final_amount && (
                   <div style={{ marginBottom: '16px', padding: '10px 14px', background: '#fffbeb', borderRadius: '8px', border: '1px solid #fde68a' }}>
                     <span style={{ fontSize: '13px', color: '#92400e', fontWeight: '600' }}>Escrow Amount: ${parseFloat(d.job.final_amount).toFixed(2)}</span>
