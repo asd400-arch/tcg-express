@@ -86,8 +86,39 @@ export default function SignaturePad({ onSave, onClose }) {
 
   const handleConfirm = () => {
     const canvas = canvasRef.current;
-    const dataUrl = canvas.toDataURL('image/png');
-    onSave(dataUrl, signerName.trim());
+    // Compress: draw onto smaller canvas, export as JPEG for smaller size (max ~200KB)
+    const maxDim = 600;
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const srcW = rect.width * dpr;
+    const srcH = rect.height * dpr;
+    const scale = Math.min(maxDim / srcW, maxDim / srcH, 1);
+    const outW = Math.round(srcW * scale);
+    const outH = Math.round(srcH * scale);
+
+    const offscreen = document.createElement('canvas');
+    offscreen.width = outW;
+    offscreen.height = outH;
+    const ctx2 = offscreen.getContext('2d');
+    // White background for JPEG (transparent PNG → white)
+    ctx2.fillStyle = '#ffffff';
+    ctx2.fillRect(0, 0, outW, outH);
+    ctx2.drawImage(canvas, 0, 0, outW, outH);
+
+    // Use toBlob for mobile compatibility, fall back to toDataURL
+    if (offscreen.toBlob) {
+      offscreen.toBlob((blob) => {
+        if (blob) {
+          const reader = new FileReader();
+          reader.onload = () => onSave(reader.result, signerName.trim());
+          reader.readAsDataURL(blob);
+        } else {
+          onSave(offscreen.toDataURL('image/png'), signerName.trim());
+        }
+      }, 'image/png');
+    } else {
+      onSave(offscreen.toDataURL('image/png'), signerName.trim());
+    }
   };
 
   const isValid = hasDrawn && signerName.trim().length > 0;

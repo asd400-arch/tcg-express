@@ -18,6 +18,13 @@ async function ensureBucket(name, options = {}) {
       fileSizeLimit: MAX_FILE_SIZE,
       ...options,
     });
+  } else if (options.allowedMimeTypes) {
+    // Update existing bucket to ensure MIME types are current
+    await supabaseAdmin.storage.updateBucket(name, {
+      public: true,
+      fileSizeLimit: MAX_FILE_SIZE,
+      ...options,
+    });
   }
 }
 
@@ -82,7 +89,7 @@ export async function POST(request) {
       await ensureBucket('rfq-attachments');
     } else {
       await ensureBucket('express-uploads', {
-        allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+        allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'],
       });
     }
 

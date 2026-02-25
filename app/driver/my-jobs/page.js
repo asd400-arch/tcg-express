@@ -143,6 +143,7 @@ export default function DriverMyJobs() {
         toast.error('Signature is empty — please draw again');
         return;
       }
+      console.log(`Signature blob size: ${(blob.size / 1024).toFixed(1)}KB`);
 
       const file = new File([blob], `signature_${Date.now()}.png`, { type: 'image/png' });
       const path = `delivery/${selected.id}/signature_${Date.now()}.png`;
