@@ -111,8 +111,8 @@ export default function NewJob() {
   const [zoneWarning, setZoneWarning] = useState(null); // { type: 'restricted' | 'surcharge', message, surcharge? }
   const [errors, setErrors] = useState({});
   const [form, setForm] = useState({
-    pickup_address: '', pickup_contact: '', pickup_phone: '', pickup_instructions: '',
-    delivery_address: '', delivery_contact: '', delivery_phone: '', delivery_instructions: '',
+    pickup_address: '', pickup_contact_first: '', pickup_contact_last: '', pickup_phone: '', pickup_instructions: '',
+    delivery_address: '', delivery_contact_first: '', delivery_contact_last: '', delivery_phone: '', delivery_instructions: '',
     item_description: '', item_category: 'general',
     weight_range: '', dim_l: '', dim_w: '', dim_h: '',
     urgency: 'standard', budget_min: '', budget_max: '', vehicle_required: 'any', special_requirements: '',
@@ -307,8 +307,8 @@ export default function NewJob() {
       setSubmitting(true);
       const jobInsert = {
         client_id: user.id,
-        pickup_address: form.pickup_address, pickup_contact: form.pickup_contact, pickup_phone: form.pickup_phone, pickup_instructions: form.pickup_instructions,
-        delivery_address: form.delivery_address, delivery_contact: form.delivery_contact, delivery_phone: form.delivery_phone, delivery_instructions: form.delivery_instructions,
+        pickup_address: form.pickup_address, pickup_contact: (form.pickup_contact_first.trim() + ' ' + form.pickup_contact_last.trim()).trim(), pickup_phone: form.pickup_phone, pickup_instructions: form.pickup_instructions,
+        delivery_address: form.delivery_address, delivery_contact: (form.delivery_contact_first.trim() + ' ' + form.delivery_contact_last.trim()).trim(), delivery_phone: form.delivery_phone, delivery_instructions: form.delivery_instructions,
         item_description: form.item_description, item_category: form.item_category,
         item_weight: midWeight || null, item_dimensions: dimensions,
         urgency: form.urgency, budget_min: budgetMin, budget_max: budgetMax,
@@ -348,8 +348,8 @@ export default function NewJob() {
         const scheduleBody = {
           schedule_type: form.schedule_mode === 'once' ? 'once' : form.recurrence,
           next_run_at: calculateFirstRun(form),
-          pickup_address: form.pickup_address, pickup_contact: form.pickup_contact, pickup_phone: form.pickup_phone, pickup_instructions: form.pickup_instructions,
-          delivery_address: form.delivery_address, delivery_contact: form.delivery_contact, delivery_phone: form.delivery_phone, delivery_instructions: form.delivery_instructions,
+          pickup_address: form.pickup_address, pickup_contact: (form.pickup_contact_first.trim() + ' ' + form.pickup_contact_last.trim()).trim(), pickup_phone: form.pickup_phone, pickup_instructions: form.pickup_instructions,
+          delivery_address: form.delivery_address, delivery_contact: (form.delivery_contact_first.trim() + ' ' + form.delivery_contact_last.trim()).trim(), delivery_phone: form.delivery_phone, delivery_instructions: form.delivery_instructions,
           item_description: form.item_description, item_category: form.item_category,
           item_weight: form.item_weight, item_dimensions: form.item_dimensions,
           urgency: form.urgency, budget_min: form.budget_min, budget_max: form.budget_max,
@@ -387,8 +387,8 @@ export default function NewJob() {
     setDeliveryCoords(null);
     setZoneWarning(null);
     setForm({
-      pickup_address: '', pickup_contact: '', pickup_phone: '', pickup_instructions: '',
-      delivery_address: '', delivery_contact: '', delivery_phone: '', delivery_instructions: '',
+      pickup_address: '', pickup_contact_first: '', pickup_contact_last: '', pickup_phone: '', pickup_instructions: '',
+      delivery_address: '', delivery_contact_first: '', delivery_contact_last: '', delivery_phone: '', delivery_instructions: '',
       item_description: '', item_category: 'general',
       weight_range: '', dim_l: '', dim_w: '', dim_h: '',
       urgency: 'standard', budget_min: '', budget_max: '', vehicle_required: 'any', special_requirements: '',
@@ -532,8 +532,9 @@ export default function NewJob() {
             <div style={card}>
               <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>📍 Pickup Location</h3>
               <div style={{ marginBottom: '14px' }}><label style={label}>Pickup Address<span style={req}>*</span></label><AddressAutocomplete inputStyle={inputErr('pickup_address')} value={form.pickup_address} onChange={v => set('pickup_address', v)} onSelect={c => setPickupCoords(c)} placeholder="Search address or postal code" /><div style={errText('pickup_address')}>{errors.pickup_address}</div></div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-                <div><label style={label}>Contact Name</label><input style={input} value={form.pickup_contact} onChange={e => set('pickup_contact', e.target.value)} placeholder="Name" /></div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '14px' }}>
+                <div><label style={label}>First Name</label><input style={input} value={form.pickup_contact_first} onChange={e => set('pickup_contact_first', e.target.value)} placeholder="First name" /></div>
+                <div><label style={label}>Last Name</label><input style={input} value={form.pickup_contact_last} onChange={e => set('pickup_contact_last', e.target.value)} placeholder="Last name" /></div>
                 <div><label style={label}>Phone</label><input style={input} value={form.pickup_phone} onChange={e => set('pickup_phone', e.target.value)} placeholder="+65 xxxx xxxx" /></div>
               </div>
               <div style={{ marginTop: '14px' }}><label style={label}>Instructions</label><textarea style={{ ...input, height: '60px', resize: 'vertical' }} value={form.pickup_instructions} onChange={e => set('pickup_instructions', e.target.value)} placeholder="Loading dock, gate code, etc." /></div>
@@ -541,8 +542,9 @@ export default function NewJob() {
             <div style={card}>
               <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>📦 Delivery Location</h3>
               <div style={{ marginBottom: '14px' }}><label style={label}>Delivery Address<span style={req}>*</span></label><AddressAutocomplete inputStyle={inputErr('delivery_address')} value={form.delivery_address} onChange={v => set('delivery_address', v)} onSelect={c => setDeliveryCoords(c)} placeholder="Search address or postal code" /><div style={errText('delivery_address')}>{errors.delivery_address}</div></div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-                <div><label style={label}>Contact Name</label><input style={input} value={form.delivery_contact} onChange={e => set('delivery_contact', e.target.value)} placeholder="Name" /></div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '14px' }}>
+                <div><label style={label}>First Name</label><input style={input} value={form.delivery_contact_first} onChange={e => set('delivery_contact_first', e.target.value)} placeholder="First name" /></div>
+                <div><label style={label}>Last Name</label><input style={input} value={form.delivery_contact_last} onChange={e => set('delivery_contact_last', e.target.value)} placeholder="Last name" /></div>
                 <div><label style={label}>Phone</label><input style={input} value={form.delivery_phone} onChange={e => set('delivery_phone', e.target.value)} placeholder="+65 xxxx xxxx" /></div>
               </div>
               <div style={{ marginTop: '14px' }}><label style={label}>Instructions</label><textarea style={{ ...input, height: '60px', resize: 'vertical' }} value={form.delivery_instructions} onChange={e => set('delivery_instructions', e.target.value)} placeholder="Leave at reception, call on arrival, etc." /></div>
