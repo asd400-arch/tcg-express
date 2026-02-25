@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from './AuthContext';
 import { useToast } from './Toast';
 
-const UnreadMessagesContext = createContext({ unreadByJob: {}, totalUnread: 0, markJobRead: () => {} });
+const UnreadMessagesContext = createContext({ unreadByJob: {}, totalUnread: 0, markJobRead: () => {}, setActiveChat: () => {} });
 
 const STORAGE_KEY = 'tcg_msg_read_at';
 
@@ -36,6 +36,7 @@ export function UnreadMessagesProvider({ children }) {
   const channelRef = useRef(null);
   const toastRef = useRef(toast);
   toastRef.current = toast;
+  const activeChatJobRef = useRef(null);
 
   const userId = user?.id;
   const totalUnread = Object.values(unreadByJob).reduce((a, b) => a + b, 0);
@@ -81,31 +82,36 @@ export function UnreadMessagesProvider({ children }) {
           [msg.job_id]: (prev[msg.job_id] || 0) + 1,
         }));
 
-        // Fetch sender name for notification
-        const { data: sender } = await supabase
-          .from('express_users')
-          .select('contact_name')
-          .eq('id', msg.sender_id)
-          .single();
-        const name = sender?.contact_name || 'Someone';
-        const preview = msg.content?.substring(0, 60) + (msg.content?.length > 60 ? '...' : '');
+        // Skip toast/sound/notification if user is viewing this chat
+        const isActiveChat = activeChatJobRef.current === msg.job_id;
 
-        // Toast
-        toastRef.current?.info(`${name}: ${preview}`);
+        if (!isActiveChat) {
+          // Fetch sender name for notification
+          const { data: sender } = await supabase
+            .from('express_users')
+            .select('contact_name')
+            .eq('id', msg.sender_id)
+            .single();
+          const name = sender?.contact_name || 'Someone';
+          const preview = msg.content?.substring(0, 60) + (msg.content?.length > 60 ? '...' : '');
 
-        // Browser notification
-        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-          try {
-            new Notification(`Message from ${name}`, {
-              body: msg.content?.substring(0, 100),
-              icon: '/icons/icon-192.svg',
-              tag: `msg-${msg.job_id}`,
-            });
-          } catch {}
+          // Toast
+          toastRef.current?.info(`${name}: ${preview}`);
+
+          // Browser notification
+          if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+            try {
+              new Notification(`Message from ${name}`, {
+                body: msg.content?.substring(0, 100),
+                icon: '/icons/icon-192.svg',
+                tag: `msg-${msg.job_id}`,
+              });
+            } catch {}
+          }
+
+          // Sound
+          playNotificationSound();
         }
-
-        // Sound
-        playNotificationSound();
       })
       .subscribe();
 
@@ -132,8 +138,12 @@ export function UnreadMessagesProvider({ children }) {
     });
   }, []);
 
+  const setActiveChat = useCallback((jobId) => {
+    activeChatJobRef.current = jobId;
+  }, []);
+
   return (
-    <UnreadMessagesContext.Provider value={{ unreadByJob, totalUnread, markJobRead }}>
+    <UnreadMessagesContext.Provider value={{ unreadByJob, totalUnread, markJobRead, setActiveChat }}>
       {children}
     </UnreadMessagesContext.Provider>
   );

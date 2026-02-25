@@ -2,16 +2,26 @@
 import { useState, useEffect, useRef } from 'react';
 import { useToast } from './Toast';
 import CallButtons from './CallButtons';
+import { useUnreadMessages } from './UnreadMessagesContext';
 import { supabase } from '../../lib/supabase';
 
 export default function ChatBox({ jobId, userId, receiverId, userRole }) {
   const toast = useToast();
+  const { markJobRead, setActiveChat } = useUnreadMessages();
   const [messages, setMessages] = useState([]);
   const [newMsg, setNewMsg] = useState('');
   const [sending, setSending] = useState(false);
   const [receiver, setReceiver] = useState(null);
   const scrollRef = useRef(null);
   const channelRef = useRef(null);
+
+  // Mark as active chat (suppresses toasts) and clear unread on mount
+  useEffect(() => {
+    if (!jobId) return;
+    setActiveChat(jobId);
+    markJobRead(jobId);
+    return () => setActiveChat(null);
+  }, [jobId, setActiveChat, markJobRead]);
 
   useEffect(() => {
     if (!jobId) return;
@@ -51,12 +61,24 @@ export default function ChatBox({ jobId, userId, receiverId, userRole }) {
 
   const send = async () => {
     if (!newMsg.trim() || !receiverId) return;
+    const content = newMsg.trim();
     setSending(true);
     await supabase.from('express_messages').insert([{
-      job_id: jobId, sender_id: userId, receiver_id: receiverId, content: newMsg.trim(),
+      job_id: jobId, sender_id: userId, receiver_id: receiverId, content,
     }]);
     setNewMsg('');
     setSending(false);
+    // Trigger server-side push notification (fire-and-forget)
+    fetch('/api/messages/push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        receiverId,
+        senderName: receiver?.contact_name || 'Someone',
+        content,
+        jobId,
+      }),
+    }).catch(() => {});
   };
 
   const sendImage = async (e) => {
@@ -75,6 +97,17 @@ export default function ChatBox({ jobId, userId, receiverId, userRole }) {
       content: '📷 Photo', message_type: 'image', attachment_url: result.url,
     }]);
     setSending(false);
+    // Trigger push for image message
+    fetch('/api/messages/push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        receiverId,
+        senderName: receiver?.contact_name || 'Someone',
+        content: '📷 Sent a photo',
+        jobId,
+      }),
+    }).catch(() => {});
   };
 
   const myColor = userRole === 'driver' ? '#10b981' : '#3b82f6';
