@@ -28,15 +28,18 @@ import { Rate, Trend } from 'k6/metrics';
 const BASE_URL = __ENV.BASE_URL || 'https://tcg-express.vercel.app';
 const VUS = parseInt(__ENV.USERS) || 100;
 
-// Test accounts — use beta seed accounts (already in production DB)
-const TEST_CLIENT = {
-  email: __ENV.CLIENT_EMAIL || 'beta-customer1@techchainglobal.com',
-  password: __ENV.CLIENT_PASS || 'Test1234!',
-};
-const TEST_DRIVER = {
-  email: __ENV.DRIVER_EMAIL || 'beta-driver1@techchainglobal.com',
-  password: __ENV.DRIVER_PASS || 'Test1234!',
-};
+// Test accounts — use beta seed accounts (password: Beta2026!)
+const PASSWORD = __ENV.PASSWORD || 'Beta2026!';
+const CLIENTS = [
+  { email: 'beta-customer1@techchainglobal.com', password: PASSWORD },
+  { email: 'beta-customer2@techchainglobal.com', password: PASSWORD },
+  { email: 'beta-customer3@techchainglobal.com', password: PASSWORD },
+];
+const DRIVERS = [
+  { email: 'beta-driver1@techchainglobal.com', password: PASSWORD },
+  { email: 'beta-driver2@techchainglobal.com', password: PASSWORD },
+  { email: 'beta-driver3@techchainglobal.com', password: PASSWORD },
+];
 
 // ---------------------------------------------------------------------------
 // Thresholds & metrics
@@ -168,10 +171,13 @@ function authHeaders(token) {
 
 export function loginScenario() {
   group('Login Stress', () => {
+    // Rotate across all accounts to avoid per-email rate limit (10/min)
+    const allAccounts = [...CLIENTS, ...DRIVERS];
+    const account = allAccounts[__VU % allAccounts.length];
     const start = Date.now();
     const res = http.post(
       `${BASE_URL}/api/auth/login`,
-      JSON.stringify({ email: TEST_CLIENT.email, password: TEST_CLIENT.password }),
+      JSON.stringify({ email: account.email, password: account.password }),
       { headers: jsonHeaders, tags: { name: 'login' } }
     );
     loginDuration.add(Date.now() - start);
@@ -183,12 +189,13 @@ export function loginScenario() {
     });
     errorRate.add(!ok);
   });
-  sleep(1 + Math.random() * 2); // 1-3 s between attempts
+  sleep(3 + Math.random() * 4); // 3-7 s between attempts (stay under 10/min/email)
 }
 
 export function jobListingScenario() {
-  const token = login(TEST_CLIENT.email, TEST_CLIENT.password);
-  if (!token) { sleep(2); return; }
+  const client = CLIENTS[__VU % CLIENTS.length];
+  const token = login(client.email, client.password);
+  if (!token) { sleep(5); return; }
 
   group('Job Listing', () => {
     for (let i = 0; i < 5; i++) {
@@ -211,8 +218,9 @@ export function jobListingScenario() {
 }
 
 export function bidScenario() {
-  const token = login(TEST_DRIVER.email, TEST_DRIVER.password);
-  if (!token) { sleep(2); return; }
+  const driver = DRIVERS[__VU % DRIVERS.length];
+  const token = login(driver.email, driver.password);
+  if (!token) { sleep(5); return; }
 
   group('Bid Submission', () => {
     // First get an open job to bid on
@@ -269,8 +277,9 @@ export function bidScenario() {
 }
 
 export function gpsScenario() {
-  const token = login(TEST_DRIVER.email, TEST_DRIVER.password);
-  if (!token) { sleep(2); return; }
+  const driver = DRIVERS[__VU % DRIVERS.length];
+  const token = login(driver.email, driver.password);
+  if (!token) { sleep(5); return; }
 
   group('GPS Broadcast', () => {
     // Simulate GPS updates every 3 s for a job
@@ -301,8 +310,9 @@ export function gpsScenario() {
 }
 
 export function walletScenario() {
-  const token = login(TEST_CLIENT.email, TEST_CLIENT.password);
-  if (!token) { sleep(2); return; }
+  const client = CLIENTS[__VU % CLIENTS.length];
+  const token = login(client.email, client.password);
+  if (!token) { sleep(5); return; }
 
   group('Wallet Check', () => {
     for (let i = 0; i < 5; i++) {
@@ -325,8 +335,9 @@ export function walletScenario() {
 }
 
 export function pushScenario() {
-  const token = login(TEST_CLIENT.email, TEST_CLIENT.password);
-  if (!token) { sleep(2); return; }
+  const client = CLIENTS[__VU % CLIENTS.length];
+  const token = login(client.email, client.password);
+  if (!token) { sleep(5); return; }
 
   group('Message Push', () => {
     for (let i = 0; i < 3; i++) {
