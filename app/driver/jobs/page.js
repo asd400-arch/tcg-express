@@ -63,6 +63,9 @@ export default function DriverJobs() {
   const [bidErrors, setBidErrors] = useState({});
   const [accepting, setAccepting] = useState(null);
   const [myBids, setMyBids] = useState({});
+  const [equipmentCharges, setEquipmentCharges] = useState([]);
+  const [customEquipName, setCustomEquipName] = useState('');
+  const [customEquipAmount, setCustomEquipAmount] = useState('');
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -105,6 +108,7 @@ export default function DriverJobs() {
           job_id: selectedJob.id,
           amount: parseFloat(bidAmount),
           message: bidMsg || null,
+          equipment_charges: equipmentCharges.length > 0 ? equipmentCharges : null,
         }),
       });
       const result = await res.json();
@@ -115,7 +119,7 @@ export default function DriverJobs() {
         return;
       }
       toast.success('Bid submitted!');
-      setBidding(false); setSelectedJob(null); setBidAmount(''); setBidMsg(''); setBidErrors({});
+      setBidding(false); setSelectedJob(null); setBidAmount(''); setBidMsg(''); setBidErrors({}); setEquipmentCharges([]); setCustomEquipName(''); setCustomEquipAmount('');
       loadData();
     } catch (e) {
       toast.error('Failed to submit bid');
@@ -213,6 +217,71 @@ export default function DriverJobs() {
                 <label style={{ fontSize: '13px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>Message</label>
                 <textarea style={{ ...input, height: '60px', resize: 'vertical' }} value={bidMsg} onChange={e => setBidMsg(e.target.value)} placeholder="Why should they choose you?" />
               </div>
+
+              {/* Special Equipment Charges */}
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ fontSize: '13px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '8px' }}>Special Equipment (optional)</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '8px' }}>
+                  {[
+                    { name: 'Pallet Jack', amount: 50 },
+                    { name: 'Lift Truck', amount: 80 },
+                    { name: 'Crane', amount: 150 },
+                  ].map(eq => {
+                    const isSelected = equipmentCharges.some(e => e.name === eq.name);
+                    return (
+                      <label key={eq.name} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', padding: '8px 12px', borderRadius: '8px', background: isSelected ? '#f0fdf4' : '#f8fafc', border: `1px solid ${isSelected ? '#86efac' : '#e2e8f0'}` }}>
+                        <input type="checkbox" checked={isSelected} onChange={() => {
+                          setEquipmentCharges(prev =>
+                            isSelected ? prev.filter(e => e.name !== eq.name) : [...prev, { name: eq.name, amount: eq.amount }]
+                          );
+                        }} style={{ accentColor: '#10b981' }} />
+                        <span style={{ fontSize: '13px', color: '#1e293b', flex: 1 }}>{eq.name}</span>
+                        <span style={{ fontSize: '13px', fontWeight: '700', color: '#059669' }}>${eq.amount}</span>
+                      </label>
+                    );
+                  })}
+                  {/* Other custom equipment */}
+                  <div style={{ padding: '8px 12px', borderRadius: '8px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '6px' }}>Other equipment</div>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <input type="text" placeholder="Name" value={customEquipName} onChange={e => setCustomEquipName(e.target.value)} style={{ ...input, flex: 2, padding: '8px 10px', fontSize: '13px' }} />
+                      <input type="number" placeholder="$" value={customEquipAmount} onChange={e => setCustomEquipAmount(e.target.value)} style={{ ...input, flex: 1, padding: '8px 10px', fontSize: '13px' }} />
+                      <button type="button" onClick={() => {
+                        if (customEquipName.trim() && parseFloat(customEquipAmount) > 0) {
+                          setEquipmentCharges(prev => [...prev, { name: customEquipName.trim(), amount: parseFloat(customEquipAmount) }]);
+                          setCustomEquipName(''); setCustomEquipAmount('');
+                        }
+                      }} style={{ padding: '8px 12px', borderRadius: '8px', border: 'none', background: '#3b82f6', color: 'white', fontSize: '13px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' }}>Add</button>
+                    </div>
+                  </div>
+                  {/* Show custom items added */}
+                  {equipmentCharges.filter(e => !['Pallet Jack', 'Lift Truck', 'Crane'].includes(e.name)).map((eq, i) => (
+                    <div key={`custom-${i}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '8px', background: '#f0fdf4', border: '1px solid #86efac' }}>
+                      <span style={{ fontSize: '13px', color: '#1e293b', flex: 1 }}>{eq.name}</span>
+                      <span style={{ fontSize: '13px', fontWeight: '700', color: '#059669' }}>${eq.amount}</span>
+                      <span onClick={() => setEquipmentCharges(prev => prev.filter((_, idx) => idx !== prev.indexOf(eq)))} style={{ cursor: 'pointer', color: '#ef4444', fontSize: '14px' }}>✕</span>
+                    </div>
+                  ))}
+                </div>
+                {/* Running total */}
+                {equipmentCharges.length > 0 && bidAmount && (
+                  <div style={{ padding: '10px 12px', borderRadius: '8px', background: '#fffbeb', border: '1px solid #fde68a', fontSize: '13px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span style={{ color: '#64748b' }}>Bid</span>
+                      <span style={{ color: '#1e293b', fontWeight: '600' }}>${parseFloat(bidAmount).toFixed(2)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span style={{ color: '#64748b' }}>Equipment</span>
+                      <span style={{ color: '#1e293b', fontWeight: '600' }}>${equipmentCharges.reduce((s, e) => s + e.amount, 0).toFixed(2)}</span>
+                    </div>
+                    <div style={{ borderTop: '1px solid #fde68a', paddingTop: '4px', display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: '#92400e', fontWeight: '700' }}>Total</span>
+                      <span style={{ color: '#92400e', fontWeight: '800' }}>${(parseFloat(bidAmount) + equipmentCharges.reduce((s, e) => s + e.amount, 0)).toFixed(2)}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <button onClick={submitBid} disabled={bidding} style={{ width: '100%', padding: '13px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontSize: '15px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif", opacity: bidding ? 0.7 : 1 }}>{bidding ? 'Submitting...' : 'Submit Bid'}</button>
             </div>
           </div>

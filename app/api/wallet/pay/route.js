@@ -87,6 +87,9 @@ export async function POST(request) {
 
     if (rpcErr) {
       const msg = rpcErr.message || '';
+      if (msg.includes('Job not found')) {
+        console.error('Wallet pay — Job not found in RPC:', { jobId, bidId, userId: session.userId, rpcError: msg });
+      }
       if (msg.includes('Insufficient balance')) {
         // Extract amounts from error message
         const match = msg.match(/Available: ([0-9.]+), Required: ([0-9.]+)/);

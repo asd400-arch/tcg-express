@@ -71,6 +71,26 @@ export async function POST(request) {
     const amount = amountCheck.value;
     const message = cleanString(body.message, 500);
 
+    // Validate equipment_charges if provided
+    let equipment_charges = null;
+    if (body.equipment_charges && Array.isArray(body.equipment_charges) && body.equipment_charges.length > 0) {
+      if (body.equipment_charges.length > 10) {
+        return NextResponse.json({ error: 'Maximum 10 equipment charges allowed' }, { status: 400 });
+      }
+      for (const item of body.equipment_charges) {
+        if (!item.name || typeof item.name !== 'string' || item.name.trim().length === 0) {
+          return NextResponse.json({ error: 'Each equipment charge must have a name' }, { status: 400 });
+        }
+        if (typeof item.amount !== 'number' || item.amount <= 0 || item.amount > 10000) {
+          return NextResponse.json({ error: 'Each equipment charge amount must be between $0 and $10,000' }, { status: 400 });
+        }
+      }
+      equipment_charges = body.equipment_charges.map(item => ({
+        name: item.name.trim().substring(0, 100),
+        amount: parseFloat(item.amount.toFixed(2)),
+      }));
+    }
+
     // Fetch driver name for notification
     const { data: driverInfo } = await supabaseAdmin
       .from('express_users')
@@ -131,6 +151,7 @@ export async function POST(request) {
           .update({
             amount: parseFloat(amount),
             message: message || null,
+            equipment_charges: equipment_charges || [],
             status: 'pending',
             created_at: new Date().toISOString(),
           })
@@ -167,6 +188,7 @@ export async function POST(request) {
         driver_id: session.userId,
         amount: parseFloat(amount),
         message: message || null,
+        equipment_charges: equipment_charges || [],
         status: 'pending',
       }])
       .select()

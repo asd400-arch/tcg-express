@@ -1,8 +1,17 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../lib/supabase-server';
 import { getSession, requireAuth } from '../../../lib/auth';
-import { VALID_VEHICLE_KEYS } from '../../../lib/fares';
+import { VALID_VEHICLE_KEYS, getVehicleModeIndex, normalizeVehicleKey } from '../../../lib/fares';
 import { findMatchingZones, calculateZoneSurcharge, isInRestrictedZone } from '../../../lib/geo';
+import { sendPushToUser } from '../../../lib/web-push';
+
+function getAreaFromAddress(addr) {
+  if (!addr) return '';
+  const parts = addr.split(',').map(p => p.trim());
+  if (parts.length >= 3) return parts[parts.length - 2];
+  if (parts.length === 2) return parts[0];
+  return addr.length > 35 ? addr.slice(0, 32) + '...' : addr;
+}
 
 export async function GET(request) {
   try {
@@ -180,12 +189,26 @@ export async function POST(request) {
     try {
       const { data: drivers } = await supabaseAdmin
         .from('express_users')
-        .select('id')
+        .select('id, vehicle_type')
         .eq('role', 'driver')
         .eq('is_active', true);
 
       if (drivers && drivers.length > 0) {
-        const notifications = drivers.map(d => ({
+        // Filter drivers by vehicle fit if job requires specific vehicle
+        const jobVehicle = jobData.vehicle_required;
+        const eligibleDrivers = (!jobVehicle || jobVehicle === 'any')
+          ? drivers
+          : drivers.filter(d => {
+              const driverKey = normalizeVehicleKey(d.vehicle_type);
+              const jobKey = normalizeVehicleKey(jobVehicle);
+              const driverIdx = getVehicleModeIndex(driverKey);
+              const jobIdx = getVehicleModeIndex(jobKey);
+              if (driverIdx < 0 || jobIdx < 0) return true;
+              return driverIdx >= jobIdx;
+            });
+
+        // In-app notifications
+        const notifications = eligibleDrivers.map(d => ({
           user_id: d.id,
           type: 'new_job',
           title: `New Job: ${itemDescription.substring(0, 60)}`,
@@ -194,6 +217,21 @@ export async function POST(request) {
           is_read: false,
         }));
         await supabaseAdmin.from('express_notifications').insert(notifications);
+
+        // Push notifications (fire-and-forget)
+        const pickupArea = getAreaFromAddress(jobData.pickup_address);
+        const deliveryArea = getAreaFromAddress(jobData.delivery_address);
+        const budgetStr = jobData.budget_min ? `$${jobData.budget_min}` : (jobData.budget_max ? `$${jobData.budget_max}` : '');
+        const pushBody = `New job: ${data.job_number} - ${pickupArea} → ${deliveryArea}${budgetStr ? ` - ${budgetStr}` : ''}`;
+        Promise.allSettled(
+          eligibleDrivers.map(d =>
+            sendPushToUser(d.id, {
+              title: 'New Job Available',
+              body: pushBody,
+              url: '/driver/jobs',
+            })
+          )
+        ).catch(() => {});
       }
     } catch {
       // Don't fail the job creation if notifications fail

@@ -29,7 +29,10 @@ export async function POST(request, { params }) {
       .eq('id', bid.job_id)
       .single();
 
-    if (jobErr || !job) return NextResponse.json({ error: 'Job not found' }, { status: 404 });
+    if (jobErr || !job) {
+      console.error('Accept bid — Job not found:', { bidId: id, jobIdFromBid: bid.job_id, jobErr: jobErr?.message, jobData: job, bidDetails: { id: bid.id, status: bid.status, driver_id: bid.driver_id, amount: bid.amount } });
+      return NextResponse.json({ error: 'Job not found' }, { status: 404 });
+    }
     if (job.client_id !== session.userId) return NextResponse.json({ error: 'Not your job' }, { status: 403 });
     if (!['open', 'bidding'].includes(job.status)) {
       return NextResponse.json({ error: 'Job is no longer accepting bids' }, { status: 400 });

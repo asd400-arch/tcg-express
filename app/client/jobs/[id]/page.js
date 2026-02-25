@@ -459,7 +459,19 @@ export default function ClientJobDetail({ params }) {
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '20px', fontWeight: '800', color: '#059669' }}>${bid.amount}</div>
+                      {bid.equipment_charges && bid.equipment_charges.length > 0 ? (
+                        <div>
+                          <div style={{ fontSize: '13px', color: '#64748b' }}>Bid: ${parseFloat(bid.amount).toFixed(2)}</div>
+                          {bid.equipment_charges.map((eq, i) => (
+                            <div key={i} style={{ fontSize: '12px', color: '#64748b' }}>+ {eq.name}: ${parseFloat(eq.amount).toFixed(2)}</div>
+                          ))}
+                          <div style={{ borderTop: '1px solid #e2e8f0', marginTop: '4px', paddingTop: '4px', fontSize: '20px', fontWeight: '800', color: '#059669' }}>
+                            ${(parseFloat(bid.amount) + bid.equipment_charges.reduce((s, e) => s + parseFloat(e.amount), 0)).toFixed(2)}
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: '20px', fontWeight: '800', color: '#059669' }}>${bid.amount}</div>
+                      )}
                       {bid.estimated_time && <div style={{ fontSize: '12px', color: '#64748b' }}>⏱ {bid.estimated_time}</div>}
                     </div>
                   </div>
