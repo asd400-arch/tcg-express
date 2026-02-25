@@ -22,11 +22,15 @@ export default function Signup() {
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [termsHighlightSection, setTermsHighlightSection] = useState(null);
   const [showLiabilityModal, setShowLiabilityModal] = useState(false);
+  const [errors, setErrors] = useState({});
 
-  const set = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
-  const setFile = (k, file) => setFiles(prev => ({ ...prev, [k]: file }));
+  const set = (k, v) => { setForm(prev => ({ ...prev, [k]: v })); setErrors(prev => { const n = { ...prev }; delete n[k]; return n; }); };
+  const setFile = (k, file) => { setFiles(prev => ({ ...prev, [k]: file })); setErrors(prev => { const n = { ...prev }; delete n[k]; return n; }); };
+  const inputStyle = (field) => ({ width: '100%', padding: '12px 16px', borderRadius: '10px', fontSize: '14px', background: '#f8fafc', border: errors[field] ? '1.5px solid #ef4444' : '1px solid #e2e8f0', color: '#1e293b', outline: 'none', fontFamily: "'Inter', sans-serif", boxSizing: 'border-box' });
   const input = { width: '100%', padding: '12px 16px', borderRadius: '10px', fontSize: '14px', background: '#f8fafc', border: '1px solid #e2e8f0', color: '#1e293b', outline: 'none', fontFamily: "'Inter', sans-serif", boxSizing: 'border-box' };
   const label = { fontSize: '13px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' };
+  const errText = (field) => errors[field] ? { fontSize: '11px', color: '#ef4444', marginTop: '4px' } : { display: 'none' };
+  const req = { color: '#ef4444', marginLeft: '2px' };
   const sectionTitle = { fontSize: '14px', fontWeight: '700', color: '#1e293b', marginBottom: '12px', paddingBottom: '8px', borderBottom: '1px solid #f1f5f9' };
 
   const uploadFile = async (file, userId, docType) => {
@@ -43,15 +47,36 @@ export default function Signup() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    if (form.password !== form.confirm) { setError('Passwords do not match'); return; }
-    if (form.password.length < 6) { setError('Password must be at least 6 characters'); return; }
-
-    // Validate required files for drivers
+    const errs = {};
+    if (!form.first_name.trim()) errs.first_name = 'First name is required';
+    if (!form.last_name.trim()) errs.last_name = 'Last name is required';
+    if (!form.phone.trim()) errs.phone = 'Phone number is required';
+    if (!form.email.trim()) errs.email = 'Email is required';
+    else if (!/\S+@\S+\.\S+/.test(form.email)) errs.email = 'Invalid email address';
+    if (!form.password) errs.password = 'Password is required';
+    else if (form.password.length < 6) errs.password = 'Min 6 characters';
+    if (!form.confirm) errs.confirm = 'Please confirm password';
+    else if (form.password !== form.confirm) errs.confirm = 'Passwords do not match';
+    if (role === 'client' && !form.company_name.trim()) errs.company_name = 'Company name is required';
     if (role === 'driver') {
-      if (!files.nric_front || !files.nric_back) { setError('Please upload NRIC front and back photos'); return; }
-      if (!files.license_photo) { setError('Please upload your license photo'); return; }
-      if (!files.vehicle_insurance) { setError('Please upload your vehicle insurance document'); return; }
-      if (driverType === 'company' && !files.business_reg_cert) { setError('Please upload your business registration certificate'); return; }
+      if (!form.nric_number.trim()) errs.nric_number = 'NRIC number is required';
+      if (!form.vehicle_type) errs.vehicle_type = 'Select a vehicle type';
+      if (!form.vehicle_plate.trim()) errs.vehicle_plate = 'Plate number is required';
+      if (!form.license_number.trim()) errs.license_number = 'License number is required';
+      if (!files.nric_front) errs.nric_front = 'Required';
+      if (!files.nric_back) errs.nric_back = 'Required';
+      if (!files.license_photo) errs.license_photo = 'Required';
+      if (!files.vehicle_insurance) errs.vehicle_insurance = 'Required';
+      if (driverType === 'company') {
+        if (!form.company_name.trim()) errs.company_name = 'Company name is required';
+        if (!form.business_reg_number.trim()) errs.business_reg_number = 'Business reg number is required';
+        if (!files.business_reg_cert) errs.business_reg_cert = 'Required';
+      }
+    }
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      setError('Please fix the highlighted fields');
+      return;
     }
 
     setLoading(true);
@@ -113,15 +138,15 @@ export default function Signup() {
 
   const FileInput = ({ id, label: labelText, accept, required }) => (
     <div style={{ flex: 1, minWidth: '180px' }}>
-      <label style={label}>{labelText} {required && '*'}</label>
+      <label style={label}>{labelText} {required && <span style={req}>*</span>}</label>
       <label htmlFor={id} style={{
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        padding: '16px 12px', borderRadius: '10px', border: '2px dashed #cbd5e1', background: files[id] ? '#f0fdf4' : '#f8fafc',
+        padding: '16px 12px', borderRadius: '10px', border: errors[id] ? '2px dashed #ef4444' : '2px dashed #cbd5e1', background: files[id] ? '#f0fdf4' : '#f8fafc',
         cursor: 'pointer', transition: 'all 0.2s', minHeight: '60px',
       }}>
         <span style={{ fontSize: '20px', marginBottom: '4px' }}>{files[id] ? '✅' : '📄'}</span>
-        <span style={{ fontSize: '12px', color: files[id] ? '#16a34a' : '#64748b', textAlign: 'center', wordBreak: 'break-all' }}>
-          {files[id] ? files[id].name : 'Click to upload'}
+        <span style={{ fontSize: '12px', color: files[id] ? '#16a34a' : errors[id] ? '#ef4444' : '#64748b', textAlign: 'center', wordBreak: 'break-all' }}>
+          {files[id] ? files[id].name : errors[id] || 'Click to upload'}
         </span>
       </label>
       <input id={id} type="file" accept={accept || 'image/*,.pdf'} style={{ display: 'none' }} onChange={e => { if (e.target.files[0]) setFile(id, e.target.files[0]); }} />
@@ -217,22 +242,26 @@ export default function Signup() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 <div style={{ display: 'flex', gap: '14px' }}>
                   <div style={{ flex: 1 }}>
-                    <label style={label}>First Name *</label>
-                    <input style={input} value={form.first_name} onChange={e => set('first_name', e.target.value)} placeholder="First name" required />
+                    <label style={label}>First Name<span style={req}>*</span></label>
+                    <input style={inputStyle('first_name')} value={form.first_name} onChange={e => set('first_name', e.target.value)} placeholder="First name" />
+                    <div style={errText('first_name')}>{errors.first_name}</div>
                   </div>
                   <div style={{ flex: 1 }}>
-                    <label style={label}>Last Name *</label>
-                    <input style={input} value={form.last_name} onChange={e => set('last_name', e.target.value)} placeholder="Last name" required />
+                    <label style={label}>Last Name<span style={req}>*</span></label>
+                    <input style={inputStyle('last_name')} value={form.last_name} onChange={e => set('last_name', e.target.value)} placeholder="Last name" />
+                    <div style={errText('last_name')}>{errors.last_name}</div>
                   </div>
                 </div>
                 <div>
-                  <label style={label}>Phone *</label>
-                  <input style={input} value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="+65 xxxx xxxx" required />
+                  <label style={label}>Phone<span style={req}>*</span></label>
+                  <input style={inputStyle('phone')} value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="+65 xxxx xxxx" />
+                  <div style={errText('phone')}>{errors.phone}</div>
                 </div>
                 {role === 'driver' && (
                   <div>
-                    <label style={label}>NRIC Number *</label>
-                    <input style={input} value={form.nric_number} onChange={e => set('nric_number', e.target.value)} placeholder="S1234567D" required />
+                    <label style={label}>NRIC Number<span style={req}>*</span></label>
+                    <input style={inputStyle('nric_number')} value={form.nric_number} onChange={e => set('nric_number', e.target.value)} placeholder="S1234567D" />
+                    <div style={errText('nric_number')}>{errors.nric_number}</div>
                   </div>
                 )}
               </div>
@@ -241,8 +270,9 @@ export default function Signup() {
             {/* Client-specific: Company */}
             {role === 'client' && (
               <div>
-                <label style={label}>Company Name *</label>
-                <input style={input} value={form.company_name} onChange={e => set('company_name', e.target.value)} placeholder="Your company" required />
+                <label style={label}>Company Name<span style={req}>*</span></label>
+                <input style={inputStyle('company_name')} value={form.company_name} onChange={e => set('company_name', e.target.value)} placeholder="Your company" />
+                <div style={errText('company_name')}>{errors.company_name}</div>
               </div>
             )}
 
@@ -253,22 +283,25 @@ export default function Signup() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   <div style={{ display: 'flex', gap: '14px' }}>
                     <div style={{ flex: 1 }}>
-                      <label style={label}>Vehicle Type *</label>
-                      <select style={input} value={form.vehicle_type} onChange={e => set('vehicle_type', e.target.value)} required>
+                      <label style={label}>Vehicle Type<span style={req}>*</span></label>
+                      <select style={inputStyle('vehicle_type')} value={form.vehicle_type} onChange={e => set('vehicle_type', e.target.value)}>
                         <option value="">Select</option>
                         {VEHICLE_MODES.filter(v => v.key !== 'special').map(v => (
                           <option key={v.key} value={v.key}>{v.icon} {v.label}</option>
                         ))}
                       </select>
+                      <div style={errText('vehicle_type')}>{errors.vehicle_type}</div>
                     </div>
                     <div style={{ flex: 1 }}>
-                      <label style={label}>Plate Number *</label>
-                      <input style={input} value={form.vehicle_plate} onChange={e => set('vehicle_plate', e.target.value)} placeholder="SGX1234A" required />
+                      <label style={label}>Plate Number<span style={req}>*</span></label>
+                      <input style={inputStyle('vehicle_plate')} value={form.vehicle_plate} onChange={e => set('vehicle_plate', e.target.value)} placeholder="SGX1234A" />
+                      <div style={errText('vehicle_plate')}>{errors.vehicle_plate}</div>
                     </div>
                   </div>
                   <div>
-                    <label style={label}>License Number *</label>
-                    <input style={input} value={form.license_number} onChange={e => set('license_number', e.target.value)} placeholder="License number" required />
+                    <label style={label}>License Number<span style={req}>*</span></label>
+                    <input style={inputStyle('license_number')} value={form.license_number} onChange={e => set('license_number', e.target.value)} placeholder="License number" />
+                    <div style={errText('license_number')}>{errors.license_number}</div>
                   </div>
                   <div style={{ padding: '14px', borderRadius: '10px', background: form.is_ev_vehicle ? '#f0fdf4' : '#f8fafc', border: form.is_ev_vehicle ? '1px solid #86efac' : '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -298,12 +331,14 @@ export default function Signup() {
                 <h3 style={sectionTitle}>Company Details</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   <div>
-                    <label style={label}>Company Name *</label>
-                    <input style={input} value={form.company_name} onChange={e => set('company_name', e.target.value)} placeholder="Your company name" required />
+                    <label style={label}>Company Name<span style={req}>*</span></label>
+                    <input style={inputStyle('company_name')} value={form.company_name} onChange={e => set('company_name', e.target.value)} placeholder="Your company name" />
+                    <div style={errText('company_name')}>{errors.company_name}</div>
                   </div>
                   <div>
-                    <label style={label}>Business Registration Number *</label>
-                    <input style={input} value={form.business_reg_number} onChange={e => set('business_reg_number', e.target.value)} placeholder="e.g. 201912345A" required />
+                    <label style={label}>Business Registration Number<span style={req}>*</span></label>
+                    <input style={inputStyle('business_reg_number')} value={form.business_reg_number} onChange={e => set('business_reg_number', e.target.value)} placeholder="e.g. 201912345A" />
+                    <div style={errText('business_reg_number')}>{errors.business_reg_number}</div>
                   </div>
                 </div>
               </div>
@@ -331,17 +366,20 @@ export default function Signup() {
               <h3 style={sectionTitle}>Account Credentials</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 <div>
-                  <label style={label}>Email *</label>
-                  <input type="email" style={input} value={form.email} onChange={e => set('email', e.target.value)} placeholder="your@email.com" required />
+                  <label style={label}>Email<span style={req}>*</span></label>
+                  <input type="email" style={inputStyle('email')} value={form.email} onChange={e => set('email', e.target.value)} placeholder="your@email.com" />
+                  <div style={errText('email')}>{errors.email}</div>
                 </div>
                 <div style={{ display: 'flex', gap: '14px' }}>
                   <div style={{ flex: 1 }}>
-                    <label style={label}>Password *</label>
-                    <input type="password" style={input} value={form.password} onChange={e => set('password', e.target.value)} placeholder="Min 6 chars" required />
+                    <label style={label}>Password<span style={req}>*</span></label>
+                    <input type="password" style={inputStyle('password')} value={form.password} onChange={e => set('password', e.target.value)} placeholder="Min 6 chars" />
+                    <div style={errText('password')}>{errors.password}</div>
                   </div>
                   <div style={{ flex: 1 }}>
-                    <label style={label}>Confirm *</label>
-                    <input type="password" style={input} value={form.confirm} onChange={e => set('confirm', e.target.value)} placeholder="Re-enter" required />
+                    <label style={label}>Confirm<span style={req}>*</span></label>
+                    <input type="password" style={inputStyle('confirm')} value={form.confirm} onChange={e => set('confirm', e.target.value)} placeholder="Re-enter" />
+                    <div style={errText('confirm')}>{errors.confirm}</div>
                   </div>
                 </div>
               </div>

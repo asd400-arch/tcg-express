@@ -19,6 +19,7 @@ export default function CorpPremiumPage() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [showNdaModal, setShowNdaModal] = useState(false);
+  const [errors, setErrors] = useState({});
   const [form, setForm] = useState({
     title: '', description: '', start_date: '', end_date: '', estimated_budget: '',
     locations: [{ type: 'pickup', address: '', contact: '', phone: '' }],
@@ -31,7 +32,7 @@ export default function CorpPremiumPage() {
     if (!loading && user && user.role !== 'client') router.push('/');
   }, [user, loading]);
 
-  const set = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
+  const set = (k, v) => { setForm(prev => ({ ...prev, [k]: v })); setErrors(prev => { const n = { ...prev }; delete n[k]; return n; }); };
 
   const addLocation = (type) => {
     setForm(prev => ({ ...prev, locations: [...prev.locations, { type, address: '', contact: '', phone: '' }] }));
@@ -48,6 +49,9 @@ export default function CorpPremiumPage() {
   };
 
   const handleSubmit = async () => {
+    const errs = {};
+    if (!form.title.trim()) errs.title = 'Project title is required';
+    if (Object.keys(errs).length > 0) { setErrors(errs); toast.error('Please fill in all required fields'); return; }
     if (!form.nda_accepted) { toast.error('Please accept the NDA before submitting'); return; }
     setSubmitting(true);
     try {
@@ -69,7 +73,10 @@ export default function CorpPremiumPage() {
 
   const card = { background: 'white', borderRadius: '14px', padding: m ? '20px' : '28px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9', marginBottom: '20px' };
   const input = { width: '100%', padding: '12px 16px', borderRadius: '10px', fontSize: '14px', background: '#f8fafc', border: '1px solid #e2e8f0', color: '#1e293b', outline: 'none', fontFamily: "'Inter', sans-serif", boxSizing: 'border-box' };
+  const inputErr = (field) => ({ ...input, border: errors[field] ? '1.5px solid #ef4444' : '1px solid #e2e8f0' });
   const label = { fontSize: '13px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' };
+  const errText = (field) => errors[field] ? { fontSize: '11px', color: '#ef4444', marginTop: '4px' } : { display: 'none' };
+  const req = { color: '#ef4444', marginLeft: '2px' };
   const btnPrimary = { padding: '13px 32px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #8b5cf6, #6d28d9)', color: 'white', fontSize: '15px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" };
   const btnBack = { padding: '13px 24px', borderRadius: '10px', border: '1px solid #e2e8f0', background: 'white', color: '#64748b', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" };
 
@@ -111,7 +118,7 @@ export default function CorpPremiumPage() {
           <div>
             <div style={card}>
               <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>📋 Project Details</h3>
-              <div style={{ marginBottom: '14px' }}><label style={label}>Project Title *</label><input style={input} value={form.title} onChange={e => set('title', e.target.value)} placeholder="e.g., Monthly warehouse distribution" /></div>
+              <div style={{ marginBottom: '14px' }}><label style={label}>Project Title<span style={req}>*</span></label><input style={inputErr('title')} value={form.title} onChange={e => set('title', e.target.value)} placeholder="e.g., Monthly warehouse distribution" /><div style={errText('title')}>{errors.title}</div></div>
               <div style={{ marginBottom: '14px' }}><label style={label}>Description</label><textarea style={{ ...input, height: '80px', resize: 'vertical' }} value={form.description} onChange={e => set('description', e.target.value)} placeholder="Describe the project scope, frequency, and any special handling needs" /></div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
                 <div><label style={label}>Start Date</label><input type="date" style={input} value={form.start_date} onChange={e => set('start_date', e.target.value)} /></div>
@@ -119,7 +126,7 @@ export default function CorpPremiumPage() {
               </div>
               <div><label style={label}>Estimated Monthly Budget ($)</label><input type="number" style={input} value={form.estimated_budget} onChange={e => set('estimated_budget', e.target.value)} placeholder="e.g., 5000" /></div>
             </div>
-            <button onClick={() => { if (form.title) setStep(2); }} style={btnPrimary}>Next →</button>
+            <button onClick={() => { if (!form.title.trim()) { setErrors({ title: 'Project title is required' }); toast.error('Please enter a project title'); return; } setStep(2); }} style={btnPrimary}>Next →</button>
           </div>
         )}
 

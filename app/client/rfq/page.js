@@ -35,6 +35,7 @@ export default function RFQPage() {
   const [files, setFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [showNdaModal, setShowNdaModal] = useState(false);
+  const [errors, setErrors] = useState({});
   const [form, setForm] = useState({
     title: '', description: '', duration: '3_months',
     estimated_volume: '', pickup_regions: '', delivery_regions: '',
@@ -58,7 +59,7 @@ export default function RFQPage() {
     setQuotesLoading(false);
   };
 
-  const set = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
+  const set = (k, v) => { setForm(prev => ({ ...prev, [k]: v })); setErrors(prev => { const n = { ...prev }; delete n[k]; return n; }); };
 
   const handleFileUpload = async (e) => {
     const selected = Array.from(e.target.files || []);
@@ -90,7 +91,10 @@ export default function RFQPage() {
   const removeFile = (idx) => setFiles(prev => prev.filter((_, i) => i !== idx));
 
   const handleSubmit = async () => {
-    if (!form.title || !form.description) { toast.error('Title and description are required'); return; }
+    const errs = {};
+    if (!form.title.trim()) errs.title = 'Project title is required';
+    if (!form.description.trim()) errs.description = 'Description is required';
+    if (Object.keys(errs).length > 0) { setErrors(errs); toast.error('Please fill in all required fields'); return; }
     if (!ndaAccepted) { toast.error('Please accept the NDA agreement'); return; }
 
     setSubmitting(true);
@@ -125,7 +129,10 @@ export default function RFQPage() {
 
   const card = { background: 'white', borderRadius: '14px', padding: m ? '20px' : '28px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9', marginBottom: '20px' };
   const input = { width: '100%', padding: '12px 16px', borderRadius: '10px', fontSize: '14px', background: '#f8fafc', border: '1px solid #e2e8f0', color: '#1e293b', outline: 'none', fontFamily: "'Inter', sans-serif", boxSizing: 'border-box' };
+  const inputErr = (field) => ({ ...input, border: errors[field] ? '1.5px solid #ef4444' : '1px solid #e2e8f0' });
   const label = { fontSize: '13px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' };
+  const errText = (field) => errors[field] ? { fontSize: '11px', color: '#ef4444', marginTop: '4px' } : { display: 'none' };
+  const req = { color: '#ef4444', marginLeft: '2px' };
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>
@@ -155,8 +162,8 @@ export default function RFQPage() {
           <>
             <div style={card}>
               <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>Project Details</h3>
-              <div style={{ marginBottom: '14px' }}><label style={label}>Project Title *</label><input style={input} value={form.title} onChange={e => set('title', e.target.value)} placeholder="e.g. Daily warehouse-to-retail delivery" /></div>
-              <div style={{ marginBottom: '14px' }}><label style={label}>Description *</label><textarea style={{ ...input, height: '100px', resize: 'vertical' }} value={form.description} onChange={e => set('description', e.target.value)} placeholder="Describe your delivery needs, frequency, item types, SLA requirements..." /></div>
+              <div style={{ marginBottom: '14px' }}><label style={label}>Project Title<span style={req}>*</span></label><input style={inputErr('title')} value={form.title} onChange={e => set('title', e.target.value)} placeholder="e.g. Daily warehouse-to-retail delivery" /><div style={errText('title')}>{errors.title}</div></div>
+              <div style={{ marginBottom: '14px' }}><label style={label}>Description<span style={req}>*</span></label><textarea style={{ ...inputErr('description'), height: '100px', resize: 'vertical' }} value={form.description} onChange={e => set('description', e.target.value)} placeholder="Describe your delivery needs, frequency, item types, SLA requirements..." /><div style={errText('description')}>{errors.description}</div></div>
               <div style={{ marginBottom: '14px' }}>
                 <label style={label}>Contract Duration</label>
                 <div style={{ display: 'flex', gap: '10px' }}>

@@ -8,13 +8,14 @@ export default function RatingModal({ jobId, clientId, driverId, reviewerRole = 
   const [hover, setHover] = useState(0);
   const [reviewText, setReviewText] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [ratingError, setRatingError] = useState(false);
 
   const isDriverReview = reviewerRole === 'driver';
   const title = isDriverReview ? 'Rate Your Client' : 'Rate Your Driver';
   const placeholder = isDriverReview ? 'How was your experience with this client?' : 'How was your delivery experience?';
 
   const submit = async () => {
-    if (rating === 0) { toast.error('Please select a rating'); return; }
+    if (rating === 0) { setRatingError(true); toast.error('Please select a rating'); return; }
     setSubmitting(true);
     try {
       const res = await fetch('/api/ratings', {
@@ -51,7 +52,7 @@ export default function RatingModal({ jobId, clientId, driverId, reviewerRole = 
             {[1, 2, 3, 4, 5].map(star => (
               <span
                 key={star}
-                onClick={() => setRating(star)}
+                onClick={() => { setRating(star); setRatingError(false); }}
                 onMouseEnter={() => setHover(star)}
                 onMouseLeave={() => setHover(0)}
                 style={{
@@ -62,8 +63,8 @@ export default function RatingModal({ jobId, clientId, driverId, reviewerRole = 
               >&#9733;</span>
             ))}
           </div>
-          <div style={{ fontSize: '13px', color: '#64748b' }}>
-            {rating === 0 ? 'Tap a star to rate' : `${rating} star${rating > 1 ? 's' : ''}`}
+          <div style={{ fontSize: '13px', color: ratingError ? '#ef4444' : '#64748b' }}>
+            {ratingError ? 'Please select a rating' : rating === 0 ? 'Tap a star to rate' : `${rating} star${rating > 1 ? 's' : ''}`}
           </div>
         </div>
 

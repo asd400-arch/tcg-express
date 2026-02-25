@@ -109,6 +109,7 @@ export default function NewJob() {
   const [deliveryCoords, setDeliveryCoords] = useState(null);
   const [serviceZones, setServiceZones] = useState([]);
   const [zoneWarning, setZoneWarning] = useState(null); // { type: 'restricted' | 'surcharge', message, surcharge? }
+  const [errors, setErrors] = useState({});
   const [form, setForm] = useState({
     pickup_address: '', pickup_contact: '', pickup_phone: '', pickup_instructions: '',
     delivery_address: '', delivery_contact: '', delivery_phone: '', delivery_instructions: '',
@@ -171,7 +172,7 @@ export default function NewJob() {
     }
   }, [pickupCoords, deliveryCoords, serviceZones]);
 
-  const set = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
+  const set = (k, v) => { setForm(prev => ({ ...prev, [k]: v })); setErrors(prev => { const n = { ...prev }; delete n[k]; return n; }); };
   const setAddon = (key, qty) => setForm(prev => {
     const next = { ...prev.addons };
     if (qty > 0) next[key] = qty; else delete next[key];
@@ -252,13 +253,20 @@ export default function NewJob() {
 
   // Styles
   const input = { width: '100%', padding: '12px 16px', borderRadius: '10px', fontSize: '14px', background: '#f8fafc', border: '1px solid #e2e8f0', color: '#1e293b', outline: 'none', fontFamily: "'Inter', sans-serif", boxSizing: 'border-box' };
+  const inputErr = (field) => ({ ...input, border: errors[field] ? '1.5px solid #ef4444' : '1px solid #e2e8f0' });
   const label = { fontSize: '13px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' };
   const card = { background: 'white', borderRadius: '14px', padding: m ? '20px' : '28px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9', marginBottom: '20px' };
   const btnPrimary = { padding: '13px 32px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: 'white', fontSize: '15px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" };
   const btnBack = { padding: '13px 24px', borderRadius: '10px', border: '1px solid #e2e8f0', background: 'white', color: '#64748b', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" };
+  const errText = (field) => errors[field] ? { fontSize: '11px', color: '#ef4444', marginTop: '4px' } : { display: 'none' };
+  const req = { color: '#ef4444', marginLeft: '2px' };
 
   const handleSubmit = async () => {
-    if (!form.pickup_address || !form.delivery_address || !form.item_description) return;
+    const errs = {};
+    if (!form.pickup_address.trim()) errs.pickup_address = 'Pickup address is required';
+    if (!form.delivery_address.trim()) errs.delivery_address = 'Delivery address is required';
+    if (!form.item_description.trim()) errs.item_description = 'Item description is required';
+    if (Object.keys(errs).length > 0) { setErrors(errs); toast.error('Please fill in all required fields'); return; }
     if (zoneWarning?.type === 'restricted') { toast.error(zoneWarning.message); return; }
 
     // Check wallet balance before creating job
@@ -523,7 +531,7 @@ export default function NewJob() {
           <div>
             <div style={card}>
               <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>📍 Pickup Location</h3>
-              <div style={{ marginBottom: '14px' }}><label style={label}>Pickup Address *</label><AddressAutocomplete inputStyle={input} value={form.pickup_address} onChange={v => set('pickup_address', v)} onSelect={c => setPickupCoords(c)} placeholder="Search address or postal code" /></div>
+              <div style={{ marginBottom: '14px' }}><label style={label}>Pickup Address<span style={req}>*</span></label><AddressAutocomplete inputStyle={inputErr('pickup_address')} value={form.pickup_address} onChange={v => set('pickup_address', v)} onSelect={c => setPickupCoords(c)} placeholder="Search address or postal code" /><div style={errText('pickup_address')}>{errors.pickup_address}</div></div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
                 <div><label style={label}>Contact Name</label><input style={input} value={form.pickup_contact} onChange={e => set('pickup_contact', e.target.value)} placeholder="Name" /></div>
                 <div><label style={label}>Phone</label><input style={input} value={form.pickup_phone} onChange={e => set('pickup_phone', e.target.value)} placeholder="+65 xxxx xxxx" /></div>
@@ -532,7 +540,7 @@ export default function NewJob() {
             </div>
             <div style={card}>
               <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>📦 Delivery Location</h3>
-              <div style={{ marginBottom: '14px' }}><label style={label}>Delivery Address *</label><AddressAutocomplete inputStyle={input} value={form.delivery_address} onChange={v => set('delivery_address', v)} onSelect={c => setDeliveryCoords(c)} placeholder="Search address or postal code" /></div>
+              <div style={{ marginBottom: '14px' }}><label style={label}>Delivery Address<span style={req}>*</span></label><AddressAutocomplete inputStyle={inputErr('delivery_address')} value={form.delivery_address} onChange={v => set('delivery_address', v)} onSelect={c => setDeliveryCoords(c)} placeholder="Search address or postal code" /><div style={errText('delivery_address')}>{errors.delivery_address}</div></div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
                 <div><label style={label}>Contact Name</label><input style={input} value={form.delivery_contact} onChange={e => set('delivery_contact', e.target.value)} placeholder="Name" /></div>
                 <div><label style={label}>Phone</label><input style={input} value={form.delivery_phone} onChange={e => set('delivery_phone', e.target.value)} placeholder="+65 xxxx xxxx" /></div>
@@ -548,7 +556,7 @@ export default function NewJob() {
                 </div>
               </div>
             )}
-            <button onClick={() => { if (form.pickup_address && form.delivery_address && zoneWarning?.type !== 'restricted') setStep(2); }} disabled={zoneWarning?.type === 'restricted'} style={{ ...btnPrimary, opacity: zoneWarning?.type === 'restricted' ? 0.5 : 1 }}>Next →</button>
+            <button onClick={() => { const e = {}; if (!form.pickup_address.trim()) e.pickup_address = 'Pickup address is required'; if (!form.delivery_address.trim()) e.delivery_address = 'Delivery address is required'; if (Object.keys(e).length > 0) { setErrors(e); toast.error('Please fill in required addresses'); return; } if (zoneWarning?.type !== 'restricted') setStep(2); }} disabled={zoneWarning?.type === 'restricted'} style={{ ...btnPrimary, opacity: zoneWarning?.type === 'restricted' ? 0.5 : 1 }}>Next →</button>
           </div>
         )}
 
@@ -557,7 +565,7 @@ export default function NewJob() {
           <div>
             <div style={card}>
               <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>📋 Item Details</h3>
-              <div style={{ marginBottom: '14px' }}><label style={label}>Description *</label><input style={input} value={form.item_description} onChange={e => set('item_description', e.target.value)} placeholder="What are you sending?" /></div>
+              <div style={{ marginBottom: '14px' }}><label style={label}>Description<span style={req}>*</span></label><input style={inputErr('item_description')} value={form.item_description} onChange={e => set('item_description', e.target.value)} placeholder="What are you sending?" /><div style={errText('item_description')}>{errors.item_description}</div></div>
               <div style={{ marginBottom: '14px' }}>
                 <label style={label}>Category</label>
                 <select style={input} value={form.item_category} onChange={e => set('item_category', e.target.value)}>
@@ -916,7 +924,7 @@ export default function NewJob() {
 
             <div style={{ display: 'flex', gap: '10px' }}>
               <button onClick={() => setStep(1)} style={btnBack}>← Back</button>
-              <button onClick={() => { if (form.item_description) setStep(3); }} style={btnPrimary}>Next →</button>
+              <button onClick={() => { if (!form.item_description.trim()) { setErrors({ item_description: 'Item description is required' }); toast.error('Please describe the item'); return; } setStep(3); }} style={btnPrimary}>Next →</button>
             </div>
           </div>
         )}

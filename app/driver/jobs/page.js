@@ -61,6 +61,7 @@ export default function DriverJobs() {
   const [bidTime, setBidTime] = useState('');
   const [bidMsg, setBidMsg] = useState('');
   const [bidding, setBidding] = useState(false);
+  const [bidErrors, setBidErrors] = useState({});
   const [accepting, setAccepting] = useState(null);
   const [myBids, setMyBids] = useState({});
 
@@ -91,8 +92,11 @@ export default function DriverJobs() {
   };
 
   const submitBid = async () => {
-    if (!bidAmount || !selectedJob) return;
-    if (parseFloat(bidAmount) <= 0) { toast.error('Bid amount must be greater than 0'); return; }
+    const errs = {};
+    if (!bidAmount) errs.bidAmount = 'Bid amount is required';
+    else if (parseFloat(bidAmount) <= 0) errs.bidAmount = 'Must be greater than 0';
+    if (Object.keys(errs).length > 0) { setBidErrors(errs); return; }
+    if (!selectedJob) return;
     setBidding(true);
     try {
       const res = await fetch('/api/bids', {
@@ -112,7 +116,7 @@ export default function DriverJobs() {
         return;
       }
       toast.success('Bid submitted!');
-      setBidding(false); setSelectedJob(null); setBidAmount(''); setBidTime(''); setBidMsg('');
+      setBidding(false); setSelectedJob(null); setBidAmount(''); setBidTime(''); setBidMsg(''); setBidErrors({});
       loadData();
     } catch (e) {
       toast.error('Failed to submit bid');
@@ -202,8 +206,9 @@ export default function DriverJobs() {
                 <div style={{ fontSize: '13px', color: '#10b981', fontWeight: '700', marginTop: '6px' }}>Budget: {formatBudgetRange(selectedJob)}</div>
               </div>
               <div style={{ marginBottom: '14px' }}>
-                <label style={{ fontSize: '13px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>Your Bid Amount ($) *</label>
-                <input type="number" style={input} value={bidAmount} onChange={e => setBidAmount(e.target.value)} placeholder="Enter amount" required />
+                <label style={{ fontSize: '13px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>Your Bid Amount ($)<span style={{ color: '#ef4444', marginLeft: '2px' }}>*</span></label>
+                <input type="number" style={{ ...input, border: bidErrors.bidAmount ? '1.5px solid #ef4444' : '1px solid #e2e8f0' }} value={bidAmount} onChange={e => { setBidAmount(e.target.value); setBidErrors(prev => { const n = { ...prev }; delete n.bidAmount; return n; }); }} placeholder="Enter amount" />
+                {bidErrors.bidAmount && <div style={{ fontSize: '11px', color: '#ef4444', marginTop: '4px' }}>{bidErrors.bidAmount}</div>}
               </div>
               <div style={{ marginBottom: '14px' }}>
                 <label style={{ fontSize: '13px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>Estimated Time</label>

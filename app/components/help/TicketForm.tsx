@@ -50,10 +50,12 @@ export default function TicketForm({
   const [category, setCategory] = useState(defaultCategory || '');
   const [priority, setPriority] = useState<TicketPriority>('normal');
   const [contactEmail, setContactEmail] = useState('');
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
 
   const canSubmit = subject.trim().length > 0 && description.trim().length > 0 && !loading;
 
   const handleSubmit = async () => {
+    setTouched({ subject: true, description: true });
     if (!canSubmit) return;
     await createTicket({
       subject: subject.trim(),
@@ -351,9 +353,13 @@ export default function TicketForm({
                   value={subject}
                   onChange={(e) => {
                     if (e.target.value.length <= SUBJECT_MAX) setSubject(e.target.value);
+                    setTouched((prev) => ({ ...prev, subject: true }));
                   }}
-                  style={inputBase}
+                  style={{ ...inputBase, border: touched.subject && !subject.trim() ? '1.5px solid #ef4444' : '1px solid #e2e8f0' }}
                 />
+                {touched.subject && !subject.trim() && (
+                  <span style={{ fontSize: '11px', color: '#ef4444', marginTop: '4px', display: 'block', fontFamily: font }}>Subject is required</span>
+                )}
               </div>
 
               {/* Priority */}
@@ -433,6 +439,7 @@ export default function TicketForm({
                   value={description}
                   onChange={(e) => {
                     if (e.target.value.length <= DESC_MAX) setDescription(e.target.value);
+                    setTouched((prev) => ({ ...prev, description: true }));
                   }}
                   rows={6}
                   style={{
@@ -440,8 +447,12 @@ export default function TicketForm({
                     resize: 'vertical' as const,
                     lineHeight: '1.6',
                     minHeight: '120px',
+                    border: touched.description && !description.trim() ? '1.5px solid #ef4444' : '1px solid #e2e8f0',
                   }}
                 />
+                {touched.description && !description.trim() && (
+                  <span style={{ fontSize: '11px', color: '#ef4444', marginTop: '4px', display: 'block', fontFamily: font }}>Description is required</span>
+                )}
               </div>
 
               {/* Contact Email */}
