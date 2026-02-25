@@ -193,6 +193,8 @@ export default function DriverSettings() {
                 <option value="lorry_10ft">🚚 10ft Lorry</option>
                 <option value="lorry_14ft">🚚 14ft Lorry</option>
                 <option value="lorry_24ft">🚛 24ft Lorry</option>
+                <option value="trailer_20ft">🚛 20ft Trailer</option>
+                <option value="trailer_40ft">🚛 40ft Trailer</option>
               </select>
             </div>
             <div>
