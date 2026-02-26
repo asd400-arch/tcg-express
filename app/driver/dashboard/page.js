@@ -146,7 +146,7 @@ export default function DriverDashboard() {
             <p style={{ color: '#64748b', fontSize: '14px', textAlign: 'center', padding: '20px' }}>No available jobs right now. Check back later!</p>
           ) : (
             availableJobs.map(job => {
-              const budget = parseFloat(job.budget_min) || parseFloat(job.budget_max) || parseFloat(job.estimated_fare) || 0;
+              const budget = parseFloat(job.budget_min) || parseFloat(job.budget_max) || 0;
               const budgetStr = (parseFloat(job.budget_min) > 0 && parseFloat(job.budget_max) > 0) ? `$${parseFloat(job.budget_min).toFixed(0)}-$${parseFloat(job.budget_max).toFixed(0)}` : budget > 0 ? `$${budget.toFixed(2)}` : 'Open bid';
               return (
                 <div key={job.id} style={{ padding: '14px 0', borderBottom: '1px solid #f1f5f9' }}>

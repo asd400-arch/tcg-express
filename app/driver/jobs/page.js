@@ -31,21 +31,17 @@ function getVehicleLabel(key) {
 function getJobBudget(job) {
   const min = parseFloat(job.budget_min);
   const max = parseFloat(job.budget_max);
-  const fare = parseFloat(job.estimated_fare);
   if (min > 0) return min;
   if (max > 0) return max;
-  if (fare > 0) return fare;
   return null;
 }
 
 function formatBudgetRange(job) {
   const max = parseFloat(job.budget_max);
   const min = parseFloat(job.budget_min);
-  const fare = parseFloat(job.estimated_fare);
   if (min > 0 && max > 0) return `$${min.toFixed(0)} - $${max.toFixed(0)}`;
   if (max > 0) return `$${max.toFixed(2)}`;
   if (min > 0) return `$${min.toFixed(2)}`;
-  if (fare > 0) return `~$${fare.toFixed(2)}`;
   return 'Open bid';
 }
 
