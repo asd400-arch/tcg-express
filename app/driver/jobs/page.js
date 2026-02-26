@@ -114,6 +114,8 @@ export default function DriverJobs() {
   const [customEquipName, setCustomEquipName] = useState('');
   const [customEquipAmount, setCustomEquipAmount] = useState('');
   const [activeTab, setActiveTab] = useState('spot');
+  const [dataLoading, setDataLoading] = useState(true);
+  const [queryDebug, setQueryDebug] = useState('');
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -122,24 +124,48 @@ export default function DriverJobs() {
   }, [user, loading]);
 
   const loadData = async () => {
-    const [jobsRes, bidsRes] = await Promise.all([
-      supabase.from('express_jobs').select('*').in('status', ['open', 'bidding']).order('created_at', { ascending: false }),
-      supabase.from('express_bids').select('*').eq('driver_id', user.id),
-    ]);
-    if (jobsRes.error) console.error('[driver/jobs] Jobs query error:', jobsRes.error.message);
-    // Filter out corp_premium/RFQ jobs and jobs requiring a larger vehicle
-    const allJobs = (jobsRes.data || []).filter(j => {
-      if (j.is_corp_premium) return false;
-      if (j.vehicle_required && j.vehicle_required !== 'any' && user.vehicle_type) {
-        const fit = checkVehicleFit(user.vehicle_type, j.vehicle_required);
-        if (!fit.ok) return false;
+    setDataLoading(true);
+    try {
+      const [jobsRes, bidsRes] = await Promise.all([
+        supabase.from('express_jobs').select('*', { count: 'exact' }).in('status', ['open', 'bidding']).order('created_at', { ascending: false }),
+        supabase.from('express_bids').select('*').eq('driver_id', user.id),
+      ]);
+
+      if (jobsRes.error) {
+        console.error('[driver/jobs] Jobs query FAILED:', jobsRes.error);
+        setQueryDebug(`Query error: ${jobsRes.error.message}`);
+        setDataLoading(false);
+        return;
       }
-      return true;
-    });
-    setJobs(allJobs);
-    const bm = {};
-    (bidsRes.data || []).forEach(b => { bm[b.job_id] = b; });
-    setMyBids(bm);
+
+      const rawJobs = jobsRes.data || [];
+      const rawCount = jobsRes.count;
+      console.log(`[driver/jobs] Query returned ${rawJobs.length} jobs (count: ${rawCount}), newest: ${rawJobs.slice(0, 3).map(j => j.job_number).join(', ')}`);
+
+      // Log what gets filtered and why
+      let corpCount = 0, vehicleCount = 0;
+      const allJobs = rawJobs.filter(j => {
+        if (j.is_corp_premium) { corpCount++; return false; }
+        if (j.vehicle_required && j.vehicle_required !== 'any' && user.vehicle_type) {
+          const fit = checkVehicleFit(user.vehicle_type, j.vehicle_required);
+          if (!fit.ok) { vehicleCount++; return false; }
+        }
+        return true;
+      });
+
+      const debugMsg = `DB: ${rawJobs.length} rows → corp_premium: -${corpCount}, vehicle_fit: -${vehicleCount} → showing: ${allJobs.length}`;
+      console.log(`[driver/jobs] ${debugMsg}`);
+      setQueryDebug(debugMsg);
+
+      setJobs(allJobs);
+      const bm = {};
+      (bidsRes.data || []).forEach(b => { bm[b.job_id] = b; });
+      setMyBids(bm);
+    } catch (err) {
+      console.error('[driver/jobs] loadData CRASHED:', err);
+      setQueryDebug(`loadData error: ${err.message}`);
+    }
+    setDataLoading(false);
   };
 
   const submitBid = async () => {
@@ -512,7 +538,11 @@ export default function DriverJobs() {
         ) : (
           /* List View */
           <>
-            <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>Available Jobs ({jobs.length})</h1>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', margin: 0 }}>Available Jobs ({jobs.length})</h1>
+              <button onClick={loadData} disabled={dataLoading} style={{ padding: '6px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', background: 'white', color: '#64748b', fontSize: '12px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif", opacity: dataLoading ? 0.5 : 1 }}>{dataLoading ? 'Loading...' : 'Refresh'}</button>
+            </div>
+            {queryDebug && <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '12px' }}>{queryDebug}</div>}
 
             {/* Tabs */}
             <div style={{ display: 'flex', gap: '6px', marginBottom: '20px', flexWrap: 'wrap' }}>
@@ -539,7 +569,11 @@ export default function DriverJobs() {
               ))}
             </div>
 
-            {filteredJobs.length === 0 ? (
+            {dataLoading ? (
+              <div style={{ ...card, textAlign: 'center', padding: '40px' }}>
+                <Spinner />
+              </div>
+            ) : filteredJobs.length === 0 ? (
               <div style={{ ...card, textAlign: 'center', padding: '40px' }}>
                 <div style={{ fontSize: '40px', marginBottom: '12px' }}>{activeTab === 'spot' ? '🚚' : activeTab === 'scheduled' ? '📅' : '🔁'}</div>
                 <p style={{ color: '#64748b', fontSize: '14px' }}>No {activeTab === 'spot' ? 'immediate' : activeTab === 'scheduled' ? 'scheduled' : 'recurring'} jobs available. Check back soon!</p>
