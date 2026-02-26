@@ -275,30 +275,15 @@ export default function DriverJobs() {
     }
   };
 
-  // Categorize jobs into tabs — Spot is catch-all so no jobs fall through
-  const urgencyRank = { urgent: 0, rush: 0, express: 1, standard: 2 };
-  const sortByUrgencyThenTime = (a, b) => {
-    const ua = urgencyRank[a.urgency] ?? 2;
-    const ub = urgencyRank[b.urgency] ?? 2;
-    if (ua !== ub) return ua - ub;
-    const ta = a.pickup_by ? new Date(a.pickup_by).getTime() : Infinity;
-    const tb = b.pickup_by ? new Date(b.pickup_by).getTime() : Infinity;
-    return ta - tb;
-  };
+  // Categorize jobs into tabs — all tabs sorted by created_at DESC (newest first)
+  const sortNewestFirst = (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
 
-  const regularJobs = jobs.filter(j => j.job_type === 'regular').sort(sortByUrgencyThenTime);
+  const regularJobs = jobs.filter(j => j.job_type === 'regular').sort(sortNewestFirst);
   const regularIds = new Set(regularJobs.map(j => j.id));
-  const scheduledJobs = jobs.filter(j => !regularIds.has(j.id) && j.job_type === 'scheduled' && (j.pickup_by || j.schedule_date)).sort((a, b) => {
-    const ua = urgencyRank[a.urgency] ?? 2;
-    const ub = urgencyRank[b.urgency] ?? 2;
-    if (ua !== ub) return ua - ub;
-    const ta = new Date(a.pickup_by || a.schedule_date || a.created_at).getTime();
-    const tb = new Date(b.pickup_by || b.schedule_date || b.created_at).getTime();
-    return ta - tb;
-  });
+  const scheduledJobs = jobs.filter(j => !regularIds.has(j.id) && j.job_type === 'scheduled' && (j.pickup_by || j.schedule_date)).sort(sortNewestFirst);
   const scheduledIds = new Set(scheduledJobs.map(j => j.id));
   // Spot = everything not in regular or scheduled (catch-all)
-  const spotJobs = jobs.filter(j => !regularIds.has(j.id) && !scheduledIds.has(j.id)).sort(sortByUrgencyThenTime);
+  const spotJobs = jobs.filter(j => !regularIds.has(j.id) && !scheduledIds.has(j.id)).sort(sortNewestFirst);
 
   const filteredJobs = activeTab === 'spot' ? spotJobs : activeTab === 'scheduled' ? scheduledJobs : regularJobs;
   const tabCounts = { spot: spotJobs.length, scheduled: scheduledJobs.length, regular: regularJobs.length };
