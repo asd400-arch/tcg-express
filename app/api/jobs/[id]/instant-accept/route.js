@@ -24,6 +24,11 @@ export async function POST(request, { params }) {
     const { id: jobId } = await params;
     console.log(`[instant-accept] Driver ${session.userId} accepting job ${jobId}`);
 
+    if (!jobId) {
+      console.error('[instant-accept] jobId is empty/undefined from params');
+      return NextResponse.json({ error: 'Missing job ID' }, { status: 400 });
+    }
+
     // Fetch job to get budget and client_id
     const { data: job, error: jobErr } = await supabaseAdmin
       .from('express_jobs')
@@ -31,9 +36,23 @@ export async function POST(request, { params }) {
       .eq('id', jobId)
       .single();
 
-    if (jobErr || !job) return NextResponse.json({ error: 'Job not found' }, { status: 404 });
+    if (jobErr || !job) {
+      console.error('[instant-accept] Job query failed:', {
+        jobId,
+        driverId: session.userId,
+        error: jobErr?.message,
+        code: jobErr?.code,
+        details: jobErr?.details,
+        hint: jobErr?.hint,
+        jobData: job,
+      });
+      return NextResponse.json({ error: 'Job not found', debug: jobErr?.message || 'no data' }, { status: 404 });
+    }
+    console.log(`[instant-accept] Job found: ${job.job_number}, status=${job.status}, client=${job.client_id}, budget_min=${job.budget_min}, budget_max=${job.budget_max}`);
+
     if (!['open', 'bidding'].includes(job.status)) {
-      return NextResponse.json({ error: 'Job is no longer accepting bids' }, { status: 400 });
+      console.warn(`[instant-accept] Job ${job.job_number} status is ${job.status} — not accepting bids`);
+      return NextResponse.json({ error: `Job is no longer accepting bids (status: ${job.status})` }, { status: 400 });
     }
 
     // Vehicle size validation: driver's vehicle must be big enough
@@ -53,7 +72,9 @@ export async function POST(request, { params }) {
     }
 
     const bidAmount = parseFloat(job.budget_min) || parseFloat(job.budget_max) || parseFloat(job.estimated_fare);
+    console.log(`[instant-accept] Budget calc: min=${job.budget_min}, max=${job.budget_max}, fare=${job.estimated_fare}, resolved=${bidAmount}`);
     if (!bidAmount || !isFinite(bidAmount) || bidAmount <= 0) {
+      console.error(`[instant-accept] No valid budget for job ${job.job_number}`);
       return NextResponse.json({ error: 'Job has no valid budget or estimated fare' }, { status: 400 });
     }
 
@@ -74,7 +95,10 @@ export async function POST(request, { params }) {
         .eq('id', existingBid.id)
         .select()
         .single();
-      if (updateErr) return NextResponse.json({ error: 'Failed to update bid' }, { status: 500 });
+      if (updateErr) {
+        console.error('[instant-accept] Bid update failed:', updateErr.message);
+        return NextResponse.json({ error: 'Failed to update bid' }, { status: 500 });
+      }
       bid = updated;
     } else {
       const { data: newBid, error: bidErr } = await supabaseAdmin
@@ -118,8 +142,11 @@ export async function POST(request, { params }) {
       p_idempotency_key: idempotencyKey,
     });
 
+    console.log(`[instant-accept] RPC called: job=${jobId}, bid=${bid.id}, payer=${job.client_id}, rate=${rate}`);
+
     if (rpcErr) {
       const msg = rpcErr.message || '';
+      console.error('[instant-accept] RPC failed:', { msg, code: rpcErr?.code, jobId, bidId: bid.id, payerId: job.client_id });
       // Revert bid on payment failure
       if (existingBid) {
         await supabaseAdmin.from('express_bids')
