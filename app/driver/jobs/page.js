@@ -12,12 +12,63 @@ import { VEHICLE_MODES, ADDON_OPTIONS, legacyVehicleLabel, checkVehicleFit } fro
 
 function getAreaFromAddress(addr) {
   if (!addr) return '—';
-  // Try to extract a meaningful area: use the portion before the last comma (often "Street, Area, Country")
   const parts = addr.split(',').map(p => p.trim());
   if (parts.length >= 3) return parts[parts.length - 2];
   if (parts.length === 2) return parts[0];
-  // Fallback: first 30 chars
   return addr.length > 35 ? addr.slice(0, 32) + '...' : addr;
+}
+
+// Singapore postal code first-2-digits → area name
+const SG_POSTAL_AREAS = {
+  '01': 'Raffles Place', '02': 'Cecil', '03': 'Marina', '04': 'Marina',
+  '05': "People's Park", '06': 'City Hall',
+  '07': 'Tanjong Pagar', '08': 'Tanjong Pagar',
+  '09': 'Telok Blangah', '10': 'Harbourfront',
+  '11': 'Pasir Panjang', '12': 'Clementi', '13': 'Clementi',
+  '14': 'Queenstown', '15': 'Tiong Bahru', '16': 'Tiong Bahru',
+  '17': 'Beach Road', '18': 'Golden Mile', '19': 'Golden Mile',
+  '20': 'Little India', '21': 'Little India',
+  '22': 'Orchard', '23': 'River Valley',
+  '24': 'Holland', '25': 'Bukit Timah', '26': 'Tanglin', '27': 'Holland',
+  '28': 'Novena', '29': 'Thomson', '30': 'Novena',
+  '31': 'Balestier', '32': 'Toa Payoh', '33': 'Toa Payoh',
+  '34': 'Macpherson', '35': 'Braddell', '36': 'Macpherson', '37': 'Macpherson',
+  '38': 'Geylang', '39': 'Geylang', '40': 'Eunos', '41': 'Eunos',
+  '42': 'Katong', '43': 'Joo Chiat', '44': 'Katong', '45': 'Amber Rd',
+  '46': 'Bedok', '47': 'Bedok', '48': 'East Coast',
+  '49': 'Changi', '50': 'Changi',
+  '51': 'Tampines', '52': 'Pasir Ris',
+  '53': 'Hougang', '54': 'Hougang', '55': 'Punggol',
+  '56': 'Bishan', '57': 'Ang Mo Kio',
+  '58': 'Upper Bukit Timah', '59': 'Clementi Park',
+  '60': 'Jurong', '61': 'Jurong', '62': 'Jurong', '63': 'Jurong West', '64': 'Jurong',
+  '65': 'Bukit Panjang', '66': 'Choa Chu Kang', '67': 'Bukit Panjang', '68': 'Choa Chu Kang',
+  '69': 'Lim Chu Kang', '70': 'Tengah', '71': 'Tengah',
+  '72': 'Kranji', '73': 'Woodgrove',
+  '75': 'Yishun', '76': 'Sembawang',
+  '77': 'Upper Thomson', '78': 'Springleaf',
+  '79': 'Seletar', '80': 'Seletar',
+  '81': 'Changi', '82': 'Punggol',
+};
+
+function getAreaName(addr) {
+  if (!addr) return '—';
+  // Try Singapore 6-digit postal code
+  const match = addr.match(/(?:Singapore\s*)?(\d{6})(?:\s|,|$)/i);
+  if (match) {
+    const area = SG_POSTAL_AREAS[match[1].substring(0, 2)];
+    if (area) return area;
+  }
+  return getAreaFromAddress(addr);
+}
+
+function formatPickupTime(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  const day = d.getDate();
+  const mon = d.toLocaleDateString('en', { month: 'short' });
+  const time = d.toLocaleTimeString('en', { hour: 'numeric', minute: '2-digit', hour12: true });
+  return `${day} ${mon}, ${time}`;
 }
 
 function getVehicleLabel(key) {
@@ -497,46 +548,56 @@ export default function DriverJobs() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {filteredJobs.map(job => {
                   const hasBid = myBids[job.id];
-                  const jType = job.job_type || 'spot';
                   const countdown = getCountdown(job.pickup_by);
+                  const urgencyBg = job.urgency === 'urgent' ? '#fef2f2' : job.urgency === 'express' ? '#fffbeb' : '';
                   return (
-                    <div key={job.id} onClick={() => setDetailJob(job)} style={{ ...card, cursor: 'pointer', transition: 'box-shadow 0.15s', borderLeft: `4px solid ${jobTypeColor[jType] || '#3b82f6'}` }}>
-                      {/* Row 1: Job number + badges + budget */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <div key={job.id} onClick={() => setDetailJob(job)} style={{
+                      ...card, cursor: 'pointer', transition: 'box-shadow 0.15s', padding: '16px 20px',
+                      ...(job.urgency === 'urgent' ? { borderLeft: '4px solid #ef4444' } : job.urgency === 'express' ? { borderLeft: '4px solid #f59e0b' } : {}),
+                    }}>
+                      {/* Row 1: Vehicle + Weight + Amount */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b' }}>{job.job_number || '—'}</span>
-                          <span style={badge(job.urgency || 'standard', `${urgencyColor[job.urgency]}15`, urgencyColor[job.urgency])}>{job.urgency || 'standard'}</span>
-                          {countdown && (
-                            <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '700', background: '#fef3c7', color: '#92400e' }}>Pickup in {countdown}</span>
+                          <span style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b' }}>{getVehicleLabel(job.vehicle_required)}</span>
+                          {job.item_weight && (
+                            <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: '600', background: '#f1f5f9', color: '#475569' }}>{job.item_weight} kg</span>
                           )}
+                          <span style={badge(job.urgency || 'standard', `${urgencyColor[job.urgency]}15`, urgencyColor[job.urgency])}>{job.urgency || 'standard'}</span>
                         </div>
-                        <div style={{ fontSize: '17px', fontWeight: '800', color: '#10b981', flexShrink: 0 }}>{formatBudgetRange(job)}</div>
+                        <div style={{ fontSize: '20px', fontWeight: '800', color: '#10b981', flexShrink: 0 }}>{formatBudgetRange(job)}</div>
                       </div>
 
-                      {/* Row 2: Route (area only) */}
-                      <div style={{ fontSize: '14px', color: '#374151', marginBottom: '8px', fontWeight: '500' }}>
-                        {getAreaFromAddress(job.pickup_address)} → {getAreaFromAddress(job.delivery_address)}
-                      </div>
-
-                      {/* Row 3: Key details */}
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center', marginBottom: '10px' }}>
-                        <span style={{ fontSize: '12px', color: '#64748b' }}>{getVehicleLabel(job.vehicle_required)}</span>
-                        {job.item_weight && <span style={{ fontSize: '12px', color: '#64748b' }}>{job.item_weight} kg</span>}
-                        {activeTab === 'scheduled' && job.pickup_by && (
-                          <span style={{ fontSize: '12px', color: '#8b5cf6', fontWeight: '600' }}>📅 {new Date(job.pickup_by).toLocaleDateString()} {new Date(job.pickup_by).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                        )}
-                        {activeTab === 'regular' && (
-                          <span style={{ fontSize: '12px', color: '#059669', fontWeight: '600' }}>🔁 {job.recurrence || 'Regular'}</span>
+                      {/* Row 2: Date/Time + Countdown */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                        <span style={{ fontSize: '13px', color: '#64748b' }}>
+                          {job.pickup_by
+                            ? `📅 ${formatPickupTime(job.pickup_by)}`
+                            : `Posted ${formatPickupTime(job.created_at)}`}
+                        </span>
+                        {countdown && (
+                          <span style={{ padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '700', background: countdown === 'Now' ? '#fef2f2' : '#fef3c7', color: countdown === 'Now' ? '#dc2626' : '#92400e' }}>
+                            {countdown === 'Now' ? 'ASAP' : `in ${countdown}`}
+                          </span>
                         )}
                       </div>
 
-                      {/* Row 4: Bid status or action buttons */}
+                      {/* Row 3: Area → Area + Distance */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                        <span style={{ fontSize: '14px', color: '#374151', fontWeight: '500' }}>
+                          {getAreaName(job.pickup_address)} → {getAreaName(job.delivery_address)}
+                        </span>
+                        {job.distance_km && (
+                          <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600', flexShrink: 0, marginLeft: '8px' }}>{parseFloat(job.distance_km).toFixed(1)} km</span>
+                        )}
+                      </div>
+
+                      {/* Row 4: Job ID (small) + Actions */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} onClick={e => e.stopPropagation()}>
-                        <span style={{ fontSize: '12px', color: '#94a3b8' }}>{new Date(job.created_at).toLocaleString()}</span>
+                        <span style={{ fontSize: '11px', color: '#b0b8c4', fontWeight: '500' }}>{job.job_number || '—'}</span>
                         {hasBid ? (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ padding: '6px 14px', borderRadius: '8px', background: hasBid.status === 'accepted' ? '#f0fdf4' : hasBid.status === 'outbid' ? '#fffbeb' : hasBid.status === 'rejected' ? '#fef2f2' : '#f0fdf4', color: hasBid.status === 'accepted' ? '#10b981' : hasBid.status === 'outbid' ? '#d97706' : hasBid.status === 'rejected' ? '#ef4444' : '#10b981', fontSize: '12px', fontWeight: '600' }}>
-                              Bid: ${hasBid.amount} ({hasBid.status === 'outbid' ? 'not selected' : hasBid.status})
+                            <span style={{ padding: '5px 12px', borderRadius: '8px', background: hasBid.status === 'accepted' ? '#f0fdf4' : hasBid.status === 'outbid' ? '#fffbeb' : hasBid.status === 'rejected' ? '#fef2f2' : '#f0fdf4', color: hasBid.status === 'accepted' ? '#10b981' : hasBid.status === 'outbid' ? '#d97706' : hasBid.status === 'rejected' ? '#ef4444' : '#10b981', fontSize: '12px', fontWeight: '600' }}>
+                              ${hasBid.amount} ({hasBid.status === 'outbid' ? 'not selected' : hasBid.status})
                             </span>
                             {['rejected', 'outbid'].includes(hasBid.status) && (
                               <button onClick={() => setSelectedJob(job)} style={{ padding: '6px 14px', borderRadius: '8px', border: '1px solid #f59e0b', background: 'white', color: '#f59e0b', fontSize: '12px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>Re-bid</button>
