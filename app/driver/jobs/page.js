@@ -135,7 +135,7 @@ export default function DriverJobs() {
     setDataLoading(true);
     try {
       const [jobsRes, bidsRes] = await Promise.all([
-        supabase.from('express_jobs').select('*', { count: 'exact' }).in('status', ['open', 'bidding']).order('created_at', { ascending: false }),
+        supabase.from('express_jobs').select('*').in('status', ['open', 'bidding']).order('created_at', { ascending: false }),
         supabase.from('express_bids').select('*').eq('driver_id', user.id),
       ]);
 
@@ -147,8 +147,8 @@ export default function DriverJobs() {
       }
 
       const rawJobs = jobsRes.data || [];
-      const rawCount = jobsRes.count;
-      console.log(`[driver/jobs] Query returned ${rawJobs.length} jobs (count: ${rawCount}), newest: ${rawJobs.slice(0, 3).map(j => j.job_number).join(', ')}`);
+      const jobNumbers = rawJobs.map(j => j.job_number).join(', ');
+      console.log(`[driver/jobs] Query returned ${rawJobs.length} jobs: ${jobNumbers}`);
 
       // Log what gets filtered and why
       let corpCount = 0, vehicleCount = 0;
@@ -161,7 +161,8 @@ export default function DriverJobs() {
         return true;
       });
 
-      const debugMsg = `DB: ${rawJobs.length} rows → corp_premium: -${corpCount}, vehicle_fit: -${vehicleCount} → showing: ${allJobs.length}`;
+      const newest3 = rawJobs.slice(0, 3).map(j => j.job_number).join(', ');
+      const debugMsg = `DB: ${rawJobs.length} rows (newest: ${newest3}) → -${corpCount} corp, -${vehicleCount} vehicle → ${allJobs.length} shown`;
       console.log(`[driver/jobs] ${debugMsg}`);
       setQueryDebug(debugMsg);
 
