@@ -72,9 +72,10 @@ export default function DriverJobs() {
 
   const loadData = async () => {
     const [jobsRes, bidsRes] = await Promise.all([
-      supabase.from('express_jobs').select('*, client:client_id(contact_name, company_name)').in('status', ['open', 'bidding']).order('created_at', { ascending: false }),
+      supabase.from('express_jobs').select('*').in('status', ['open', 'bidding']).order('created_at', { ascending: false }),
       supabase.from('express_bids').select('*').eq('driver_id', user.id),
     ]);
+    if (jobsRes.error) console.error('[driver/jobs] Jobs query error:', jobsRes.error.message);
     // Filter out corp_premium/RFQ jobs and jobs requiring a larger vehicle
     const allJobs = (jobsRes.data || []).filter(j => {
       if (j.is_corp_premium) return false;
