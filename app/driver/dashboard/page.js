@@ -6,6 +6,90 @@ import Sidebar from '../../components/Sidebar';
 import Spinner from '../../components/Spinner';
 import { supabase } from '../../../lib/supabase';
 import useMobile from '../../components/useMobile';
+import { VEHICLE_MODES, legacyVehicleLabel } from '../../../lib/fares';
+
+const SG_POSTAL_AREAS = {
+  '01': 'Raffles Place', '02': 'Cecil',
+  '03': 'Telok Blangah', '04': 'Harbourfront',
+  '05': 'Pasir Panjang',
+  '06': 'Beach Road', '07': 'Bugis',
+  '08': 'Little India',
+  '09': 'Orchard', '10': 'River Valley',
+  '11': 'Newton', '12': 'Novena',
+  '13': 'Macpherson', '14': 'Toa Payoh',
+  '15': 'Serangoon', '16': 'Bishan',
+  '17': 'Changi',
+  '18': 'Tampines', '19': 'Pasir Ris',
+  '20': 'Ayer Rajah', '21': 'Buona Vista',
+  '22': 'Boon Lay', '23': 'Jurong',
+  '24': 'Kranji', '25': 'Woodlands',
+  '26': 'Upper Thomson', '27': 'Mandai',
+  '28': 'Yishun',
+  '29': 'Admiralty', '30': 'Woodlands',
+  '31': 'Bukit Batok', '32': 'Choa Chu Kang',
+  '33': 'Bukit Timah', '34': 'Holland',
+  '35': 'Ang Mo Kio', '36': 'Bishan',
+  '37': 'Serangoon Garden', '38': 'Hougang',
+  '39': 'Punggol', '40': 'Sengkang',
+  '41': 'Bedok', '42': 'Chai Chee',
+  '43': 'Katong', '44': 'Marine Parade',
+  '45': 'Paya Lebar',
+  '46': 'Simei', '47': 'Tampines',
+  '48': 'Changi', '49': 'Loyang',
+  '50': 'Bukit Merah', '51': 'Queenstown', '52': 'Queenstown',
+  '53': 'Bukit Merah', '56': 'Bishan', '57': 'Ang Mo Kio',
+  '58': 'Upper Bukit Timah', '59': 'Clementi',
+  '60': 'Jurong', '61': 'Jurong', '62': 'Jurong', '63': 'Jurong', '64': 'Jurong',
+  '65': 'Bukit Panjang', '66': 'Choa Chu Kang', '67': 'Bukit Panjang', '68': 'Choa Chu Kang',
+  '72': 'Kranji', '73': 'Woodgrove', '75': 'Yishun', '76': 'Sembawang',
+  '77': 'Upper Thomson', '78': 'Springleaf', '79': 'Seletar', '80': 'Seletar', '81': 'Changi', '82': 'Punggol',
+};
+
+function getAreaName(addr) {
+  if (!addr) return '—';
+  const match = addr.match(/(?:Singapore\s*)?(\d{6})(?:\s|,|$)/i);
+  if (match) {
+    const area = SG_POSTAL_AREAS[match[1].substring(0, 2)];
+    if (area) return area;
+  }
+  const parts = addr.split(',').map(p => p.trim());
+  if (parts.length >= 3) return parts[parts.length - 2];
+  if (parts.length === 2) return parts[0];
+  return addr.length > 30 ? addr.slice(0, 28) + '...' : addr;
+}
+
+function getVehicleLabel(key) {
+  if (!key || key === 'any') return null;
+  const mode = VEHICLE_MODES.find(v => v.key === key);
+  if (mode) return `${mode.icon} ${mode.label}`;
+  return legacyVehicleLabel(key);
+}
+
+function formatBudgetRange(job) {
+  const max = parseFloat(job.budget_max);
+  const min = parseFloat(job.budget_min);
+  if (min > 0 && max > 0) return `$${min.toFixed(0)} - $${max.toFixed(0)}`;
+  if (max > 0) return `$${max.toFixed(2)}`;
+  if (min > 0) return `$${min.toFixed(2)}`;
+  return 'Open bid';
+}
+
+function formatPickupTime(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  return `${d.getDate()} ${d.toLocaleDateString('en', { month: 'short' })}, ${d.toLocaleTimeString('en', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+}
+
+function getCountdown(dateStr) {
+  if (!dateStr) return null;
+  const diff = new Date(dateStr).getTime() - Date.now();
+  if (diff <= 0) return 'Now';
+  const hrs = Math.floor(diff / 3600000);
+  const mins = Math.floor((diff % 3600000) / 60000);
+  if (hrs > 24) return `${Math.floor(hrs / 24)}d ${hrs % 24}h`;
+  if (hrs > 0) return `${hrs}h ${mins}m`;
+  return `${mins}m`;
+}
 
 export default function DriverDashboard() {
   const { user, loading } = useAuth();
@@ -145,41 +229,50 @@ export default function DriverDashboard() {
           {availableJobs.length === 0 ? (
             <p style={{ color: '#64748b', fontSize: '14px', textAlign: 'center', padding: '20px' }}>No available jobs right now. Check back later!</p>
           ) : (
-            availableJobs.map(job => {
-              const budget = parseFloat(job.budget_min) || parseFloat(job.budget_max) || 0;
-              const budgetStr = (parseFloat(job.budget_min) > 0 && parseFloat(job.budget_max) > 0) ? `$${parseFloat(job.budget_min).toFixed(0)}-$${parseFloat(job.budget_max).toFixed(0)}` : budget > 0 ? `$${budget.toFixed(2)}` : 'Open bid';
-              return (
-                <div key={job.id} style={{ padding: '14px 0', borderBottom: '1px solid #f1f5f9' }}>
-                  <a href={`/driver/jobs`} style={{ textDecoration: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b' }}>{job.job_number || job.item_description}</span>
-                        <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '700', background: `${urgencyColor[job.urgency]}15`, color: urgencyColor[job.urgency], textTransform: 'uppercase' }}>{job.urgency}</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {availableJobs.map(job => {
+                const budget = parseFloat(job.budget_min) || parseFloat(job.budget_max) || 0;
+                const vLabel = getVehicleLabel(job.vehicle_required);
+                const countdown = getCountdown(job.pickup_by);
+                const urgBadge = { display: 'inline-block', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '700', background: `${urgencyColor[job.urgency] || '#64748b'}15`, color: urgencyColor[job.urgency] || '#64748b', textTransform: 'uppercase', letterSpacing: '0.3px' };
+                return (
+                  <a key={job.id} href="/driver/jobs" style={{ textDecoration: 'none', display: 'block', padding: '14px', borderRadius: '10px', border: '1px solid #f1f5f9', background: '#fafbfc' }}>
+                    {/* Row 1: Vehicle + Weight + Urgency + Amount */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', minWidth: 0 }}>
+                        {vLabel && <span style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b' }}>{vLabel}</span>}
+                        {job.item_weight && <span style={{ fontSize: '13px', color: '#475569', fontWeight: '600' }}>{job.item_weight} kg</span>}
+                        <span style={urgBadge}>{job.urgency || 'standard'}</span>
                       </div>
-                      <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{job.pickup_address?.split(',')[0]} → {job.delivery_address?.split(',')[0]}</div>
+                      <div style={{ fontSize: '16px', fontWeight: '800', color: '#10b981', flexShrink: 0, marginLeft: '8px' }}>{formatBudgetRange(job)}</div>
                     </div>
-                    <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: '12px' }}>
-                      <div style={{ fontSize: '15px', fontWeight: '700', color: '#10b981' }}>{budgetStr}</div>
-                      <div style={{ fontSize: '11px', color: '#94a3b8' }}>{job.vehicle_required && job.vehicle_required !== 'any' ? job.vehicle_required : 'Any'}</div>
+                    {/* Row 2: Date/Time + Countdown */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '5px' }}>
+                      <span style={{ fontSize: '12px', color: '#64748b' }}>📅 {formatPickupTime(job.pickup_by || job.created_at)}</span>
+                      {countdown && (
+                        <span style={{ padding: '1px 7px', borderRadius: '10px', fontSize: '10px', fontWeight: '700', background: countdown === 'Now' ? '#fef2f2' : '#fef3c7', color: countdown === 'Now' ? '#dc2626' : '#92400e' }}>
+                          {countdown === 'Now' ? 'ASAP' : `in ${countdown}`}
+                        </span>
+                      )}
+                    </div>
+                    {/* Row 3: Area → Area */}
+                    <div style={{ fontSize: '12px', color: '#374151', marginBottom: '6px' }}>
+                      {getAreaName(job.pickup_address)} → {getAreaName(job.delivery_address)}
+                    </div>
+                    {/* Row 4: Job ID + buttons */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '11px', color: '#b0b8c4' }}>{job.job_number || '—'}</span>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        {budget > 0 && (
+                          <span style={{ padding: '5px 12px', borderRadius: '8px', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontSize: '11px', fontWeight: '600' }}>Accept ${budget.toFixed(2)}</span>
+                        )}
+                        <span style={{ padding: '5px 12px', borderRadius: '8px', border: '1px solid #3b82f6', background: 'white', color: '#3b82f6', fontSize: '11px', fontWeight: '600' }}>{budget > 0 ? 'Bid' : 'Place Bid'}</span>
+                      </div>
                     </div>
                   </a>
-                  <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                    {budget > 0 && (
-                      <a href={`/driver/jobs`} style={{
-                        padding: '7px 16px', borderRadius: '8px', border: 'none', textDecoration: 'none',
-                        background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white',
-                        fontSize: '12px', fontWeight: '600', display: 'inline-block',
-                      }}>Accept ${budget.toFixed(2)}</a>
-                    )}
-                    <a href={`/driver/jobs`} style={{
-                      padding: '7px 16px', borderRadius: '8px', border: '1px solid #3b82f6', textDecoration: 'none',
-                      background: 'white', color: '#3b82f6',
-                      fontSize: '12px', fontWeight: '600', display: 'inline-block',
-                    }}>{budget > 0 ? 'Bid' : 'Place Bid'}</a>
-                  </div>
-                </div>
-              );
-            })
+                );
+              })}
+            </div>
           )}
         </div>
 

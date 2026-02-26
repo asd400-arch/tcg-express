@@ -20,35 +20,43 @@ function getAreaFromAddress(addr) {
 
 // Singapore postal code first-2-digits → area name
 const SG_POSTAL_AREAS = {
-  '01': 'Raffles Place', '02': 'Cecil', '03': 'Marina', '04': 'Marina',
-  '05': "People's Park", '06': 'City Hall',
-  '07': 'Tanjong Pagar', '08': 'Tanjong Pagar',
-  '09': 'Telok Blangah', '10': 'Harbourfront',
-  '11': 'Pasir Panjang', '12': 'Clementi', '13': 'Clementi',
-  '14': 'Queenstown', '15': 'Tiong Bahru', '16': 'Tiong Bahru',
-  '17': 'Beach Road', '18': 'Golden Mile', '19': 'Golden Mile',
-  '20': 'Little India', '21': 'Little India',
-  '22': 'Orchard', '23': 'River Valley',
-  '24': 'Holland', '25': 'Bukit Timah', '26': 'Tanglin', '27': 'Holland',
-  '28': 'Novena', '29': 'Thomson', '30': 'Novena',
-  '31': 'Balestier', '32': 'Toa Payoh', '33': 'Toa Payoh',
-  '34': 'Macpherson', '35': 'Braddell', '36': 'Macpherson', '37': 'Macpherson',
-  '38': 'Geylang', '39': 'Geylang', '40': 'Eunos', '41': 'Eunos',
-  '42': 'Katong', '43': 'Joo Chiat', '44': 'Katong', '45': 'Amber Rd',
-  '46': 'Bedok', '47': 'Bedok', '48': 'East Coast',
-  '49': 'Changi', '50': 'Changi',
-  '51': 'Tampines', '52': 'Pasir Ris',
-  '53': 'Hougang', '54': 'Hougang', '55': 'Punggol',
-  '56': 'Bishan', '57': 'Ang Mo Kio',
-  '58': 'Upper Bukit Timah', '59': 'Clementi Park',
-  '60': 'Jurong', '61': 'Jurong', '62': 'Jurong', '63': 'Jurong West', '64': 'Jurong',
+  '01': 'Raffles Place', '02': 'Cecil',
+  '03': 'Telok Blangah', '04': 'Harbourfront',
+  '05': 'Pasir Panjang',
+  '06': 'Beach Road', '07': 'Bugis',
+  '08': 'Little India',
+  '09': 'Orchard', '10': 'River Valley',
+  '11': 'Newton', '12': 'Novena',
+  '13': 'Macpherson', '14': 'Toa Payoh',
+  '15': 'Serangoon', '16': 'Bishan',
+  '17': 'Changi',
+  '18': 'Tampines', '19': 'Pasir Ris',
+  '20': 'Ayer Rajah', '21': 'Buona Vista',
+  '22': 'Boon Lay', '23': 'Jurong',
+  '24': 'Kranji', '25': 'Woodlands',
+  '26': 'Upper Thomson', '27': 'Mandai',
+  '28': 'Yishun',
+  '29': 'Admiralty', '30': 'Woodlands',
+  '31': 'Bukit Batok', '32': 'Choa Chu Kang',
+  '33': 'Bukit Timah', '34': 'Holland',
+  '35': 'Ang Mo Kio', '36': 'Bishan',
+  '37': 'Serangoon Garden', '38': 'Hougang',
+  '39': 'Punggol', '40': 'Sengkang',
+  '41': 'Bedok', '42': 'Chai Chee',
+  '43': 'Katong', '44': 'Marine Parade',
+  '45': 'Paya Lebar',
+  '46': 'Simei', '47': 'Tampines',
+  '48': 'Changi', '49': 'Loyang',
+  '50': 'Bukit Merah', '51': 'Queenstown', '52': 'Queenstown',
+  '53': 'Bukit Merah', '56': 'Bishan', '57': 'Ang Mo Kio',
+  '58': 'Upper Bukit Timah', '59': 'Clementi',
+  '60': 'Jurong', '61': 'Jurong', '62': 'Jurong', '63': 'Jurong', '64': 'Jurong',
   '65': 'Bukit Panjang', '66': 'Choa Chu Kang', '67': 'Bukit Panjang', '68': 'Choa Chu Kang',
   '69': 'Lim Chu Kang', '70': 'Tengah', '71': 'Tengah',
   '72': 'Kranji', '73': 'Woodgrove',
   '75': 'Yishun', '76': 'Sembawang',
   '77': 'Upper Thomson', '78': 'Springleaf',
-  '79': 'Seletar', '80': 'Seletar',
-  '81': 'Changi', '82': 'Punggol',
+  '79': 'Seletar', '80': 'Seletar', '81': 'Changi', '82': 'Punggol',
 };
 
 function getAreaName(addr) {
@@ -72,7 +80,7 @@ function formatPickupTime(dateStr) {
 }
 
 function getVehicleLabel(key) {
-  if (!key || key === 'any') return 'Any';
+  if (!key || key === 'any') return null;
   const mode = VEHICLE_MODES.find(v => v.key === key);
   if (mode) return `${mode.icon} ${mode.label}`;
   return legacyVehicleLabel(key);
@@ -583,30 +591,26 @@ export default function DriverJobs() {
                 {filteredJobs.map(job => {
                   const hasBid = myBids[job.id];
                   const countdown = getCountdown(job.pickup_by);
-                  const urgencyBg = job.urgency === 'urgent' ? '#fef2f2' : job.urgency === 'express' ? '#fffbeb' : '';
+                  const vLabel = getVehicleLabel(job.vehicle_required);
                   return (
                     <div key={job.id} onClick={() => setDetailJob(job)} style={{
                       ...card, cursor: 'pointer', transition: 'box-shadow 0.15s', padding: '16px 20px',
-                      ...(job.urgency === 'urgent' ? { borderLeft: '4px solid #ef4444' } : job.urgency === 'express' ? { borderLeft: '4px solid #f59e0b' } : {}),
                     }}>
-                      {/* Row 1: Vehicle + Weight + Amount */}
+                      {/* Row 1: Vehicle + Weight + Urgency badge + Amount */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b' }}>{getVehicleLabel(job.vehicle_required)}</span>
-                          {job.item_weight && (
-                            <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: '600', background: '#f1f5f9', color: '#475569' }}>{job.item_weight} kg</span>
-                          )}
-                          <span style={badge(job.urgency || 'standard', `${urgencyColor[job.urgency]}15`, urgencyColor[job.urgency])}>{job.urgency || 'standard'}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', minWidth: 0 }}>
+                          {vLabel && <span style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b' }}>{vLabel}</span>}
+                          {job.item_weight && <span style={{ fontSize: '13px', color: '#475569', fontWeight: '600' }}>{job.item_weight} kg</span>}
+                          {!vLabel && !job.item_weight && <span style={{ fontSize: '13px', color: '#94a3b8' }}>—</span>}
+                          <span style={badge(job.urgency || 'standard', `${urgencyColor[job.urgency] || '#64748b'}15`, urgencyColor[job.urgency] || '#64748b')}>{job.urgency || 'standard'}</span>
                         </div>
-                        <div style={{ fontSize: '20px', fontWeight: '800', color: '#10b981', flexShrink: 0 }}>{formatBudgetRange(job)}</div>
+                        <div style={{ fontSize: '18px', fontWeight: '800', color: '#10b981', flexShrink: 0, marginLeft: '10px' }}>{formatBudgetRange(job)}</div>
                       </div>
 
                       {/* Row 2: Date/Time + Countdown */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
                         <span style={{ fontSize: '13px', color: '#64748b' }}>
-                          {job.pickup_by
-                            ? `📅 ${formatPickupTime(job.pickup_by)}`
-                            : `Posted ${formatPickupTime(job.created_at)}`}
+                          {job.pickup_by ? `📅 ${formatPickupTime(job.pickup_by)}` : `📅 ${formatPickupTime(job.created_at)}`}
                         </span>
                         {countdown && (
                           <span style={{ padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '700', background: countdown === 'Now' ? '#fef2f2' : '#fef3c7', color: countdown === 'Now' ? '#dc2626' : '#92400e' }}>
@@ -615,32 +619,28 @@ export default function DriverJobs() {
                         )}
                       </div>
 
-                      {/* Row 3: Area → Area + Distance */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                        <span style={{ fontSize: '14px', color: '#374151', fontWeight: '500' }}>
-                          {getAreaName(job.pickup_address)} → {getAreaName(job.delivery_address)}
-                        </span>
-                        {job.distance_km && (
-                          <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600', flexShrink: 0, marginLeft: '8px' }}>{parseFloat(job.distance_km).toFixed(1)} km</span>
-                        )}
+                      {/* Row 3: Area → Area */}
+                      <div style={{ fontSize: '13px', color: '#374151', marginBottom: '8px' }}>
+                        {getAreaName(job.pickup_address)} → {getAreaName(job.delivery_address)}
+                        {job.distance_km ? <span style={{ color: '#94a3b8', marginLeft: '8px' }}>{parseFloat(job.distance_km).toFixed(1)} km</span> : ''}
                       </div>
 
-                      {/* Row 4: Job ID (small) + Actions */}
+                      {/* Row 4: Job ID (small) + bid status or buttons */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} onClick={e => e.stopPropagation()}>
-                        <span style={{ fontSize: '11px', color: '#b0b8c4', fontWeight: '500' }}>{job.job_number || '—'}</span>
+                        <span style={{ fontSize: '11px', color: '#b0b8c4' }}>{job.job_number || '—'}</span>
                         {hasBid ? (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ padding: '5px 12px', borderRadius: '8px', background: hasBid.status === 'accepted' ? '#f0fdf4' : hasBid.status === 'outbid' ? '#fffbeb' : hasBid.status === 'rejected' ? '#fef2f2' : '#f0fdf4', color: hasBid.status === 'accepted' ? '#10b981' : hasBid.status === 'outbid' ? '#d97706' : hasBid.status === 'rejected' ? '#ef4444' : '#10b981', fontSize: '12px', fontWeight: '600' }}>
+                            <span style={{ fontSize: '12px', fontWeight: '600', color: hasBid.status === 'accepted' ? '#10b981' : hasBid.status === 'rejected' ? '#ef4444' : '#f59e0b' }}>
                               ${hasBid.amount} ({hasBid.status === 'outbid' ? 'not selected' : hasBid.status})
                             </span>
                             {['rejected', 'outbid'].includes(hasBid.status) && (
-                              <button onClick={() => setSelectedJob(job)} style={{ padding: '6px 14px', borderRadius: '8px', border: '1px solid #f59e0b', background: 'white', color: '#f59e0b', fontSize: '12px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>Re-bid</button>
+                              <button onClick={() => setSelectedJob(job)} style={{ padding: '5px 12px', borderRadius: '8px', border: '1px solid #f59e0b', background: 'white', color: '#f59e0b', fontSize: '11px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>Re-bid</button>
                             )}
                           </div>
                         ) : (
                           <div style={{ display: 'flex', gap: '8px' }}>
-                            {getJobBudget(job) && <button onClick={() => instantAccept(job)} disabled={accepting === job.id} style={{ padding: '7px 14px', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontSize: '12px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif", opacity: accepting === job.id ? 0.7 : 1 }}>{accepting === job.id ? '...' : `Accept $${getJobBudget(job).toFixed(2)}`}</button>}
-                            <button onClick={() => setSelectedJob(job)} style={{ padding: '7px 14px', borderRadius: '8px', border: '1px solid #3b82f6', background: 'white', color: '#3b82f6', fontSize: '12px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>{getJobBudget(job) ? 'Bid' : 'Place Bid'}</button>
+                            {getJobBudget(job) && <button onClick={() => instantAccept(job)} disabled={accepting === job.id} style={{ padding: '6px 14px', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontSize: '12px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif", opacity: accepting === job.id ? 0.7 : 1 }}>{accepting === job.id ? '...' : `Accept $${getJobBudget(job).toFixed(2)}`}</button>}
+                            <button onClick={() => setSelectedJob(job)} style={{ padding: '6px 14px', borderRadius: '8px', border: '1px solid #3b82f6', background: 'white', color: '#3b82f6', fontSize: '12px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>{getJobBudget(job) ? 'Bid' : 'Place Bid'}</button>
                           </div>
                         )}
                       </div>
