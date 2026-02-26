@@ -145,21 +145,41 @@ export default function DriverDashboard() {
           {availableJobs.length === 0 ? (
             <p style={{ color: '#64748b', fontSize: '14px', textAlign: 'center', padding: '20px' }}>No available jobs right now. Check back later!</p>
           ) : (
-            availableJobs.map(job => (
-              <a key={job.id} href={`/driver/jobs?id=${job.id}`} style={{ textDecoration: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 0', borderBottom: '1px solid #f1f5f9' }}>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b' }}>{job.item_description}</span>
-                    <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '700', background: `${urgencyColor[job.urgency]}15`, color: urgencyColor[job.urgency], textTransform: 'uppercase' }}>{job.urgency}</span>
+            availableJobs.map(job => {
+              const budget = parseFloat(job.budget_min) || parseFloat(job.budget_max) || parseFloat(job.estimated_fare) || 0;
+              const budgetStr = (parseFloat(job.budget_min) > 0 && parseFloat(job.budget_max) > 0) ? `$${parseFloat(job.budget_min).toFixed(0)}-$${parseFloat(job.budget_max).toFixed(0)}` : budget > 0 ? `$${budget.toFixed(2)}` : 'Open bid';
+              return (
+                <div key={job.id} style={{ padding: '14px 0', borderBottom: '1px solid #f1f5f9' }}>
+                  <a href={`/driver/jobs`} style={{ textDecoration: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b' }}>{job.job_number || job.item_description}</span>
+                        <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '700', background: `${urgencyColor[job.urgency]}15`, color: urgencyColor[job.urgency], textTransform: 'uppercase' }}>{job.urgency}</span>
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{job.pickup_address?.split(',')[0]} → {job.delivery_address?.split(',')[0]}</div>
+                    </div>
+                    <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: '12px' }}>
+                      <div style={{ fontSize: '15px', fontWeight: '700', color: '#10b981' }}>{budgetStr}</div>
+                      <div style={{ fontSize: '11px', color: '#94a3b8' }}>{job.vehicle_required && job.vehicle_required !== 'any' ? job.vehicle_required : 'Any'}</div>
+                    </div>
+                  </a>
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                    {budget > 0 && (
+                      <a href={`/driver/jobs`} style={{
+                        padding: '7px 16px', borderRadius: '8px', border: 'none', textDecoration: 'none',
+                        background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white',
+                        fontSize: '12px', fontWeight: '600', display: 'inline-block',
+                      }}>Accept ${budget.toFixed(2)}</a>
+                    )}
+                    <a href={`/driver/jobs`} style={{
+                      padding: '7px 16px', borderRadius: '8px', border: '1px solid #3b82f6', textDecoration: 'none',
+                      background: 'white', color: '#3b82f6',
+                      fontSize: '12px', fontWeight: '600', display: 'inline-block',
+                    }}>{budget > 0 ? 'Bid' : 'Place Bid'}</a>
                   </div>
-                  <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>📍 {job.pickup_address} → {job.delivery_address}</div>
                 </div>
-                <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <div style={{ fontSize: '15px', fontWeight: '700', color: '#10b981' }}>${job.budget_min} - ${job.budget_max}</div>
-                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>{job.vehicle_required || 'Any vehicle'}</div>
-                </div>
-              </a>
-            ))
+              );
+            })
           )}
         </div>
 

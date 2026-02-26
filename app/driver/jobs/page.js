@@ -192,7 +192,7 @@ export default function DriverJobs() {
     }
   };
 
-  // Categorize jobs into tabs
+  // Categorize jobs into tabs — Spot is catch-all so no jobs fall through
   const urgencyRank = { urgent: 0, rush: 0, express: 1, standard: 2 };
   const sortByUrgencyThenTime = (a, b) => {
     const ua = urgencyRank[a.urgency] ?? 2;
@@ -203,8 +203,9 @@ export default function DriverJobs() {
     return ta - tb;
   };
 
-  const spotJobs = jobs.filter(j => (j.job_type || 'spot') === 'spot').sort(sortByUrgencyThenTime);
-  const scheduledJobs = jobs.filter(j => (j.job_type || 'spot') === 'spot' ? false : j.pickup_by || j.schedule_date).sort((a, b) => {
+  const regularJobs = jobs.filter(j => j.job_type === 'regular').sort(sortByUrgencyThenTime);
+  const regularIds = new Set(regularJobs.map(j => j.id));
+  const scheduledJobs = jobs.filter(j => !regularIds.has(j.id) && j.job_type === 'scheduled' && (j.pickup_by || j.schedule_date)).sort((a, b) => {
     const ua = urgencyRank[a.urgency] ?? 2;
     const ub = urgencyRank[b.urgency] ?? 2;
     if (ua !== ub) return ua - ub;
@@ -212,9 +213,10 @@ export default function DriverJobs() {
     const tb = new Date(b.pickup_by || b.schedule_date || b.created_at).getTime();
     return ta - tb;
   });
-  const regularJobs = jobs.filter(j => j.job_type === 'regular').sort(sortByUrgencyThenTime);
+  const scheduledIds = new Set(scheduledJobs.map(j => j.id));
+  // Spot = everything not in regular or scheduled (catch-all)
+  const spotJobs = jobs.filter(j => !regularIds.has(j.id) && !scheduledIds.has(j.id)).sort(sortByUrgencyThenTime);
 
-  // Re-categorize: scheduled tab gets non-spot, non-regular jobs that have a date
   const filteredJobs = activeTab === 'spot' ? spotJobs : activeTab === 'scheduled' ? scheduledJobs : regularJobs;
   const tabCounts = { spot: spotJobs.length, scheduled: scheduledJobs.length, regular: regularJobs.length };
 
