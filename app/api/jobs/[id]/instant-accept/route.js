@@ -12,10 +12,17 @@ export async function POST(request, { params }) {
 
   try {
     const session = getSession(request);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    if (session.role !== 'driver') return NextResponse.json({ error: 'Only drivers can accept jobs' }, { status: 403 });
+    if (!session) {
+      console.error('[instant-accept] No session — returning 401');
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (session.role !== 'driver') {
+      console.error('[instant-accept] Not a driver:', session.role);
+      return NextResponse.json({ error: 'Only drivers can accept jobs' }, { status: 403 });
+    }
 
     const { id: jobId } = await params;
+    console.log(`[instant-accept] Driver ${session.userId} accepting job ${jobId}`);
 
     // Fetch job to get budget and client_id
     const { data: job, error: jobErr } = await supabaseAdmin

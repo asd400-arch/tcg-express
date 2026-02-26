@@ -137,6 +137,7 @@ export default function DriverJobs() {
       const res = await fetch(`/api/jobs/${job.id}/instant-accept`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
       });
       const result = await res.json();
       if (!res.ok) {
