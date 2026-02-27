@@ -139,26 +139,34 @@ export default function DriverJobs() {
       ]);
 
       if (jobsRes.error) {
+        console.error('[driver/jobs] Jobs query FAILED:', jobsRes.error);
         setDataLoading(false);
         return;
       }
 
       const rawJobs = jobsRes.data || [];
+      const jobNumbers = rawJobs.map(j => j.job_number).join(', ');
+      console.log(`[driver/jobs] Query returned ${rawJobs.length} jobs: ${jobNumbers}`);
+
+      // Log what gets filtered and why
+      let corpCount = 0, vehicleCount = 0;
       const allJobs = rawJobs.filter(j => {
-        if (j.is_corp_premium) return false;
+        if (j.is_corp_premium) { corpCount++; return false; }
         if (j.vehicle_required && j.vehicle_required !== 'any' && user.vehicle_type) {
           const fit = checkVehicleFit(user.vehicle_type, j.vehicle_required);
-          if (!fit.ok) return false;
+          if (!fit.ok) { vehicleCount++; return false; }
         }
         return true;
       });
+
+      console.log(`[driver/jobs] ${rawJobs.length} rows → -${corpCount} corp, -${vehicleCount} vehicle → ${allJobs.length} shown`);
 
       setJobs(allJobs);
       const bm = {};
       (bidsRes.data || []).forEach(b => { bm[b.job_id] = b; });
       setMyBids(bm);
     } catch (err) {
-      console.error('[driver/jobs] loadData error:', err);
+      console.error('[driver/jobs] loadData CRASHED:', err);
     }
     setDataLoading(false);
   };
@@ -261,6 +269,15 @@ export default function DriverJobs() {
     }
   };
 
+  // Parse special equipment comment (Other Request detail)
+  const parseEquipComment = (job) => {
+    if (!job.special_requirements) return null;
+    try {
+      const parsed = JSON.parse(job.special_requirements);
+      return parsed.special_equipment_comment || null;
+    } catch { return null; }
+  };
+
   // Categorize jobs into tabs — all tabs sorted by created_at DESC (newest first)
   const sortNewestFirst = (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
 
@@ -302,6 +319,21 @@ export default function DriverJobs() {
                 <div style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b', marginBottom: '4px' }}>{selectedJob.job_number || selectedJob.item_description}</div>
                 <div style={{ fontSize: '12px', color: '#64748b' }}>{getAreaFromAddress(selectedJob.pickup_address)} → {getAreaFromAddress(selectedJob.delivery_address)}</div>
                 <div style={{ fontSize: '13px', color: '#10b981', fontWeight: '700', marginTop: '6px' }}>Budget: {formatBudgetRange(selectedJob)}</div>
+                {/* Customer requested equipment */}
+                {selectedJob.equipment_needed && selectedJob.equipment_needed.length > 0 && (
+                  <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                    <span style={{ fontSize: '11px', color: '#64748b' }}>Requested:</span>
+                    {selectedJob.equipment_needed.map(eq => (
+                      <span key={eq} style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', background: '#eef2ff', color: '#4f46e5' }}>{getEquipmentLabel(eq)}</span>
+                    ))}
+                  </div>
+                )}
+                {/* Other Request detail */}
+                {parseEquipComment(selectedJob) && (
+                  <div style={{ marginTop: '6px', padding: '8px 10px', borderRadius: '6px', background: '#fef3c7', border: '1px solid #fde68a', fontSize: '12px', color: '#92400e' }}>
+                    ⚠️ <strong>Other Request:</strong> {parseEquipComment(selectedJob)}
+                  </div>
+                )}
               </div>
               <div style={{ marginBottom: '14px' }}>
                 <label style={{ fontSize: '13px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>Your Bid Amount ($)<span style={{ color: '#ef4444', marginLeft: '2px' }}>*</span></label>
@@ -492,6 +524,12 @@ export default function DriverJobs() {
               {parseNotes(detailJob) && (
                 <div style={{ marginTop: '14px', padding: '12px', background: '#f8fafc', borderRadius: '8px', fontSize: '13px', color: '#374151' }}>
                   <strong>Notes:</strong> {parseNotes(detailJob)}
+                </div>
+              )}
+              {/* Other Request detail from customer */}
+              {parseEquipComment(detailJob) && (
+                <div style={{ marginTop: '10px', padding: '12px', background: '#fef3c7', borderRadius: '8px', fontSize: '13px', color: '#92400e', border: '1px solid #fde68a' }}>
+                  <strong>⚠️ Special Equipment Request:</strong> {parseEquipComment(detailJob)}
                 </div>
               )}
             </div>
