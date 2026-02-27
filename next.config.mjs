@@ -15,7 +15,7 @@ const nextConfig = {
               "style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: blob: https:",
-              "connect-src 'self' https://*.supabase.co https://api.stripe.com https://api.anthropic.com wss://*.supabase.co",
+              "connect-src 'self' https://*.supabase.co https://api.stripe.com https://api.anthropic.com wss://*.supabase.co https://router.project-osrm.org https://*.basemaps.cartocdn.com",
               "frame-src https://js.stripe.com",
             ].join('; '),
           },
