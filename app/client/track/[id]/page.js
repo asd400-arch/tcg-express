@@ -193,8 +193,8 @@ export default function ClientTrackPage({ params }) {
   const vehicleEmoji = { motorcycle: '🏍️', car: '🚗', mpv: '🚙', van: '🚐', van_1_7m: '🚐', van_2_4m: '🚐', truck: '🚚', lorry: '🚛', lorry_10ft: '🚚', lorry_14ft: '🚚', lorry_24ft: '🚛' };
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: '#0f172a' }}>
-      {/* Minimal Header */}
+    <div style={{ minHeight: '100vh', background: '#f8fafc' }}>
+      {/* Header */}
       <div style={{
         height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '0 16px', background: 'white', borderBottom: '1px solid #e2e8f0', flexShrink: 0,
@@ -224,30 +224,27 @@ export default function ClientTrackPage({ params }) {
         </div>
       )}
 
-      {/* Map */}
-      <div style={{ flex: 1, minHeight: 0 }}>
-        <LiveMap
-          jobId={jobId}
-          driverId={job.assigned_driver_id}
-          isDriver={false}
-          fullscreen={true}
-          mapHeight="100%"
-          onEtaUpdate={handleEtaUpdate}
-          onLastUpdated={handleLastUpdated}
-        />
-      </div>
-
-      {/* Bottom overlay panel */}
-      <div style={{
-        flexShrink: 0, background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(16px)',
-        borderTop: '1px solid #e2e8f0', padding: '20px',
-        borderRadius: '20px 20px 0 0', maxHeight: '50vh', overflowY: 'auto',
-      }}>
+      <div style={{ padding: '16px', maxWidth: '600px', margin: '0 auto' }}>
         {/* Status Timeline */}
-        <StatusTimeline status={job.status} />
+        <div style={{ background: 'white', borderRadius: '14px', padding: '20px', marginBottom: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9' }}>
+          <StatusTimeline status={job.status} />
+        </div>
+
+        {/* Map - embedded mode */}
+        <div style={{ marginBottom: '16px' }}>
+          <LiveMap
+            jobId={jobId}
+            driverId={job.assigned_driver_id}
+            isDriver={false}
+            fullscreen={false}
+            mapHeight="280px"
+            onEtaUpdate={handleEtaUpdate}
+            onLastUpdated={handleLastUpdated}
+          />
+        </div>
 
         {driver ? (
-          <div>
+          <div style={{ background: 'white', borderRadius: '14px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9' }}>
             {/* Driver info row */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
               <div style={{
@@ -367,7 +364,7 @@ export default function ClientTrackPage({ params }) {
             </button>
           </div>
         ) : (
-          <div style={{ textAlign: 'center', padding: '20px', color: '#94a3b8', fontSize: '14px' }}>
+          <div style={{ background: 'white', borderRadius: '14px', padding: '30px', textAlign: 'center', color: '#94a3b8', fontSize: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9' }}>
             Loading driver info...
           </div>
         )}
