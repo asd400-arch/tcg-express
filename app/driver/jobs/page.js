@@ -123,7 +123,6 @@ export default function DriverJobs() {
   const [customEquipAmount, setCustomEquipAmount] = useState('');
   const [activeTab, setActiveTab] = useState('spot');
   const [dataLoading, setDataLoading] = useState(true);
-  const [queryDebug, setQueryDebug] = useState('');
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -140,39 +139,26 @@ export default function DriverJobs() {
       ]);
 
       if (jobsRes.error) {
-        console.error('[driver/jobs] Jobs query FAILED:', jobsRes.error);
-        setQueryDebug(`Query error: ${jobsRes.error.message}`);
         setDataLoading(false);
         return;
       }
 
       const rawJobs = jobsRes.data || [];
-      const jobNumbers = rawJobs.map(j => j.job_number).join(', ');
-      console.log(`[driver/jobs] Query returned ${rawJobs.length} jobs: ${jobNumbers}`);
-
-      // Log what gets filtered and why
-      let corpCount = 0, vehicleCount = 0;
       const allJobs = rawJobs.filter(j => {
-        if (j.is_corp_premium) { corpCount++; return false; }
+        if (j.is_corp_premium) return false;
         if (j.vehicle_required && j.vehicle_required !== 'any' && user.vehicle_type) {
           const fit = checkVehicleFit(user.vehicle_type, j.vehicle_required);
-          if (!fit.ok) { vehicleCount++; return false; }
+          if (!fit.ok) return false;
         }
         return true;
       });
-
-      const newest3 = rawJobs.slice(0, 3).map(j => j.job_number).join(', ');
-      const debugMsg = `DB: ${rawJobs.length} rows (newest: ${newest3}) → -${corpCount} corp, -${vehicleCount} vehicle → ${allJobs.length} shown`;
-      console.log(`[driver/jobs] ${debugMsg}`);
-      setQueryDebug(debugMsg);
 
       setJobs(allJobs);
       const bm = {};
       (bidsRes.data || []).forEach(b => { bm[b.job_id] = b; });
       setMyBids(bm);
     } catch (err) {
-      console.error('[driver/jobs] loadData CRASHED:', err);
-      setQueryDebug(`loadData error: ${err.message}`);
+      console.error('[driver/jobs] loadData error:', err);
     }
     setDataLoading(false);
   };
@@ -536,7 +522,6 @@ export default function DriverJobs() {
               <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', margin: 0 }}>Available Jobs ({jobs.length})</h1>
               <button onClick={loadData} disabled={dataLoading} style={{ padding: '6px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', background: 'white', color: '#64748b', fontSize: '12px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif", opacity: dataLoading ? 0.5 : 1 }}>{dataLoading ? 'Loading...' : 'Refresh'}</button>
             </div>
-            {queryDebug && <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '12px' }}>{queryDebug}</div>}
 
             {/* Tabs */}
             <div style={{ display: 'flex', gap: '6px', marginBottom: '20px', flexWrap: 'wrap' }}>
