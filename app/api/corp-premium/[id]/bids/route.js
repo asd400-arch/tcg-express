@@ -148,5 +148,23 @@ export async function POST(request, { params }) {
     return NextResponse.json({ data });
   }
 
+  // Send quote to client (admin)
+  if (action === 'send_quote') {
+    if (session.role !== 'admin') return NextResponse.json({ error: 'Admin only' }, { status: 403 });
+
+    const { quote } = body;
+    if (!quote) return NextResponse.json({ error: 'Quote data required' }, { status: 400 });
+
+    const { data, error } = await supabaseAdmin
+      .from('corp_premium_requests')
+      .update({ admin_quote: quote, status: 'quote_sent', updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ data });
+  }
+
   return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
 }
