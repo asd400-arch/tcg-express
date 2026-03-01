@@ -248,7 +248,7 @@ export const WALLET_CONSTANTS = {
     paynow: 0,
     bank_transfer: 0.50,
   },
-  TOPUP_AMOUNTS_QUICK: [50, 100, 200, 500, 1000],
+  TOPUP_AMOUNTS_QUICK: [20, 50, 100, 200, 500, 1000],
 } as const;
 
 // --- Singapore Banks ---

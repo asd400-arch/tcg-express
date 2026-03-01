@@ -17,7 +17,18 @@ interface Props {
   initialAmount?: string;
 }
 
-const QUICK_AMOUNTS = WALLET_CONSTANTS.TOPUP_AMOUNTS_QUICK;
+const QUICK_AMOUNTS = [20, 50, 100, 200, 500, 1000];
+
+const TOPUP_BONUSES: Record<number, { amount: number; label: string }> = {
+  500: { amount: 25, label: '+$25 bonus (5%)' },
+  1000: { amount: 75, label: '+$75 bonus (7.5%)' },
+};
+
+function getBonusForAmount(amt: number): { amount: number; label: string } | null {
+  if (amt >= 1000) return TOPUP_BONUSES[1000];
+  if (amt >= 500) return TOPUP_BONUSES[500];
+  return null;
+}
 
 export default function TopupModal({ open, onClose, onSuccess, initialAmount }: Props) {
   const m = useMobile();
@@ -137,25 +148,40 @@ export default function TopupModal({ open, onClose, onSuccess, initialAmount }: 
             {/* Quick amounts */}
             <div style={{ fontSize: '13px', fontWeight: '600', color: '#64748b', marginBottom: '10px' }}>Quick Amount</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
-              {QUICK_AMOUNTS.map((a) => (
-                <button
-                  key={a}
-                  onClick={() => setAmount(a)}
-                  style={{
-                    padding: '10px 16px',
-                    borderRadius: '10px',
-                    border: amount === a ? '2px solid #3b82f6' : '1px solid #e2e8f0',
-                    background: amount === a ? '#eff6ff' : 'white',
-                    color: amount === a ? '#1d4ed8' : '#374151',
-                    fontSize: '14px',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    fontFamily: "'Inter', sans-serif",
-                  }}
-                >
-                  {formatSGD(a)}
-                </button>
-              ))}
+              {QUICK_AMOUNTS.map((a) => {
+                const bonus = TOPUP_BONUSES[a];
+                return (
+                  <button
+                    key={a}
+                    onClick={() => setAmount(a)}
+                    style={{
+                      padding: '10px 16px',
+                      borderRadius: '10px',
+                      border: amount === a ? '2px solid #3b82f6' : '1px solid #e2e8f0',
+                      background: amount === a ? '#eff6ff' : 'white',
+                      color: amount === a ? '#1d4ed8' : '#374151',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      fontFamily: "'Inter', sans-serif",
+                      position: 'relative',
+                    }}
+                  >
+                    {formatSGD(a)}
+                    {bonus && (
+                      <span style={{
+                        display: 'block',
+                        fontSize: '10px',
+                        fontWeight: '700',
+                        color: '#10b981',
+                        marginTop: '2px',
+                      }}>
+                        {bonus.label}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
 
             {/* Custom amount */}
@@ -252,6 +278,30 @@ export default function TopupModal({ open, onClose, onSuccess, initialAmount }: 
               </button>
             </div>
 
+            {/* Bonus banner */}
+            {amount && getBonusForAmount(Number(amount)) && (
+              <div style={{
+                background: 'linear-gradient(135deg, #ecfdf5, #d1fae5)',
+                borderRadius: '12px',
+                padding: '12px 16px',
+                marginBottom: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                border: '1px solid #a7f3d0',
+              }}>
+                <span style={{ fontSize: '20px' }}>🎁</span>
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: '700', color: '#059669' }}>
+                    Bonus Credit! {getBonusForAmount(Number(amount))!.label}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#047857' }}>
+                    You'll receive {formatSGD(Number(amount) + getBonusForAmount(Number(amount))!.amount)} total
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Submit */}
             <button
               onClick={handleSubmit}
@@ -269,7 +319,9 @@ export default function TopupModal({ open, onClose, onSuccess, initialAmount }: 
                 fontFamily: "'Inter', sans-serif",
               }}
             >
-              {loading ? 'Processing...' : amount ? `Top Up ${formatSGD(Number(amount))}` : 'Enter Amount'}
+              {loading ? 'Processing...' : amount
+                ? `Top Up ${formatSGD(Number(amount))}${getBonusForAmount(Number(amount)) ? ' + ' + getBonusForAmount(Number(amount))!.label : ''}`
+                : 'Enter Amount'}
             </button>
           </>
         )}
@@ -339,7 +391,7 @@ export default function TopupModal({ open, onClose, onSuccess, initialAmount }: 
                 2. Tap on PayNow / Scan &amp; Pay<br />
                 3. Scan this QR code<br />
                 4. Verify the amount and confirm payment<br />
-                5. Your wallet will be credited automatically
+                5. Your wallet will be credited after verification
               </div>
             </div>
 
@@ -380,6 +432,11 @@ export default function TopupModal({ open, onClose, onSuccess, initialAmount }: 
             <div style={{ fontSize: '20px', fontWeight: '700', color: '#1e293b', marginBottom: '8px' }}>Top Up Successful!</div>
             <div style={{ fontSize: '14px', color: '#64748b', marginBottom: '24px' }}>
               {formatSGD(Number(amount))} has been added to your wallet
+              {getBonusForAmount(Number(amount)) && (
+                <div style={{ color: '#10b981', fontWeight: '600', marginTop: '4px' }}>
+                  🎁 {getBonusForAmount(Number(amount))!.label} will be credited shortly
+                </div>
+              )}
             </div>
             <button
               onClick={() => { onSuccess(); onClose(); }}
