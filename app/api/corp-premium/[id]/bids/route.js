@@ -127,12 +127,19 @@ export async function POST(request, { params }) {
     if (session.role !== 'admin') return NextResponse.json({ error: 'Admin only' }, { status: 403 });
 
     const { status } = body;
-    const validStatuses = ['bidding_open', 'bidding_closed', 'awarded', 'active', 'completed', 'cancelled'];
+    const validStatuses = ['submitted', 'under_review', 'quote_sent', 'bidding_open', 'bidding_closed', 'awarded', 'accepted', 'rejected', 'active', 'completed', 'cancelled'];
     if (!validStatuses.includes(status)) return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
+
+    const updateData = { status, updated_at: new Date().toISOString() };
+
+    // If sending a quote, store quote details
+    if (status === 'quote_sent' && body.quote) {
+      updateData.admin_quote = body.quote;
+    }
 
     const { data, error } = await supabaseAdmin
       .from('corp_premium_requests')
-      .update({ status, updated_at: new Date().toISOString() })
+      .update(updateData)
       .eq('id', id)
       .select()
       .single();

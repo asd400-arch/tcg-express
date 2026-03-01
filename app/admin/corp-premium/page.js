@@ -167,7 +167,7 @@ export default function AdminCorpPremiumPage() {
               )}
 
               {/* Regions */}
-              {(((Array.isArray(selected.pickup_regions) ? selected.pickup_regions : []).length > 0) || ((Array.isArray(selected.delivery_regions) ? selected.delivery_regions : []).length > 0)) && (
+              {((selected.pickup_regions && selected.pickup_regions.length > 0) || (selected.delivery_regions && selected.delivery_regions.length > 0)) && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
                   {selected.pickup_regions && selected.pickup_regions.length > 0 && (
                     <div><div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600', marginBottom: '4px' }}>Pickup Regions</div><div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>{selected.pickup_regions.map(r => <span key={r} style={{ padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '600', background: '#dbeafe', color: '#1d4ed8' }}>{r}</span>)}</div></div>
