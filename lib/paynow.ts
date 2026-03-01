@@ -8,7 +8,7 @@ import { WALLET_CONSTANTS } from '@/types/wallet';
 // --- TCG PayNow Configuration ---
 
 const PAYNOW_CONFIG = {
-  UEN: '202600001A',
+  UEN: '202005872W',
   COMPANY_NAME: 'TECH CHAIN GLOBAL',
   PROXY_TYPE: '2',        // UEN
   CURRENCY: '702',        // SGD
