@@ -62,6 +62,7 @@ export interface Wallet {
   id: string;
   user_id: string;
   balance: number;
+  bonus_balance: number;
   currency: string;
   status: WalletStatus;
   bank_name: string | null;
