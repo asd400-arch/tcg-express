@@ -39,6 +39,7 @@ const adminLinks = [
   { label: 'Banners', href: '/admin/banners', icon: '📢' },
   { label: 'Support', href: '/admin/support', icon: '💬' },
   { label: 'Transactions', href: '/admin/transactions', icon: '💳' },
+  { label: 'Wallet', href: '/admin/wallet', icon: '👛' },
   { label: 'Analytics', href: '/admin/analytics', icon: '📈' },
   { label: 'Settings', href: '/admin/settings', icon: '⚙️' },
 ];
