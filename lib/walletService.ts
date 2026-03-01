@@ -21,6 +21,18 @@ import type {
   WithdrawalMethod,
 } from '@/types/wallet';
 
+// --- Top-up Bonus Tiers (non-withdrawable credits) ---
+const TOPUP_BONUSES: Record<number, number> = {
+  1000: 75,  // $1000+ → +$75 (7.5%)
+  500: 25,   // $500+  → +$25 (5%)
+};
+
+function getBonusAmount(topupAmount: number): number {
+  if (topupAmount >= 1000) return 75;
+  if (topupAmount >= 500) return 25;
+  return 0;
+}
+
 // ============================================================
 // 1. getOrCreateWallet
 // ============================================================
@@ -247,6 +259,36 @@ export async function confirmPayNowTopup(
 
   if (updateError) throw new Error(`Failed to update top-up: ${updateError.message}`);
 
+  // Credit bonus if eligible (non-withdrawable)
+  const bonusAmount = getBonusAmount(Number(topup.amount));
+  if (bonusAmount > 0) {
+    // Credit bonus to wallet balance
+    await supabaseAdmin.rpc('wallet_credit', {
+      p_wallet_id: topup.wallet_id,
+      p_user_id: topup.user_id,
+      p_amount: bonusAmount,
+      p_type: 'bonus',
+      p_reference_type: 'topup_bonus',
+      p_reference_id: topup.id,
+      p_payment_method: 'system',
+      p_payment_provider_ref: null,
+      p_description: `Top-up bonus: +$${bonusAmount.toFixed(2)} for $${Number(topup.amount).toFixed(2)} top-up`,
+      p_metadata: { bonus_type: 'topup', non_withdrawable: true },
+    });
+
+    // Track in bonus_balance (non-withdrawable portion)
+    const { data: currentWallet } = await supabaseAdmin
+      .from('wallets')
+      .select('bonus_balance')
+      .eq('id', topup.wallet_id)
+      .single();
+    
+    await supabaseAdmin
+      .from('wallets')
+      .update({ bonus_balance: Number(currentWallet?.bonus_balance || 0) + bonusAmount })
+      .eq('id', topup.wallet_id);
+  }
+
   return updated as WalletTopup;
 }
 
@@ -320,9 +362,10 @@ export async function requestWithdrawal(
 
   const wallet = await getOrCreateWallet(userId);
 
-  // Check balance
-  if (wallet.balance < amount) {
-    throw new Error('Insufficient wallet balance');
+  // Check balance (exclude non-withdrawable bonus)
+  const withdrawable = Number(wallet.balance) - Number(wallet.bonus_balance || 0);
+  if (withdrawable < amount) {
+    throw new Error(`Insufficient withdrawable balance. Your withdrawable balance is $${withdrawable.toFixed(2)} (excludes $${Number(wallet.bonus_balance || 0).toFixed(2)} bonus credits)`);
   }
 
   // Validate withdrawal method setup
