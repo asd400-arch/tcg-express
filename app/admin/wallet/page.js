@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../components/AuthContext';
-import Sidebar from '../../components/admin/Sidebar';
+import Sidebar from '../../components/Sidebar';
 import { supabase } from '../../../lib/supabase';
 
 function formatSGD(amount) {

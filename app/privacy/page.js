@@ -1,66 +1,85 @@
 'use client';
-import useMobile from '../components/useMobile';
 
 export default function PrivacyPage() {
-  const m = useMobile();
-  const h2 = { fontSize: '18px', fontWeight: '700', color: '#1e293b', marginTop: '32px', marginBottom: '12px' };
-  const p = { fontSize: '14px', color: '#475569', lineHeight: '1.8', marginBottom: '12px' };
+  const h2 = { fontSize: '18px', fontWeight: '700', color: '#1e293b', margin: '32px 0 12px' };
+  const h3 = { fontSize: '15px', fontWeight: '700', color: '#334155', margin: '20px 0 8px' };
+  const p = { fontSize: '14px', color: '#475569', lineHeight: '1.7', margin: '0 0 12px' };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f8fafc', padding: m ? '20px 16px' : '40px' }}>
-      <div style={{ maxWidth: '720px', margin: '0 auto', background: 'white', borderRadius: '16px', padding: m ? '24px 20px' : '40px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9' }}>
-        <a href="/" style={{ color: '#3b82f6', fontSize: '13px', textDecoration: 'none', fontWeight: '500' }}>&larr; Back</a>
-        <h1 style={{ fontSize: '28px', fontWeight: '800', color: '#1e293b', marginTop: '16px', marginBottom: '8px' }}>Privacy Policy</h1>
-        <p style={{ fontSize: '13px', color: '#94a3b8', marginBottom: '24px' }}>Last updated: 19 February 2026</p>
+    <div style={{ minHeight: '100vh', background: '#f8fafc' }}>
+      <div style={{ maxWidth: '720px', margin: '0 auto', padding: '40px 20px 80px' }}>
+        <a href="/" style={{ fontSize: '13px', color: '#3b82f6', textDecoration: 'none', fontWeight: '600' }}>← Back to Home</a>
 
-        <p style={p}>Tech Chain Global Pte Ltd (&quot;Company&quot;, &quot;we&quot;, &quot;us&quot;) operates the TCG Express platform (&quot;Platform&quot;). This Privacy Policy describes how we collect, use, store, and protect your personal data when you use our Platform.</p>
+        <h1 style={{ fontSize: '28px', fontWeight: '800', color: '#1e293b', margin: '20px 0 8px' }}>Privacy Policy</h1>
+        <p style={{ ...p, color: '#94a3b8' }}>Last updated: 1 March 2026</p>
 
-        <h2 style={h2}>1. Data We Collect</h2>
-        <p style={p}><strong>Account Information:</strong> Name, email address, phone number, company name, and account credentials.</p>
-        <p style={p}><strong>Driver Verification Documents:</strong> NRIC (front and back), driving license, vehicle insurance, vehicle registration details, and business registration certificate (for company drivers).</p>
-        <p style={p}><strong>Transaction Data:</strong> Job details, bid amounts, payment records, commission details, and refund history.</p>
-        <p style={p}><strong>Location Data:</strong> Real-time GPS coordinates during active deliveries (drivers only), pickup and delivery addresses.</p>
-        <p style={p}><strong>Communication Data:</strong> In-app chat messages between clients and drivers, dispute records, and support communications.</p>
-        <p style={p}><strong>Device & Usage Data:</strong> Browser type, device information, IP address, push notification tokens, and platform usage analytics.</p>
+        <div style={{ background: 'white', borderRadius: '16px', padding: '32px', border: '1px solid #f1f5f9', marginTop: '20px' }}>
 
-        <h2 style={h2}>2. How We Use Your Data</h2>
-        <p style={p}>We use your personal data to: (a) provide and operate the Platform; (b) verify driver identities and qualifications; (c) process payments securely via Stripe; (d) enable real-time delivery tracking; (e) facilitate communication between clients and drivers; (f) resolve disputes and provide customer support; (g) send service notifications via email and push notifications; (h) improve our services and user experience; (i) comply with legal obligations.</p>
+          <h2 style={h2}>1. Introduction</h2>
+          <p style={p}>Tech Chain Global Pte Ltd ("TCG", "we", "us") is committed to protecting the personal data of our users in accordance with the Personal Data Protection Act 2012 ("PDPA") of Singapore. This Privacy Policy explains how we collect, use, disclose, and protect your personal data when you use the TCG Express platform ("Platform").</p>
 
-        <h2 style={h2}>3. Payment Processing</h2>
-        <p style={p}>All payments are processed through Stripe, a PCI-DSS compliant payment processor. We do not store your full credit card details on our servers. Stripe&apos;s privacy policy governs the handling of your payment information. We store only transaction references and amounts for record-keeping purposes.</p>
+          <h2 style={h2}>2. Data We Collect</h2>
+          <h3 style={h3}>2.1 Account Information</h3>
+          <p style={p}>Name, email address, phone number, company name, UEN (for business accounts), and account credentials.</p>
+          <h3 style={h3}>2.2 Driver Information</h3>
+          <p style={p}>Driving licence details, vehicle type and plate number, bank account/PayNow details for payouts.</p>
+          <h3 style={h3}>2.3 Transaction Data</h3>
+          <p style={p}>Job details (addresses, item descriptions, pricing), bid history, payment records, wallet transactions, and invoices.</p>
+          <h3 style={h3}>2.4 Location Data</h3>
+          <p style={p}>Real-time GPS location of Drivers during active deliveries for live tracking. Location data is only collected when Drivers have an active job and have granted permission through their device.</p>
+          <h3 style={h3}>2.5 Device &amp; Usage Data</h3>
+          <p style={p}>Device type, browser, IP address, pages visited, and interaction patterns for Platform improvement and security.</p>
+          <h3 style={h3}>2.6 Communication Data</h3>
+          <p style={p}>In-app messages between Clients and Drivers, support tickets, and email correspondence.</p>
 
-        <h2 style={h2}>4. Data Sharing</h2>
-        <p style={p}>We share your data only as necessary: (a) between clients and drivers for delivery coordination (limited to name, phone, and delivery details); (b) with Stripe for payment processing; (c) with Resend for transactional email delivery; (d) with Sentry for error monitoring (anonymized); (e) with law enforcement when required by applicable law.</p>
-        <p style={p}>We do not sell your personal data to third parties.</p>
+          <h2 style={h2}>3. How We Use Your Data</h2>
+          <p style={p}>We use your personal data for the following purposes:</p>
+          <p style={p}>(a) <strong>Service Delivery</strong> — To facilitate job matching, bidding, payments, tracking, and invoicing.</p>
+          <p style={p}>(b) <strong>Account Management</strong> — To verify identity, manage accounts, and process registrations.</p>
+          <p style={p}>(c) <strong>Payments</strong> — To process wallet top-ups, job payments, driver payouts, and refunds.</p>
+          <p style={p}>(d) <strong>Safety &amp; Security</strong> — To detect fraud, resolve disputes, and ensure Platform integrity.</p>
+          <p style={p}>(e) <strong>Communication</strong> — To send job notifications, payment confirmations, and important service updates.</p>
+          <p style={p}>(f) <strong>Improvement</strong> — To analyse usage patterns and improve Platform features and performance.</p>
+          <p style={p}>(g) <strong>Legal Compliance</strong> — To comply with applicable laws, regulations, and legal processes.</p>
 
-        <h2 style={h2}>5. Data Storage & Security</h2>
-        <p style={p}>Your data is stored on Supabase (hosted on AWS) with encryption at rest and in transit. KYC documents are stored in secure cloud storage with restricted access. We implement industry-standard security measures including HTTPS encryption, row-level security policies, and secure session management.</p>
+          <h2 style={h2}>4. Data Sharing &amp; Disclosure</h2>
+          <p style={p}>We may share your personal data with:</p>
+          <p style={p}>(a) <strong>Other Users</strong> — Clients can see Driver name, vehicle details, and real-time location during active jobs. Drivers can see Client company name and job details.</p>
+          <p style={p}>(b) <strong>Service Providers</strong> — Third-party services that help us operate the Platform, including Supabase (database), Vercel (hosting), Sentry (error monitoring), and payment processors.</p>
+          <p style={p}>(c) <strong>Legal Requirements</strong> — When required by law, court order, or government authority.</p>
+          <p style={p}>We do not sell your personal data to third parties for marketing purposes.</p>
 
-        <h2 style={h2}>6. Data Retention</h2>
-        <p style={p}>We retain your account data for the duration of your account plus 12 months after deletion. Transaction records are retained for 7 years for regulatory compliance. KYC documents are retained for 5 years after account closure. GPS tracking data is retained for 90 days after delivery completion. Chat messages are retained for 12 months.</p>
+          <h2 style={h2}>5. Data Retention</h2>
+          <p style={p}>We retain your personal data for as long as your account is active and for a reasonable period thereafter for legal, tax, and audit purposes. Transaction records are retained for a minimum of 5 years as required by Singapore regulations. Location data from completed deliveries is retained for 90 days, then anonymised.</p>
 
-        <h2 style={h2}>7. Your Rights</h2>
-        <p style={p}>Under the Singapore Personal Data Protection Act (PDPA), you have the right to: (a) access your personal data held by us; (b) correct inaccurate or incomplete data; (c) withdraw consent for data processing (which may affect your ability to use the Platform); (d) request data portability where technically feasible.</p>
-        <p style={p}>To exercise these rights, contact us at <a href="mailto:admin@techchainglobal.com" style={{ color: '#3b82f6' }}>admin@techchainglobal.com</a>.</p>
+          <h2 style={h2}>6. Data Security</h2>
+          <p style={p}>We implement appropriate technical and organisational measures to protect your personal data, including encrypted data transmission (TLS/SSL), secure database access controls (Row Level Security), encrypted storage of sensitive credentials, and regular security reviews.</p>
 
-        <h2 style={h2}>8. Cookies & Local Storage</h2>
-        <p style={p}>We use essential cookies for session management and authentication. We use local storage for push notification preferences. We do not use third-party tracking cookies or advertising cookies.</p>
+          <h2 style={h2}>7. Your Rights Under PDPA</h2>
+          <p style={p}>Under the PDPA, you have the right to:</p>
+          <p style={p}>(a) <strong>Access</strong> — Request a copy of the personal data we hold about you.</p>
+          <p style={p}>(b) <strong>Correction</strong> — Request correction of inaccurate or incomplete personal data.</p>
+          <p style={p}>(c) <strong>Withdrawal of Consent</strong> — Withdraw consent for the collection, use, or disclosure of your personal data, subject to legal and contractual restrictions.</p>
+          <p style={p}>To exercise these rights, please contact our Data Protection Officer at the contact details below. We will respond to your request within 30 business days.</p>
 
-        <h2 style={h2}>9. Push Notifications</h2>
-        <p style={p}>With your consent, we send push notifications for job updates, bid activity, delivery status changes, and important account alerts. You can disable push notifications at any time through your browser settings.</p>
+          <h2 style={h2}>8. Cookies &amp; Analytics</h2>
+          <p style={p}>The Platform uses essential cookies for authentication and session management. We may use analytics tools to understand Platform usage patterns. No third-party advertising cookies are used.</p>
 
-        <h2 style={h2}>10. Children&apos;s Privacy</h2>
-        <p style={p}>Our Platform is not intended for individuals under 18 years of age. We do not knowingly collect personal data from children. If we become aware that we have collected data from a child, we will promptly delete it.</p>
+          <h2 style={h2}>9. International Transfers</h2>
+          <p style={p}>Your data may be processed on servers located outside of Singapore (e.g., cloud hosting providers). Where such transfers occur, we ensure appropriate safeguards are in place to protect your data in accordance with the PDPA.</p>
 
-        <h2 style={h2}>11. International Transfers</h2>
-        <p style={p}>Your data may be processed in jurisdictions outside Singapore where our service providers operate. We ensure appropriate safeguards are in place for any international data transfers.</p>
+          <h2 style={h2}>10. Children's Privacy</h2>
+          <p style={p}>The Platform is not intended for individuals under the age of 18. We do not knowingly collect personal data from minors.</p>
 
-        <h2 style={h2}>12. Changes to This Policy</h2>
-        <p style={p}>We may update this Privacy Policy from time to time. We will notify registered users of material changes via email. Continued use of the Platform after changes constitutes acceptance of the updated policy.</p>
+          <h2 style={h2}>11. Changes to This Policy</h2>
+          <p style={p}>We may update this Privacy Policy from time to time. Material changes will be notified via email or Platform notification. The "Last updated" date at the top indicates the latest revision.</p>
 
-        <h2 style={h2}>13. Contact & Data Protection Officer</h2>
-        <p style={p}>For privacy-related inquiries or to exercise your data rights, contact us at <a href="mailto:admin@techchainglobal.com" style={{ color: '#3b82f6' }}>admin@techchainglobal.com</a>.</p>
-        <p style={p}>Tech Chain Global Pte Ltd<br />Singapore</p>
+          <h2 style={h2}>12. Contact &amp; Data Protection Officer</h2>
+          <p style={p}>For questions, data access requests, or complaints regarding your personal data:</p>
+          <p style={p}>Data Protection Officer<br />Tech Chain Global Pte Ltd<br />Email: privacy@techchainglobal.com<br />General: support@techchainglobal.com<br />Website: www.techchainglobal.com</p>
+
+          <p style={p}>If you are not satisfied with our response, you may lodge a complaint with the Personal Data Protection Commission (PDPC) of Singapore at www.pdpc.gov.sg.</p>
+        </div>
       </div>
     </div>
   );
