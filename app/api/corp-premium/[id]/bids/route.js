@@ -24,7 +24,7 @@ export async function GET(request, { params }) {
 
   const { data, error } = await supabaseAdmin
     .from('corp_premium_bids')
-    .select('*, partner:partner_id(contact_name, company_name, avg_rating)')
+    .select('*, partner:partner_id(contact_name, company_name)')
     .eq('request_id', id)
     .order('created_at', { ascending: false });
 
