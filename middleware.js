@@ -46,6 +46,8 @@ const ALLOWED_ORIGINS = [
   'https://tcgexpress.sg',
   'https://www.tcgexpress.sg',
   'https://tcg-express.vercel.app',
+  'https://app.techchainglobal.com',
+  'https://express.techchainglobal.com',
 ].filter(Boolean);
 
 function isAllowedOrigin(url) {
