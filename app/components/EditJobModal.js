@@ -28,6 +28,8 @@ export default function EditJobModal({ job, onClose, onSaved }) {
     delivery_contact: job.delivery_contact || '',
     delivery_phone: job.delivery_phone || '',
     delivery_instructions: job.delivery_instructions || '',
+    pickup_by: job.pickup_by ? new Date(new Date(job.pickup_by).getTime() - new Date(job.pickup_by).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '',
+    deliver_by: job.deliver_by ? new Date(new Date(job.deliver_by).getTime() - new Date(job.deliver_by).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '',
     item_description: job.item_description || '',
     item_weight: job.item_weight || '',
     item_dimensions: job.item_dimensions || '',
@@ -86,10 +88,15 @@ export default function EditJobModal({ job, onClose, onSaved }) {
     setSaving(true);
     setError('');
     try {
+      const payload = { ...form };
+      if (payload.pickup_by) payload.pickup_by = new Date(payload.pickup_by).toISOString();
+      else payload.pickup_by = null;
+      if (payload.deliver_by) payload.deliver_by = new Date(payload.deliver_by).toISOString();
+      else payload.deliver_by = null;
       const res = await fetch(`/api/jobs/${job.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       const result = await res.json();
       if (!res.ok) { setError(result.error || 'Failed to save'); setSaving(false); setConfirmStep(false); return; }
@@ -201,6 +208,11 @@ export default function EditJobModal({ job, onClose, onSaved }) {
                     onChange={e => set('pickup_phone', e.target.value)} disabled={!prePickup} />
                 </div>
               </div>
+              <div style={{ marginBottom: '14px' }}>
+                <label style={labelStyle}>Pickup By</label>
+                <input type="datetime-local" style={prePickup ? inputStyle : disabledInput} value={form.pickup_by}
+                  onChange={e => set('pickup_by', e.target.value)} disabled={!prePickup} />
+              </div>
               <div style={{ marginBottom: '20px' }}>
                 <label style={labelStyle}>Pickup Instructions</label>
                 <textarea style={{ ...(prePickup ? inputStyle : disabledInput), minHeight: '60px', resize: 'vertical' }}
@@ -225,6 +237,11 @@ export default function EditJobModal({ job, onClose, onSaved }) {
                   <input style={inputStyle} value={form.delivery_phone}
                     onChange={e => set('delivery_phone', e.target.value)} />
                 </div>
+              </div>
+              <div style={{ marginBottom: '14px' }}>
+                <label style={labelStyle}>Deliver By</label>
+                <input type="datetime-local" style={prePickup ? inputStyle : disabledInput} value={form.deliver_by}
+                  onChange={e => set('deliver_by', e.target.value)} disabled={!prePickup} />
               </div>
               <div style={{ marginBottom: '20px' }}>
                 <label style={labelStyle}>Delivery Instructions</label>

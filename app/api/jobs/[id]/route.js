@@ -64,6 +64,7 @@ const PRE_PICKUP_FIELDS = [
   'pickup_address', 'delivery_address',
   'pickup_contact', 'pickup_phone', 'pickup_instructions',
   'delivery_contact', 'delivery_phone', 'delivery_instructions',
+  'pickup_by', 'deliver_by',
   'item_description', 'item_weight', 'item_dimensions',
   'special_requirements',
 ];

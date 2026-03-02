@@ -134,7 +134,7 @@ export default function DriverJobs() {
     setDataLoading(true);
     try {
       const [jobsRes, bidsRes] = await Promise.all([
-        supabase.from('express_jobs').select('*').in('status', ['open', 'bidding']).order('created_at', { ascending: false }),
+        supabase.from('express_jobs').select('*').in('status', ['open', 'bidding']),
         supabase.from('express_bids').select('*').eq('driver_id', user.id),
       ]);
 
@@ -271,15 +271,31 @@ export default function DriverJobs() {
     } catch { return null; }
   };
 
-  // Categorize jobs into tabs — all tabs sorted by created_at DESC (newest first)
-  const sortNewestFirst = (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  // Sort by pickup urgency: pickup_by ASC (soonest first), null after, past at bottom
+  const sortByPickupUrgency = (a, b) => {
+    const now = Date.now();
+    const aTime = a.pickup_by ? new Date(a.pickup_by).getTime() : null;
+    const bTime = b.pickup_by ? new Date(b.pickup_by).getTime() : null;
+    const aPast = aTime && aTime < now;
+    const bPast = bTime && bTime < now;
+    // Past pickup_by goes to bottom
+    if (aPast && !bPast) return 1;
+    if (!aPast && bPast) return -1;
+    // Both past: most recent first
+    if (aPast && bPast) return bTime - aTime;
+    // null pickup_by goes after real dates
+    if (aTime && !bTime) return -1;
+    if (!aTime && bTime) return 1;
+    // Both null: newest created first
+    if (!aTime && !bTime) return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    // Both have future pickup_by: soonest first
+    return aTime - bTime;
+  };
 
-  const regularJobs = jobs.filter(j => j.job_type === 'regular').sort(sortNewestFirst);
-  const regularIds = new Set(regularJobs.map(j => j.id));
-  const scheduledJobs = jobs.filter(j => !regularIds.has(j.id) && j.job_type === 'scheduled' && (j.pickup_by || j.schedule_date)).sort(sortNewestFirst);
-  const scheduledIds = new Set(scheduledJobs.map(j => j.id));
-  // Spot = everything not in regular or scheduled (catch-all)
-  const spotJobs = jobs.filter(j => !regularIds.has(j.id) && !scheduledIds.has(j.id)).sort(sortNewestFirst);
+  // Categorize jobs into tabs by job_type
+  const spotJobs = jobs.filter(j => !j.job_type || j.job_type === 'spot').sort(sortByPickupUrgency);
+  const scheduledJobs = jobs.filter(j => j.job_type === 'scheduled').sort(sortByPickupUrgency);
+  const regularJobs = jobs.filter(j => j.job_type === 'regular' || j.job_type === 'recurring').sort(sortByPickupUrgency);
 
   const filteredJobs = activeTab === 'spot' ? spotJobs : activeTab === 'scheduled' ? scheduledJobs : regularJobs;
   const tabCounts = { spot: spotJobs.length, scheduled: scheduledJobs.length, regular: regularJobs.length };
@@ -287,6 +303,7 @@ export default function DriverJobs() {
   const getCountdown = (dateStr) => {
     if (!dateStr) return null;
     const diff = new Date(dateStr).getTime() - Date.now();
+    if (diff <= -3600000) return 'Overdue';
     if (diff <= 0) return 'Now';
     const hrs = Math.floor(diff / 3600000);
     const mins = Math.floor((diff % 3600000) / 60000);
@@ -615,8 +632,8 @@ export default function DriverJobs() {
                           {job.pickup_by ? `📅 ${formatPickupTime(job.pickup_by)}` : `📅 ${formatPickupTime(job.created_at)}`}
                         </span>
                         {countdown && (
-                          <span style={{ padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '700', background: countdown === 'Now' ? '#fef2f2' : '#fef3c7', color: countdown === 'Now' ? '#dc2626' : '#92400e' }}>
-                            {countdown === 'Now' ? 'ASAP' : `in ${countdown}`}
+                          <span style={{ padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '700', background: countdown === 'Overdue' ? '#fef2f2' : countdown === 'Now' ? '#fef2f2' : '#fef3c7', color: countdown === 'Overdue' ? '#dc2626' : countdown === 'Now' ? '#dc2626' : '#92400e' }}>
+                            {countdown === 'Overdue' ? 'OVERDUE' : countdown === 'Now' ? 'ASAP' : `in ${countdown}`}
                           </span>
                         )}
                       </div>

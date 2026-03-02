@@ -310,12 +310,14 @@ export default function ClientJobDetail({ params }) {
               <div style={card}>
                 <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b', marginBottom: '14px' }}>📍 Pickup</h3>
                 <div style={{ fontSize: '14px', color: '#374151', marginBottom: '6px' }}>{job.pickup_address}</div>
+                {job.pickup_by && <div style={{ fontSize: '13px', color: '#3b82f6', fontWeight: '600', marginBottom: '6px' }}>📅 Pickup by: {new Date(job.pickup_by).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' })}, {new Date(job.pickup_by).toLocaleTimeString('en-SG', { hour: 'numeric', minute: '2-digit', hour12: true })}</div>}
                 {job.pickup_contact && <div style={{ fontSize: '13px', color: '#64748b' }}>👤 {job.pickup_contact} {job.pickup_phone}</div>}
                 {job.pickup_instructions && <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>📝 {job.pickup_instructions}</div>}
               </div>
               <div style={card}>
                 <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b', marginBottom: '14px' }}>📦 Delivery</h3>
                 <div style={{ fontSize: '14px', color: '#374151', marginBottom: '6px' }}>{job.delivery_address}</div>
+                {job.deliver_by && <div style={{ fontSize: '13px', color: '#10b981', fontWeight: '600', marginBottom: '6px' }}>📅 Deliver by: {new Date(job.deliver_by).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' })}, {new Date(job.deliver_by).toLocaleTimeString('en-SG', { hour: 'numeric', minute: '2-digit', hour12: true })}</div>}
                 {job.delivery_contact && <div style={{ fontSize: '13px', color: '#64748b' }}>👤 {job.delivery_contact} {job.delivery_phone}</div>}
                 {job.delivery_instructions && <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>📝 {job.delivery_instructions}</div>}
               </div>
