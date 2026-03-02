@@ -22,7 +22,6 @@ export async function POST(request, { params }) {
     }
 
     const { id: jobId } = await params;
-    console.log(`[instant-accept] Driver ${session.userId} accepting job ${jobId}`);
 
     if (!jobId) {
       console.error('[instant-accept] jobId is empty/undefined from params');
@@ -46,10 +45,8 @@ export async function POST(request, { params }) {
         hint: jobErr?.hint,
         jobData: job,
       });
-      return NextResponse.json({ error: 'Job not found', debug: jobErr?.message || 'no data' }, { status: 404 });
+      return NextResponse.json({ error: 'Job not found' }, { status: 404 });
     }
-    console.log(`[instant-accept] Job found: ${job.job_number}, status=${job.status}, client=${job.client_id}, budget_min=${job.budget_min}, budget_max=${job.budget_max}`);
-
     if (!['open', 'bidding'].includes(job.status)) {
       console.warn(`[instant-accept] Job ${job.job_number} status is ${job.status} — not accepting bids`);
       return NextResponse.json({ error: `Job is no longer accepting bids (status: ${job.status})` }, { status: 400 });
@@ -72,7 +69,6 @@ export async function POST(request, { params }) {
     }
 
     const bidAmount = parseFloat(job.budget_min) || parseFloat(job.budget_max);
-    console.log(`[instant-accept] Budget calc: min=${job.budget_min}, max=${job.budget_max}, resolved=${bidAmount}`);
     if (!bidAmount || !isFinite(bidAmount) || bidAmount <= 0) {
       console.error(`[instant-accept] No valid budget for job ${job.job_number}`);
       return NextResponse.json({ error: 'Job has no valid budget or estimated fare' }, { status: 400 });
@@ -141,8 +137,6 @@ export async function POST(request, { params }) {
       p_coupon_id: null,
       p_idempotency_key: idempotencyKey,
     });
-
-    console.log(`[instant-accept] RPC called: job=${jobId}, bid=${bid.id}, payer=${job.client_id}, rate=${rate}`);
 
     if (rpcErr) {
       const msg = rpcErr.message || '';

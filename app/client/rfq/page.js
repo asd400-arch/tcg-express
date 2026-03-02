@@ -36,6 +36,9 @@ export default function RFQPage() {
   const [uploading, setUploading] = useState(false);
   const [showNdaModal, setShowNdaModal] = useState(false);
   const [errors, setErrors] = useState({});
+  const [respondingId, setRespondingId] = useState(null);
+  const [showRejectModal, setShowRejectModal] = useState(null);
+  const [rejectReason, setRejectReason] = useState('');
   const [form, setForm] = useState({
     title: '', description: '', duration: '3_months',
     estimated_volume: '', pickup_regions: '', delivery_regions: '',
@@ -105,9 +108,9 @@ export default function RFQPage() {
       description: form.description,
       contract_duration: duration?.months || 3,
       estimated_volume: form.estimated_volume,
-      pickup_regions: form.pickup_regions,
-      delivery_regions: form.delivery_regions,
-      vehicle_types: form.vehicle_types,
+      pickup_regions: form.pickup_regions ? form.pickup_regions.split(',').map(s => s.trim()).filter(Boolean) : [],
+      delivery_regions: form.delivery_regions ? form.delivery_regions.split(',').map(s => s.trim()).filter(Boolean) : [],
+      vehicle_types: form.vehicle_types ? form.vehicle_types.split(',').map(s => s.trim()).filter(Boolean) : [],
       special_requirements: form.special_requirements,
       nda_accepted: true,
       attachments: files.map(f => f.url),
@@ -123,6 +126,50 @@ export default function RFQPage() {
     setNdaAccepted(false);
     setTab('tracking');
     loadQuotes();
+  };
+
+  const handleAcceptQuote = async (requestId) => {
+    setRespondingId(requestId);
+    try {
+      const res = await fetch(`/api/corp-premium/${requestId}/bids`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'client_accept_quote' }),
+      });
+      if (res.ok) {
+        toast.success('Quote accepted! We will contact you to finalize the contract.');
+        loadQuotes();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.error || 'Failed to accept quote');
+      }
+    } catch { toast.error('Failed to accept quote'); }
+    setRespondingId(null);
+  };
+
+  const handleRejectQuote = async () => {
+    if (!showRejectModal) return;
+    setRespondingId(showRejectModal);
+    try {
+      const res = await fetch(`/api/corp-premium/${showRejectModal}/bids`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'client_reject_quote', rejection_reason: rejectReason }),
+      });
+      if (res.ok) {
+        toast.success('Quote declined. You can submit a new RFQ anytime.');
+        setShowRejectModal(null);
+        setRejectReason('');
+        loadQuotes();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.error || 'Failed to decline quote');
+      }
+    } catch { toast.error('Failed to decline quote'); }
+    setRespondingId(null);
+  };
+
+  const formatPaymentTerms = (terms) => {
+    const map = { advance: 'Advance Payment', net_7: 'Net 7 Days', net_14: 'Net 14 Days', net_30: 'Net 30 Days', net_60: 'Net 60 Days' };
+    return map[terms] || terms || '—';
   };
 
   if (loading || !user) return <Spinner />;
@@ -200,7 +247,7 @@ export default function RFQPage() {
               }}>
                 <span style={{ fontSize: '20px' }}>{uploading ? '...' : '📎'}</span>
                 <span style={{ fontSize: '14px', color: '#64748b', fontWeight: '500' }}>{uploading ? 'Uploading...' : 'Click to upload files'}</span>
-                <input type="file" multiple onChange={handleFileUpload} style={{ display: 'none' }} accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.dwg" />
+                <input type="file" multiple onChange={handleFileUpload} style={{ display: 'none' }} accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.pptx,.jpg,.jpeg,.png,.dwg" />
               </label>
               {files.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -255,8 +302,18 @@ export default function RFQPage() {
             ) : (
               quotes.map(q => {
                 const status = STATUS_CONFIG[q.status] || STATUS_CONFIG.submitted;
+                const aq = q.admin_quote;
+                const isQuoteSent = q.status === 'quote_sent' && aq;
+                const isAccepted = q.status === 'accepted';
+                const isRejected = q.status === 'rejected';
+                const validUntil = aq?.quoted_at && aq?.validity_days
+                  ? new Date(new Date(aq.quoted_at).getTime() + aq.validity_days * 86400000)
+                  : null;
+                const isExpired = validUntil && validUntil < new Date();
+
                 return (
-                  <div key={q.id} style={{ padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '12px', background: 'white' }}>
+                  <div key={q.id} style={{ padding: '16px', borderRadius: '12px', border: isQuoteSent ? '2px solid #c4b5fd' : '1px solid #e2e8f0', marginBottom: '16px', background: isQuoteSent ? '#faf5ff' : 'white' }}>
+                    {/* Header */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
                       <div>
                         <div style={{ fontSize: '15px', fontWeight: '600', color: '#1e293b' }}>{q.title}</div>
@@ -267,8 +324,9 @@ export default function RFQPage() {
                       </span>
                     </div>
                     <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 8px' }}>{q.description?.slice(0, 120)}{q.description?.length > 120 ? '...' : ''}</p>
+
                     {/* Status timeline */}
-                    <div style={{ display: 'flex', gap: '4px', marginTop: '10px' }}>
+                    <div style={{ display: 'flex', gap: '4px', marginTop: '10px', marginBottom: isQuoteSent || isAccepted || isRejected ? '16px' : '0' }}>
                       {Object.entries(STATUS_CONFIG).map(([key, cfg], i) => {
                         const steps = Object.keys(STATUS_CONFIG);
                         const currentIdx = steps.indexOf(q.status);
@@ -282,10 +340,135 @@ export default function RFQPage() {
                         );
                       })}
                     </div>
+
+                    {/* ═══ Quote Card (when admin has sent a quote) ═══ */}
+                    {(isQuoteSent || isAccepted) && aq && (
+                      <div style={{ background: 'white', borderRadius: '12px', padding: '16px', border: '1px solid #e9d5ff', marginTop: '4px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                          <div style={{ fontSize: '14px', fontWeight: '700', color: '#7c3aed' }}>📝 Quotation from TCG Express</div>
+                          {isAccepted && <span style={{ padding: '3px 10px', borderRadius: '6px', fontSize: '10px', fontWeight: '700', background: '#dcfce7', color: '#16a34a' }}>✅ Accepted</span>}
+                          {isQuoteSent && !isExpired && <span style={{ padding: '3px 10px', borderRadius: '6px', fontSize: '10px', fontWeight: '700', background: '#fef3c7', color: '#d97706' }}>⏳ Awaiting Your Response</span>}
+                          {isQuoteSent && isExpired && <span style={{ padding: '3px 10px', borderRadius: '6px', fontSize: '10px', fontWeight: '700', background: '#fee2e2', color: '#ef4444' }}>⏰ Expired</span>}
+                        </div>
+
+                        {/* Pricing Grid */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '10px', marginBottom: '12px' }}>
+                          {aq.monthly_rate && (
+                            <div style={{ background: '#f5f3ff', borderRadius: '10px', padding: '10px 12px', textAlign: 'center' }}>
+                              <div style={{ fontSize: '10px', color: '#7c3aed', fontWeight: '700', textTransform: 'uppercase', marginBottom: '4px' }}>Monthly Rate</div>
+                              <div style={{ fontSize: '20px', fontWeight: '800', color: '#1e293b' }}>${Number(aq.monthly_rate).toLocaleString()}</div>
+                              <div style={{ fontSize: '10px', color: '#94a3b8' }}>per month</div>
+                            </div>
+                          )}
+                          {aq.per_delivery_rate && (
+                            <div style={{ background: '#f5f3ff', borderRadius: '10px', padding: '10px 12px', textAlign: 'center' }}>
+                              <div style={{ fontSize: '10px', color: '#7c3aed', fontWeight: '700', textTransform: 'uppercase', marginBottom: '4px' }}>Per Delivery</div>
+                              <div style={{ fontSize: '20px', fontWeight: '800', color: '#1e293b' }}>${Number(aq.per_delivery_rate).toLocaleString()}</div>
+                              <div style={{ fontSize: '10px', color: '#94a3b8' }}>per delivery</div>
+                            </div>
+                          )}
+                          {aq.setup_fee && (
+                            <div style={{ background: '#f5f3ff', borderRadius: '10px', padding: '10px 12px', textAlign: 'center' }}>
+                              <div style={{ fontSize: '10px', color: '#7c3aed', fontWeight: '700', textTransform: 'uppercase', marginBottom: '4px' }}>Setup Fee</div>
+                              <div style={{ fontSize: '20px', fontWeight: '800', color: '#1e293b' }}>${Number(aq.setup_fee).toLocaleString()}</div>
+                              <div style={{ fontSize: '10px', color: '#94a3b8' }}>one-time</div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Line Items */}
+                        {aq.line_items?.length > 0 && (
+                          <div style={{ marginBottom: '12px' }}>
+                            <div style={{ fontSize: '11px', color: '#7c3aed', fontWeight: '700', marginBottom: '6px', textTransform: 'uppercase' }}>Additional Items</div>
+                            {aq.line_items.map((li, i) => (
+                              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 10px', background: '#f8fafc', borderRadius: '6px', marginBottom: '3px', fontSize: '13px' }}>
+                                <span style={{ color: '#374151' }}>{li.description}</span>
+                                <span style={{ fontWeight: '700', color: '#1e293b' }}>${Number(li.amount).toLocaleString()}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Terms */}
+                        <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: '#64748b', padding: '10px 0', borderTop: '1px solid #f1f5f9', flexWrap: 'wrap' }}>
+                          {validUntil && <span>📅 Valid until: <strong style={{ color: isExpired ? '#ef4444' : '#374151' }}>{validUntil.toLocaleDateString('en-SG', { day: '2-digit', month: 'short', year: 'numeric' })}</strong></span>}
+                          {aq.payment_terms && <span>💳 Payment: <strong style={{ color: '#374151' }}>{formatPaymentTerms(aq.payment_terms)}</strong></span>}
+                        </div>
+
+                        {/* Notes */}
+                        {aq.notes && (
+                          <div style={{ background: '#fffbeb', borderRadius: '8px', padding: '10px 12px', marginTop: '8px', border: '1px solid #fde68a' }}>
+                            <div style={{ fontSize: '11px', color: '#92400e', fontWeight: '700', marginBottom: '4px' }}>📌 Notes</div>
+                            <div style={{ fontSize: '13px', color: '#78350f', lineHeight: '1.5' }}>{aq.notes}</div>
+                          </div>
+                        )}
+
+                        {/* Accept / Reject Buttons */}
+                        {isQuoteSent && !isExpired && (
+                          <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
+                            <button
+                              onClick={() => handleAcceptQuote(q.id)}
+                              disabled={respondingId === q.id}
+                              style={{ flex: 1, padding: '12px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #16a34a, #15803d)', color: 'white', fontSize: '14px', fontWeight: '700', cursor: 'pointer', fontFamily: "'Inter', sans-serif", opacity: respondingId === q.id ? 0.7 : 1 }}
+                            >
+                              {respondingId === q.id ? 'Processing...' : '✅ Accept Quote'}
+                            </button>
+                            <button
+                              onClick={() => setShowRejectModal(q.id)}
+                              disabled={respondingId === q.id}
+                              style={{ padding: '12px 20px', borderRadius: '10px', border: '1px solid #fca5a5', background: 'white', color: '#ef4444', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}
+                            >
+                              Decline
+                            </button>
+                          </div>
+                        )}
+
+                        {isQuoteSent && isExpired && (
+                          <div style={{ marginTop: '12px', padding: '10px', borderRadius: '8px', background: '#fef2f2', textAlign: 'center', fontSize: '13px', color: '#ef4444', fontWeight: '600' }}>
+                            This quote has expired. Please submit a new RFQ or contact us for an updated quote.
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Rejected Status */}
+                    {isRejected && (
+                      <div style={{ background: '#fef2f2', borderRadius: '10px', padding: '12px', marginTop: '4px', border: '1px solid #fecaca' }}>
+                        <div style={{ fontSize: '13px', color: '#b91c1c', fontWeight: '600' }}>Quote was declined</div>
+                        {q.rejection_reason && <div style={{ fontSize: '12px', color: '#991b1b', marginTop: '4px' }}>Reason: {q.rejection_reason}</div>}
+                        <div style={{ fontSize: '12px', color: '#64748b', marginTop: '6px' }}>You can submit a new RFQ anytime from the "New Request" tab.</div>
+                      </div>
+                    )}
                   </div>
                 );
               })
             )}
+          </div>
+        )}
+        {/* Reject Reason Modal */}
+        {showRejectModal && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
+            <div style={{ background: 'white', borderRadius: '16px', maxWidth: '480px', width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+              <div style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9' }}>
+                <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', margin: 0 }}>Decline Quote</h3>
+                <p style={{ fontSize: '13px', color: '#64748b', margin: '4px 0 0' }}>Please let us know why so we can improve our offer.</p>
+              </div>
+              <div style={{ padding: '20px 24px' }}>
+                <textarea
+                  value={rejectReason}
+                  onChange={e => setRejectReason(e.target.value)}
+                  placeholder="e.g., Price is higher than expected, Need different vehicle types, Timeline doesn't work..."
+                  rows={4}
+                  style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0', fontSize: '13px', fontFamily: "'Inter', sans-serif", resize: 'vertical', outline: 'none', boxSizing: 'border-box' }}
+                />
+              </div>
+              <div style={{ padding: '16px 24px', borderTop: '1px solid #f1f5f9', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button onClick={() => { setShowRejectModal(null); setRejectReason(''); }} style={{ padding: '10px 20px', borderRadius: '10px', border: '1px solid #e2e8f0', background: 'white', color: '#64748b', fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>Cancel</button>
+                <button onClick={handleRejectQuote} disabled={respondingId} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', background: '#ef4444', color: 'white', fontSize: '13px', fontWeight: '700', cursor: 'pointer', fontFamily: "'Inter', sans-serif", opacity: respondingId ? 0.7 : 1 }}>
+                  {respondingId ? 'Processing...' : 'Confirm Decline'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
         {/* NDA Full Text Modal */}

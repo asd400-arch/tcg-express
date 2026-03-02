@@ -145,21 +145,14 @@ export default function DriverJobs() {
       }
 
       const rawJobs = jobsRes.data || [];
-      const jobNumbers = rawJobs.map(j => j.job_number).join(', ');
-      console.log(`[driver/jobs] Query returned ${rawJobs.length} jobs: ${jobNumbers}`);
-
-      // Log what gets filtered and why
-      let corpCount = 0, vehicleCount = 0;
       const allJobs = rawJobs.filter(j => {
-        if (j.is_corp_premium) { corpCount++; return false; }
+        if (j.is_corp_premium) return false;
         if (j.vehicle_required && j.vehicle_required !== 'any' && user.vehicle_type) {
           const fit = checkVehicleFit(user.vehicle_type, j.vehicle_required);
-          if (!fit.ok) { vehicleCount++; return false; }
+          if (!fit.ok) return false;
         }
         return true;
       });
-
-      console.log(`[driver/jobs] ${rawJobs.length} rows → -${corpCount} corp, -${vehicleCount} vehicle → ${allJobs.length} shown`);
 
       setJobs(allJobs);
       const bm = {};

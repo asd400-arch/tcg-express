@@ -6,7 +6,15 @@ import { rateLimiters, applyRateLimit } from '../../../lib/rate-limiters';
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_PREFIXES = ['jobs/', 'chat/', 'kyc/', 'delivery/', 'rfq/', 'disputes/'];
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-const ALLOWED_DOC_TYPES = ['application/pdf'];
+const ALLOWED_DOC_TYPES = [
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',   // .xlsx
+  'application/vnd.ms-excel',                                            // .xls
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+  'application/msword',                                                  // .doc
+  'text/csv',                                                            // .csv
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
+];
 const ALL_ALLOWED_TYPES = [...ALLOWED_IMAGE_TYPES, ...ALLOWED_DOC_TYPES];
 
 async function ensureBucket(name, options = {}) {
@@ -53,7 +61,7 @@ export async function POST(request) {
     const isDocPath = uploadPath && (uploadPath.startsWith('rfq/') || uploadPath.startsWith('kyc/'));
     if (isDocPath) {
       if (!ALL_ALLOWED_TYPES.includes(contentType)) {
-        return NextResponse.json({ error: 'Invalid file type. Allowed: images, PDF' }, { status: 400 });
+        return NextResponse.json({ error: 'Invalid file type. Allowed: images, PDF, Excel, Word, CSV, PowerPoint' }, { status: 400 });
       }
     } else {
       if (!ALLOWED_IMAGE_TYPES.includes(contentType)) {
@@ -86,7 +94,9 @@ export async function POST(request) {
     const bucket = isRfq ? 'rfq-attachments' : 'express-uploads';
 
     if (isRfq) {
-      await ensureBucket('rfq-attachments');
+      await ensureBucket('rfq-attachments', {
+        allowedMimeTypes: ALL_ALLOWED_TYPES,
+      });
     } else {
       await ensureBucket('express-uploads', {
         allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'],

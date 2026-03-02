@@ -166,5 +166,57 @@ export async function POST(request, { params }) {
     return NextResponse.json({ data });
   }
 
+  // Client accepts the admin quote
+  if (action === 'client_accept_quote') {
+    const { data: req } = await supabaseAdmin
+      .from('corp_premium_requests')
+      .select('client_id, status')
+      .eq('id', id)
+      .single();
+
+    if (!req) return NextResponse.json({ error: 'Request not found' }, { status: 404 });
+    if (req.client_id !== session.userId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    if (req.status !== 'quote_sent') return NextResponse.json({ error: 'No pending quote to accept' }, { status: 400 });
+
+    const { data, error } = await supabaseAdmin
+      .from('corp_premium_requests')
+      .update({ status: 'accepted', client_responded_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ data });
+  }
+
+  // Client rejects the admin quote
+  if (action === 'client_reject_quote') {
+    const { data: req } = await supabaseAdmin
+      .from('corp_premium_requests')
+      .select('client_id, status')
+      .eq('id', id)
+      .single();
+
+    if (!req) return NextResponse.json({ error: 'Request not found' }, { status: 404 });
+    if (req.client_id !== session.userId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    if (req.status !== 'quote_sent') return NextResponse.json({ error: 'No pending quote to decline' }, { status: 400 });
+
+    const { rejection_reason } = body;
+    const { data, error } = await supabaseAdmin
+      .from('corp_premium_requests')
+      .update({
+        status: 'rejected',
+        rejection_reason: rejection_reason || null,
+        client_responded_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ data });
+  }
+
   return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
 }
