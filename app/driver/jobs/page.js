@@ -229,7 +229,7 @@ export default function DriverJobs() {
   const card = { background: 'white', borderRadius: '14px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9' };
   const input = { width: '100%', padding: '12px 16px', borderRadius: '10px', fontSize: '14px', background: '#f8fafc', border: '1px solid #e2e8f0', color: '#1e293b', outline: 'none', fontFamily: "'Inter', sans-serif", boxSizing: 'border-box' };
   const urgencyColor = { standard: '#64748b', express: '#f59e0b', urgent: '#ef4444' };
-  const jobTypeColor = { spot: '#3b82f6', scheduled: '#8b5cf6', regular: '#059669' };
+  const jobTypeColor = { spot: '#3b82f6', regular: '#8b5cf6', scheduled: '#8b5cf6', recurring: '#059669' };
   const badge = (text, bg, fg) => ({ display: 'inline-block', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '700', background: bg, color: fg, textTransform: 'uppercase', letterSpacing: '0.3px' });
 
   // Parse addons from special_requirements JSON
@@ -293,9 +293,10 @@ export default function DriverJobs() {
   };
 
   // Categorize jobs into tabs by job_type
+  // Customer creates: spot → 'spot', Scheduled → 'regular', Recurring schedule → creates jobs with 'recurring'
   const spotJobs = jobs.filter(j => !j.job_type || j.job_type === 'spot').sort(sortByPickupUrgency);
-  const scheduledJobs = jobs.filter(j => j.job_type === 'scheduled').sort(sortByPickupUrgency);
-  const regularJobs = jobs.filter(j => j.job_type === 'regular' || j.job_type === 'recurring').sort(sortByPickupUrgency);
+  const scheduledJobs = jobs.filter(j => j.job_type === 'regular' || j.job_type === 'scheduled').sort(sortByPickupUrgency);
+  const regularJobs = jobs.filter(j => j.job_type === 'recurring').sort(sortByPickupUrgency);
 
   const filteredJobs = activeTab === 'spot' ? spotJobs : activeTab === 'scheduled' ? scheduledJobs : regularJobs;
   const tabCounts = { spot: spotJobs.length, scheduled: scheduledJobs.length, regular: regularJobs.length };
