@@ -318,9 +318,9 @@ export default function NewJob() {
     const allEquipment = [...form.basic_equipment, ...form.special_equipment];
     const dimensions = (form.dim_l && form.dim_w && form.dim_h) ? `${form.dim_l}x${form.dim_w}x${form.dim_h}cm` : null;
 
-    if (form.schedule_mode === 'now') {
-      setSubmitting(true);
-      const jobInsert = {
+    // Build common job fields
+    const buildJobInsert = (overrides = {}) => {
+      const base = {
         client_id: user.id,
         pickup_address: buildAddress(form.pickup_address, form.pickup_blk, form.pickup_unit), pickup_contact: (form.pickup_contact_first.trim() + ' ' + form.pickup_contact_last.trim()).trim(), pickup_phone: form.pickup_phone, pickup_instructions: form.pickup_instructions,
         delivery_address: buildAddress(form.delivery_address, form.delivery_blk, form.delivery_unit), delivery_contact: (form.delivery_contact_first.trim() + ' ' + form.delivery_contact_last.trim()).trim(), delivery_phone: form.delivery_phone, delivery_instructions: form.delivery_instructions,
@@ -334,55 +334,91 @@ export default function NewJob() {
         job_type: jobType,
         delivery_mode: deliveryMode,
       };
-      if (pickupCoords) { jobInsert.pickup_lat = parseFloat(pickupCoords.lat); jobInsert.pickup_lng = parseFloat(pickupCoords.lng); }
-      if (deliveryCoords) { jobInsert.delivery_lat = parseFloat(deliveryCoords.lat); jobInsert.delivery_lng = parseFloat(deliveryCoords.lng); }
-      if (computedZoneSurcharge > 0) jobInsert.zone_surcharge = computedZoneSurcharge;
+      if (pickupCoords) { base.pickup_lat = parseFloat(pickupCoords.lat); base.pickup_lng = parseFloat(pickupCoords.lng); }
+      if (deliveryCoords) { base.delivery_lat = parseFloat(deliveryCoords.lat); base.delivery_lng = parseFloat(deliveryCoords.lng); }
+      if (computedZoneSurcharge > 0) base.zone_surcharge = computedZoneSurcharge;
       if (deliveryMode === 'save_mode' && saveModeWindow) {
         const deadline = new Date();
         deadline.setHours(deadline.getHours() + saveModeWindow);
-        jobInsert.save_mode_window = saveModeWindow;
-        jobInsert.save_mode_deadline = deadline.toISOString();
+        base.save_mode_window = saveModeWindow;
+        base.save_mode_deadline = deadline.toISOString();
       }
       if (isEvSelected) {
-        jobInsert.is_ev_selected = true;
-        jobInsert.co2_saved_kg = evCo2Saved || null;
-        jobInsert.green_points_earned = evGreenPoints || null;
+        base.is_ev_selected = true;
+        base.co2_saved_kg = evCo2Saved || null;
+        base.green_points_earned = evGreenPoints || null;
       }
-      const { data, error } = await supabase.from('express_jobs').insert([jobInsert]).select().single();
+      return { ...base, ...overrides };
+    };
+
+    if (form.schedule_mode === 'now') {
+      // Immediate job — insert directly
+      setSubmitting(true);
+      const { data, error } = await supabase.from('express_jobs').insert([buildJobInsert()]).select().single();
+      setSubmitting(false);
+      if (error) { toast.error('Error: ' + error.message); return; }
+      setSuccessType('job');
+      setSuccess(data);
+    } else if (form.schedule_mode === 'once') {
+      // One-time scheduled job — insert directly with scheduled pickup time
+      if (!form.schedule_date) {
+        toast.error('Please select a date and time for the scheduled delivery');
+        return;
+      }
+      setSubmitting(true);
+      const scheduledTime = new Date(form.schedule_date).toISOString();
+      const { data, error } = await supabase.from('express_jobs').insert([buildJobInsert({
+        job_type: 'scheduled',
+        pickup_by: scheduledTime,
+      })]).select().single();
       setSubmitting(false);
       if (error) { toast.error('Error: ' + error.message); return; }
       setSuccessType('job');
       setSuccess(data);
     } else {
-      if (form.schedule_mode === 'once' && !form.schedule_date) {
-        toast.error('Please select a date and time for the scheduled delivery');
-        return;
-      }
+      // Recurring — create schedule AND first job
       setSubmitting(true);
       try {
+        const firstRunAt = calculateFirstRun(form);
         const scheduleBody = {
-          schedule_type: form.schedule_mode === 'once' ? 'once' : form.recurrence,
-          next_run_at: calculateFirstRun(form),
+          schedule_type: form.recurrence,
+          next_run_at: firstRunAt,
           pickup_address: buildAddress(form.pickup_address, form.pickup_blk, form.pickup_unit), pickup_contact: (form.pickup_contact_first.trim() + ' ' + form.pickup_contact_last.trim()).trim(), pickup_phone: form.pickup_phone, pickup_instructions: form.pickup_instructions,
           delivery_address: buildAddress(form.delivery_address, form.delivery_blk, form.delivery_unit), delivery_contact: (form.delivery_contact_first.trim() + ' ' + form.delivery_contact_last.trim()).trim(), delivery_phone: form.delivery_phone, delivery_instructions: form.delivery_instructions,
           item_description: form.item_description, item_category: form.item_category,
-          item_weight: form.item_weight, item_dimensions: form.item_dimensions,
-          urgency: form.urgency, budget_min: form.budget_min, budget_max: form.budget_max,
+          item_weight: midWeight || null, item_dimensions: dimensions,
+          urgency: form.urgency, budget_min: budgetMin, budget_max: budgetMax,
           vehicle_required: effectiveVehicleMode || 'any', special_requirements: specialReqs || form.special_requirements,
-          equipment_needed: form.equipment_needed, manpower_count: form.manpower_count,
+          equipment_needed: allEquipment, manpower_count: form.manpower_count,
+          run_time: form.recurrence_time,
+          ends_at: form.recurrence_end || null,
         };
-        if (form.schedule_mode === 'recurring') {
-          scheduleBody.run_time = form.recurrence_time;
-          scheduleBody.ends_at = form.recurrence_end || null;
-          if (form.recurrence === 'monthly') scheduleBody.day_of_month = parseInt(form.recurrence_day);
-          else scheduleBody.day_of_week = parseInt(form.recurrence_day);
-        }
+        if (form.recurrence === 'monthly') scheduleBody.day_of_month = parseInt(form.recurrence_day);
+        else scheduleBody.day_of_week = parseInt(form.recurrence_day);
+
+        // Create schedule record
         const res = await fetch('/api/schedules', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(scheduleBody) });
         const result = await res.json();
+        if (!res.ok) { toast.error(result.error || 'Failed to create schedule'); setSubmitting(false); return; }
+
+        // Also create the first job so drivers can see it immediately
+        const { data: firstJob, error: jobErr } = await supabase.from('express_jobs').insert([buildJobInsert({
+          job_type: 'recurring',
+          pickup_by: firstRunAt,
+          schedule_id: result.data?.id || null,
+        })]).select().single();
+
         setSubmitting(false);
-        if (!res.ok) { toast.error(result.error || 'Failed to create schedule'); return; }
-        setSuccessType('schedule');
-        setSuccess(result.data);
+        if (jobErr) {
+          // Schedule created but first job failed — still show success
+          toast.info('Schedule created! First job will be posted at the scheduled time.');
+          setSuccessType('schedule');
+          setSuccess(result.data);
+        } else {
+          toast.success('Recurring schedule created with first job posted!');
+          setSuccessType('job');
+          setSuccess(firstJob);
+        }
       } catch {
         setSubmitting(false);
         toast.error('Failed to create schedule');
