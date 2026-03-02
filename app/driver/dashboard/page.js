@@ -83,6 +83,7 @@ function formatPickupTime(dateStr) {
 function getCountdown(dateStr) {
   if (!dateStr) return null;
   const diff = new Date(dateStr).getTime() - Date.now();
+  if (diff <= -3600000) return 'Overdue';
   if (diff <= 0) return 'Now';
   const hrs = Math.floor(diff / 3600000);
   const mins = Math.floor((diff % 3600000) / 60000);
@@ -90,6 +91,22 @@ function getCountdown(dateStr) {
   if (hrs > 0) return `${hrs}h ${mins}m`;
   return `${mins}m`;
 }
+
+// Sort by pickup urgency: pickup_by ASC (soonest first), null after, past at bottom
+const sortByPickupUrgency = (a, b) => {
+  const now = Date.now();
+  const aTime = a.pickup_by ? new Date(a.pickup_by).getTime() : null;
+  const bTime = b.pickup_by ? new Date(b.pickup_by).getTime() : null;
+  const aPast = aTime && aTime < now;
+  const bPast = bTime && bTime < now;
+  if (aPast && !bPast) return 1;
+  if (!aPast && bPast) return -1;
+  if (aPast && bPast) return bTime - aTime;
+  if (aTime && !bTime) return -1;
+  if (!aTime && bTime) return 1;
+  if (!aTime && !bTime) return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  return aTime - bTime;
+};
 
 export default function DriverDashboard() {
   const { user, loading } = useAuth();
@@ -112,11 +129,11 @@ export default function DriverDashboard() {
     setDataLoading(true);
     const [myJ, openJ, txn, revRes] = await Promise.all([
       supabase.from('express_jobs').select('*').eq('assigned_driver_id', user.id).order('created_at', { ascending: false }),
-      supabase.from('express_jobs').select('*').in('status', ['open', 'bidding']).order('created_at', { ascending: false }).limit(5),
+      supabase.from('express_jobs').select('*').in('status', ['open', 'bidding']).limit(10),
       supabase.from('express_transactions').select('driver_payout').eq('driver_id', user.id).eq('payment_status', 'paid'),
       supabase.from('express_reviews').select('*, client:client_id(contact_name)').eq('driver_id', user.id).eq('reviewer_role', 'client').order('created_at', { ascending: false }).limit(5),
     ]);
-    const mj = myJ.data || []; const oj = openJ.data || [];
+    const mj = myJ.data || []; const oj = (openJ.data || []).sort(sortByPickupUrgency);
     const totalEarnings = (txn.data || []).reduce((sum, t) => sum + (parseFloat(t.driver_payout) || 0), 0);
     setMyJobs(mj);
     setAvailableJobs(oj);
@@ -229,44 +246,46 @@ export default function DriverDashboard() {
           {availableJobs.length === 0 ? (
             <p style={{ color: '#64748b', fontSize: '14px', textAlign: 'center', padding: '20px' }}>No available jobs right now. Check back later!</p>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {availableJobs.map(job => {
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {availableJobs.slice(0, 5).map(job => {
                 const budget = parseFloat(job.budget_min) || parseFloat(job.budget_max) || 0;
                 const vLabel = getVehicleLabel(job.vehicle_required);
                 const countdown = getCountdown(job.pickup_by);
                 const urgBadge = { display: 'inline-block', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '700', background: `${urgencyColor[job.urgency] || '#64748b'}15`, color: urgencyColor[job.urgency] || '#64748b', textTransform: 'uppercase', letterSpacing: '0.3px' };
                 return (
-                  <a key={job.id} href="/driver/jobs" style={{ textDecoration: 'none', display: 'block', padding: '14px', borderRadius: '10px', border: '1px solid #f1f5f9', background: '#fafbfc' }}>
+                  <a key={job.id} href="/driver/jobs" style={{ textDecoration: 'none', display: 'block', padding: '16px 20px', borderRadius: '14px', border: '1px solid #f1f5f9', background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
                     {/* Row 1: Vehicle + Weight + Urgency + Amount */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', minWidth: 0 }}>
                         {vLabel && <span style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b' }}>{vLabel}</span>}
                         {job.item_weight && <span style={{ fontSize: '13px', color: '#475569', fontWeight: '600' }}>{job.item_weight} kg</span>}
+                        {!vLabel && !job.item_weight && <span style={{ fontSize: '13px', color: '#94a3b8' }}>—</span>}
                         <span style={urgBadge}>{job.urgency || 'standard'}</span>
                       </div>
-                      <div style={{ fontSize: '16px', fontWeight: '800', color: '#10b981', flexShrink: 0, marginLeft: '8px' }}>{formatBudgetRange(job)}</div>
+                      <div style={{ fontSize: '18px', fontWeight: '800', color: '#10b981', flexShrink: 0, marginLeft: '10px' }}>{formatBudgetRange(job)}</div>
                     </div>
                     {/* Row 2: Date/Time + Countdown */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '5px' }}>
-                      <span style={{ fontSize: '12px', color: '#64748b' }}>📅 {formatPickupTime(job.pickup_by || job.created_at)}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                      <span style={{ fontSize: '13px', color: '#64748b' }}>📅 {formatPickupTime(job.pickup_by || job.created_at)}</span>
                       {countdown && (
-                        <span style={{ padding: '1px 7px', borderRadius: '10px', fontSize: '10px', fontWeight: '700', background: countdown === 'Now' ? '#fef2f2' : '#fef3c7', color: countdown === 'Now' ? '#dc2626' : '#92400e' }}>
-                          {countdown === 'Now' ? 'ASAP' : `in ${countdown}`}
+                        <span style={{ padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '700', background: countdown === 'Overdue' ? '#fef2f2' : countdown === 'Now' ? '#fef2f2' : '#fef3c7', color: countdown === 'Overdue' ? '#dc2626' : countdown === 'Now' ? '#dc2626' : '#92400e' }}>
+                          {countdown === 'Overdue' ? 'OVERDUE' : countdown === 'Now' ? 'ASAP' : `in ${countdown}`}
                         </span>
                       )}
                     </div>
-                    {/* Row 3: Area → Area */}
-                    <div style={{ fontSize: '12px', color: '#374151', marginBottom: '6px' }}>
+                    {/* Row 3: Area → Area + distance */}
+                    <div style={{ fontSize: '13px', color: '#374151', marginBottom: '8px' }}>
                       {getAreaName(job.pickup_address)} → {getAreaName(job.delivery_address)}
+                      {job.distance_km ? <span style={{ color: '#94a3b8', marginLeft: '8px' }}>{parseFloat(job.distance_km).toFixed(1)} km</span> : ''}
                     </div>
                     {/* Row 4: Job ID + buttons */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontSize: '11px', color: '#b0b8c4' }}>{job.job_number || '—'}</span>
-                      <div style={{ display: 'flex', gap: '6px' }}>
+                      <div style={{ display: 'flex', gap: '8px' }}>
                         {budget > 0 && (
-                          <span style={{ padding: '5px 12px', borderRadius: '8px', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontSize: '11px', fontWeight: '600' }}>Accept ${budget.toFixed(2)}</span>
+                          <span style={{ padding: '6px 14px', borderRadius: '8px', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontSize: '12px', fontWeight: '600' }}>Accept ${budget.toFixed(2)}</span>
                         )}
-                        <span style={{ padding: '5px 12px', borderRadius: '8px', border: '1px solid #3b82f6', background: 'white', color: '#3b82f6', fontSize: '11px', fontWeight: '600' }}>{budget > 0 ? 'Bid' : 'Place Bid'}</span>
+                        <span style={{ padding: '6px 14px', borderRadius: '8px', border: '1px solid #3b82f6', background: 'white', color: '#3b82f6', fontSize: '12px', fontWeight: '600' }}>{budget > 0 ? 'Bid' : 'Place Bid'}</span>
                       </div>
                     </div>
                   </a>
@@ -283,12 +302,24 @@ export default function DriverDashboard() {
             <p style={{ color: '#64748b', fontSize: '14px', textAlign: 'center', padding: '20px' }}>No active jobs. Browse available jobs to start bidding!</p>
           ) : (
             myJobs.filter(j => !['confirmed','completed','cancelled'].includes(j.status)).map(job => (
-              <a key={job.id} href={`/driver/my-jobs?id=${job.id}`} style={{ textDecoration: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 0', borderBottom: '1px solid #f1f5f9' }}>
-                <div>
-                  <div style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b' }}>{job.job_number}</div>
-                  <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>{job.item_description}</div>
+              <a key={job.id} href={`/driver/my-jobs?id=${job.id}`} style={{ textDecoration: 'none', display: 'block', padding: '14px 0', borderBottom: '1px solid #f1f5f9' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b' }}>{job.job_number}</span>
+                    <span style={{ padding: '3px 8px', borderRadius: '5px', fontSize: '10px', fontWeight: '700', background: `${statusColor[job.status] || '#64748b'}15`, color: statusColor[job.status] || '#64748b', textTransform: 'uppercase' }}>{job.status.replace(/_/g, ' ')}</span>
+                  </div>
+                  {job.final_amount ? (
+                    <span style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b' }}>${job.final_amount}</span>
+                  ) : job.budget_min ? (
+                    <span style={{ fontSize: '14px', fontWeight: '600', color: '#10b981' }}>{formatBudgetRange(job)}</span>
+                  ) : null}
                 </div>
-                <span style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '600', background: `${statusColor[job.status] || '#64748b'}15`, color: statusColor[job.status] || '#64748b', textTransform: 'capitalize' }}>{job.status.replace(/_/g, ' ')}</span>
+                <div style={{ fontSize: '13px', color: '#374151', marginBottom: '2px' }}>
+                  {getAreaName(job.pickup_address)} → {getAreaName(job.delivery_address)}
+                </div>
+                {job.pickup_by && (
+                  <div style={{ fontSize: '12px', color: '#64748b' }}>📅 {formatPickupTime(job.pickup_by)}</div>
+                )}
               </a>
             ))
           )}
