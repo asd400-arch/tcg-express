@@ -138,6 +138,41 @@ export async function POST(request, { params }) {
       }
     } catch {}
 
+    // Auto-release escrow payment when job is confirmed/completed (wallet-only settlement)
+    let releaseResult = null;
+    if (normalizedStatus === 'confirmed' || normalizedStatus === 'completed') {
+      try {
+        const { data: rpcResult, error: rpcErr } = await supabaseAdmin.rpc('release_payment', {
+          p_job_id: id,
+          p_released_by: session.userId,
+        });
+
+        if (rpcErr) {
+          const msg = rpcErr.message || '';
+          // "No held escrow" is OK — might already be released or paid via other path
+          if (!msg.includes('No held escrow')) {
+            console.error('[status] release_payment FAILED:', { jobId: id, error: msg });
+          }
+        } else {
+          releaseResult = rpcResult;
+
+          // Notify driver of earnings (non-critical)
+          try {
+            const driverPayout = parseFloat(rpcResult.driver_payout);
+            await notify(rpcResult.driver_id, {
+              type: 'wallet', category: 'earnings',
+              title: 'Earnings credited!',
+              message: `$${driverPayout.toFixed(2)} has been added to your wallet for job ${job.job_number || ''}`.trim(),
+              referenceId: id,
+              url: '/driver/wallet',
+            });
+          } catch {}
+        }
+      } catch (releaseErr) {
+        console.error('[status] release_payment exception:', releaseErr);
+      }
+    }
+
     // Award Green Points on job completion (confirmed/completed)
     if (normalizedStatus === 'confirmed' || normalizedStatus === 'completed') {
       try {
@@ -145,7 +180,7 @@ export async function POST(request, { params }) {
       } catch {}
     }
 
-    return NextResponse.json({ data });
+    return NextResponse.json({ data, release: releaseResult });
   } catch (err) {
     console.error('POST /api/jobs/[id]/status error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

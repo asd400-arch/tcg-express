@@ -192,28 +192,17 @@ export default function ClientJobDetail({ params }) {
     if (confirming) return;
     setConfirming(true);
     try {
-      await supabase.from('express_jobs').update({ status: 'confirmed', confirmed_at: new Date().toISOString() }).eq('id', jobId);
-      // Release held payment via server API (atomic RPC)
-      const releaseRes = await fetch('/api/transactions/release', {
+      // Single server call: updates status to 'confirmed' + auto-releases escrow to driver
+      const res = await fetch(`/api/jobs/${jobId}/status`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jobId }),
+        body: JSON.stringify({ status: 'confirmed' }),
       });
-      const releaseResult = await releaseRes.json();
-      if (!releaseRes.ok) {
-        toast.error(releaseResult.error || 'Failed to release payment to driver. Please contact support.');
+      const result = await res.json();
+      if (!res.ok) {
+        toast.error(result.error || 'Failed to confirm delivery. Please try again.');
         loadData();
         return;
       }
-      // Notify driver (non-critical)
-      fetch('/api/notify', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: job.assigned_driver_id, type: 'delivery', category: 'delivery_status',
-          title: 'Delivery confirmed!', message: `Delivery for ${job.job_number} confirmed. Payout: $${job.driver_payout || job.final_amount || '—'}`,
-          emailTemplate: 'delivery_confirmed', emailData: { jobNumber: job.job_number, payout: job.driver_payout || job.final_amount || '—' },
-          url: '/driver/my-jobs',
-        }),
-      }).catch(() => {});
       toast.success('Delivery confirmed — driver has been paid');
       setShowRating(true);
       loadData();
