@@ -229,7 +229,7 @@ DECLARE
   v_now TIMESTAMPTZ := NOW();
 BEGIN
   -- Lock escrow transaction row
-  SELECT id, job_id, client_id, driver_id, total_amount, driver_payout, payment_status
+  SELECT id, job_id, client_id, driver_id, total_amount, driver_payout, commission_amount, payment_status
   INTO v_txn
   FROM express_transactions
   WHERE job_id = p_job_id AND payment_status = 'held'
