@@ -1686,7 +1686,9 @@ CREATE OR REPLACE FUNCTION wallet_credit(
   p_description TEXT DEFAULT NULL,
   p_reference_type VARCHAR(30) DEFAULT NULL,
   p_reference_id UUID DEFAULT NULL,
-  p_payment_method VARCHAR(30) DEFAULT NULL
+  p_payment_method VARCHAR(30) DEFAULT NULL,
+  p_payment_provider_ref TEXT DEFAULT NULL,
+  p_metadata JSONB DEFAULT NULL
 )
 RETURNS wallet_transactions AS $$
 DECLARE
@@ -1696,13 +1698,15 @@ BEGIN
   SELECT * INTO v_wallet FROM wallets WHERE id = p_wallet_id FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'Wallet not found'; END IF;
 
-  UPDATE wallets SET balance = balance + p_amount WHERE id = p_wallet_id;
+  UPDATE wallets SET balance = balance + p_amount, updated_at = NOW() WHERE id = p_wallet_id;
 
   INSERT INTO wallet_transactions (wallet_id, user_id, type, amount, direction,
-    balance_before, balance_after, description, reference_type, reference_id, payment_method)
+    balance_before, balance_after, description, reference_type, reference_id,
+    payment_method, payment_provider_ref, metadata, status, completed_at)
   VALUES (p_wallet_id, p_user_id, p_type, p_amount, 'credit',
     v_wallet.balance, v_wallet.balance + p_amount, p_description,
-    p_reference_type, p_reference_id, p_payment_method)
+    p_reference_type, p_reference_id, p_payment_method,
+    p_payment_provider_ref, COALESCE(p_metadata, '{}'), 'completed', NOW())
   RETURNING * INTO v_tx;
 
   RETURN v_tx;
@@ -1717,7 +1721,8 @@ CREATE OR REPLACE FUNCTION wallet_debit(
   p_type VARCHAR(20),
   p_description TEXT DEFAULT NULL,
   p_reference_type VARCHAR(30) DEFAULT NULL,
-  p_reference_id UUID DEFAULT NULL
+  p_reference_id UUID DEFAULT NULL,
+  p_metadata JSONB DEFAULT NULL
 )
 RETURNS wallet_transactions AS $$
 DECLARE
@@ -1728,13 +1733,15 @@ BEGIN
   IF NOT FOUND THEN RAISE EXCEPTION 'Wallet not found'; END IF;
   IF v_wallet.balance < p_amount THEN RAISE EXCEPTION 'Insufficient balance'; END IF;
 
-  UPDATE wallets SET balance = balance - p_amount WHERE id = p_wallet_id;
+  UPDATE wallets SET balance = balance - p_amount, updated_at = NOW() WHERE id = p_wallet_id;
 
   INSERT INTO wallet_transactions (wallet_id, user_id, type, amount, direction,
-    balance_before, balance_after, description, reference_type, reference_id)
+    balance_before, balance_after, description, reference_type, reference_id,
+    metadata, status, completed_at)
   VALUES (p_wallet_id, p_user_id, p_type, p_amount, 'debit',
     v_wallet.balance, v_wallet.balance - p_amount, p_description,
-    p_reference_type, p_reference_id)
+    p_reference_type, p_reference_id,
+    COALESCE(p_metadata, '{}'), 'completed', NOW())
   RETURNING * INTO v_tx;
 
   RETURN v_tx;

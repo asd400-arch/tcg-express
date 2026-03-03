@@ -37,22 +37,18 @@ export async function POST(request) {
       .single();
 
     if (existing) {
-      // Already processed — return 200 immediately
       return NextResponse.json({ received: true, duplicate: true });
     }
 
-    // Mark as processing (insert immediately to prevent race with parallel webhook delivery)
     await supabaseAdmin.from('processed_webhook_events').insert({
       event_id: event.id,
       event_type: event.type,
       metadata: { livemode: event.livemode },
     });
   } catch (idempErr) {
-    // If insert fails due to duplicate key, another process already handles it
     if (idempErr?.code === '23505') {
       return NextResponse.json({ received: true, duplicate: true });
     }
-    // Non-critical — proceed with processing even if idempotency check fails
     console.error('Webhook idempotency check error:', idempErr?.message);
   }
 
@@ -60,23 +56,14 @@ export async function POST(request) {
   if (event.type === 'checkout.session.completed' || event.type === 'payment_intent.succeeded') {
     const eventObject = event.data.object;
     const metadata = eventObject.metadata || {};
-    const { jobId, bidId, clientId, driverId } = metadata;
+    const { jobId, bidId, clientId } = metadata;
 
     if (!jobId || !bidId) {
       return NextResponse.json({ received: true });
     }
 
     try {
-      // Get commission rate
-      let rate = 15;
-      const { data: settingsData } = await supabaseAdmin
-        .from('express_settings')
-        .select('value')
-        .eq('key', 'commission_rate')
-        .single();
-      if (settingsData?.value) rate = parseFloat(settingsData.value);
-
-      // Get bid amount
+      // Get bid to check status
       const { data: bid } = await supabaseAdmin
         .from('express_bids')
         .select('amount, status')
@@ -88,63 +75,42 @@ export async function POST(request) {
         return NextResponse.json({ received: true, note: 'bid already accepted' });
       }
 
-      const fallbackAmount = event.type === 'checkout.session.completed'
-        ? eventObject.amount_total / 100
-        : eventObject.amount / 100;
-      const amount = parseFloat(bid?.amount || fallbackAmount);
+      // Get commission rate
+      let rate = 15;
+      const { data: settingsData } = await supabaseAdmin
+        .from('express_settings')
+        .select('value')
+        .eq('key', 'commission_rate')
+        .single();
+      if (settingsData?.value) rate = parseFloat(settingsData.value);
 
-      if (!amount || !isFinite(amount) || amount <= 0) {
-        console.error('Webhook: invalid bid amount', { bidId, amount });
-        return NextResponse.json({ received: true });
+      // Use atomic RPC — wallet debit + bid accept + job assign + escrow
+      const idempotencyKey = `stripe_${jobId}_${bidId}`;
+      const { data: result, error: rpcErr } = await supabaseAdmin.rpc('process_bid_acceptance', {
+        p_job_id: jobId,
+        p_bid_id: bidId,
+        p_payer_id: clientId,
+        p_commission_rate: rate,
+        p_coupon_discount: 0,
+        p_coupon_id: null,
+        p_idempotency_key: idempotencyKey,
+      });
+
+      if (rpcErr) {
+        const msg = rpcErr.message || '';
+        console.error('[stripe/webhook] process_bid_acceptance FAILED:', { msg, jobId, bidId, clientId });
+
+        // If wallet insufficient but Stripe already charged, we need to handle this
+        // The Stripe charge succeeded so the money is collected — log for manual resolution
+        if (msg.includes('Insufficient balance')) {
+          console.error('[stripe/webhook] CRITICAL: Stripe charged but wallet debit failed — needs manual resolution', { jobId, bidId, clientId });
+        }
+        return NextResponse.json({ received: true, error: msg });
       }
 
-      const commission = ROUND_2(amount * (rate / 100));
-      const payout = amount - commission;
-
-      // Accept bid + outbid others (use WHERE status check for optimistic locking)
-      const { error: acceptErr } = await supabaseAdmin
-        .from('express_bids')
-        .update({ status: 'accepted' })
-        .eq('id', bidId)
-        .eq('status', 'pending');
-
-      if (acceptErr) {
-        console.error('Webhook: bid accept failed', acceptErr.message);
-        return NextResponse.json({ received: true });
+      if (result?.already_processed) {
+        return NextResponse.json({ received: true, note: 'already processed' });
       }
-
-      await supabaseAdmin.from('express_bids')
-        .update({ status: 'outbid' })
-        .eq('job_id', jobId).neq('id', bidId).eq('status', 'pending');
-
-      // Update job (optimistic lock on status)
-      await supabaseAdmin.from('express_jobs').update({
-        status: 'assigned',
-        assigned_driver_id: driverId,
-        assigned_bid_id: bidId,
-        final_amount: amount,
-        commission_rate: rate,
-        commission_amount: commission.toFixed(2),
-        driver_payout: payout.toFixed(2),
-      }).eq('id', jobId).in('status', ['open', 'bidding']);
-
-      // Create escrow with Stripe IDs
-      const stripePaymentIntentId = event.type === 'checkout.session.completed'
-        ? eventObject.payment_intent
-        : eventObject.id;
-
-      await supabaseAdmin.from('express_transactions').insert([{
-        job_id: jobId,
-        client_id: clientId,
-        driver_id: driverId,
-        total_amount: amount,
-        commission_amount: commission.toFixed(2),
-        driver_payout: payout.toFixed(2),
-        payment_status: 'held',
-        held_at: new Date().toISOString(),
-        stripe_checkout_session_id: event.type === 'checkout.session.completed' ? eventObject.id : null,
-        stripe_payment_intent_id: stripePaymentIntentId,
-      }]);
 
       // Notify driver (non-critical)
       try {
@@ -154,10 +120,11 @@ export async function POST(request) {
           .eq('id', jobId)
           .single();
 
+        const driverId = result.driver_id;
         await notify(driverId, {
           type: 'job', category: 'bid_activity',
           title: 'Bid accepted!',
-          message: `Your bid of $${amount.toFixed(2)} for ${job?.job_number || 'a job'} has been accepted`,
+          message: `Your bid of $${parseFloat(result.bid_amount).toFixed(2)} for ${job?.job_number || 'a job'} has been accepted`,
           url: '/driver/my-jobs',
         });
       } catch {}
@@ -167,8 +134,4 @@ export async function POST(request) {
   }
 
   return NextResponse.json({ received: true });
-}
-
-function ROUND_2(n) {
-  return Math.round(n * 100) / 100;
 }

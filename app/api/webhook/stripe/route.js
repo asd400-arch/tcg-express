@@ -58,8 +58,8 @@ export async function POST(request) {
           .single();
 
         if (topup) {
-          // Credit wallet via atomic RPC (same logic as canonical endpoint)
-          await supabaseAdmin.rpc('wallet_credit', {
+          // Credit wallet via atomic RPC
+          const { error: creditErr } = await supabaseAdmin.rpc('wallet_credit', {
             p_wallet_id: topup.wallet_id,
             p_user_id: topup.user_id,
             p_amount: topup.amount,
@@ -72,6 +72,15 @@ export async function POST(request) {
             p_metadata: { stripe_payment_intent_id: pi.id },
           });
 
+          if (creditErr) {
+            console.error('[webhook/stripe] wallet_credit FAILED for topup:', { topupId: topup.id, error: creditErr.message });
+            // Mark topup as failed so customer knows to retry
+            await supabaseAdmin.from('wallet_topups')
+              .update({ status: 'failed' })
+              .eq('id', topup.id);
+            return NextResponse.json({ received: true, error: 'Credit failed' });
+          }
+
           await supabaseAdmin
             .from('wallet_topups')
             .update({ status: 'completed', completed_at: new Date().toISOString() })
@@ -79,7 +88,7 @@ export async function POST(request) {
         } else if (wallet_id) {
           // Fallback: topup record exists with wallet_id in metadata
           const amount = pi.amount / 100;
-          await supabaseAdmin.rpc('wallet_credit', {
+          const { error: creditErr } = await supabaseAdmin.rpc('wallet_credit', {
             p_wallet_id: wallet_id,
             p_user_id: user_id,
             p_amount: amount,
@@ -91,6 +100,10 @@ export async function POST(request) {
             p_description: `Card top-up of $${amount.toFixed(2)}`,
             p_metadata: { stripe_payment_intent_id: pi.id },
           });
+
+          if (creditErr) {
+            console.error('[webhook/stripe] wallet_credit fallback FAILED:', { walletId: wallet_id, error: creditErr.message });
+          }
         } else {
           console.warn('DEPRECATED webhook: No matching topup record or wallet_id for', pi.id);
         }

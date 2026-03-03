@@ -48,7 +48,7 @@ export async function POST(request: Request) {
 
         if (topup) {
           // Credit wallet via RPC
-          await supabaseAdmin.rpc('wallet_credit', {
+          const { error: creditErr } = await supabaseAdmin.rpc('wallet_credit', {
             p_wallet_id: topup.wallet_id,
             p_user_id: topup.user_id,
             p_amount: topup.amount,
@@ -61,7 +61,15 @@ export async function POST(request: Request) {
             p_metadata: { stripe_payment_intent_id: paymentIntent.id },
           });
 
-          // Update topup to completed
+          if (creditErr) {
+            console.error('[stripe-webhook] wallet_credit FAILED:', { topupId: topup.id, error: creditErr.message });
+            await supabaseAdmin.from('wallet_topups')
+              .update({ status: 'failed' })
+              .eq('id', topup.id);
+            return NextResponse.json({ received: true, error: 'Credit failed' });
+          }
+
+          // Only mark as completed AFTER successful credit
           await supabaseAdmin
             .from('wallet_topups')
             .update({
