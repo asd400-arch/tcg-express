@@ -1,7 +1,9 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../../components/AuthContext';
 import Sidebar from '../../components/Sidebar';
+import Spinner from '../../components/Spinner';
 import { useToast } from '../../components/Toast';
 
 const STATUS_COLORS = {
@@ -26,7 +28,8 @@ const toArray = (val) => {
 };
 
 export default function AdminCorpPremiumPage() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+  const router = useRouter();
   const toast = useToast();
   const [requests, setRequests] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -40,7 +43,11 @@ export default function AdminCorpPremiumPage() {
     notes: '', line_items: [{ description: '', amount: '' }],
   });
 
-  useEffect(() => { fetchRequests(); }, []);
+  useEffect(() => {
+    if (!loading && !user) router.push('/login');
+    if (!loading && user && user.role !== 'admin') router.push('/');
+    if (user && user.role === 'admin') fetchRequests();
+  }, [user, loading]);
 
   const fetchRequests = async () => {
     const res = await fetch('/api/corp-premium');
@@ -129,7 +136,8 @@ export default function AdminCorpPremiumPage() {
   const sectionLabel = { fontSize: '11px', color: '#94a3b8', fontWeight: '700', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' };
   const inputStyle = { width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px', fontFamily: "'Inter', sans-serif", color: '#1e293b', background: 'white', outline: 'none', boxSizing: 'border-box' };
 
-  if (!user || user.role !== 'admin') return null;
+  if (loading || !user) return <Spinner />;
+  if (user.role !== 'admin') return null;
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>

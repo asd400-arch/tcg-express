@@ -19,7 +19,6 @@ const driverLinks = [
   { label: 'Dashboard', href: '/driver/dashboard', icon: '📊' },
   { label: 'Available Jobs', href: '/driver/jobs', icon: '🔍' },
   { label: 'My Jobs', href: '/driver/my-jobs', icon: '📦' },
-  { label: 'Corp Premium', href: '/driver/corp-premium', icon: '⭐' },
   { label: 'Earnings', href: '/driver/earnings', icon: '💰' },
   { label: 'Wallet', href: '/driver/wallet', icon: '👛' },
   { label: 'Help', href: '/driver/help', icon: '❓' },

@@ -23,8 +23,8 @@ export default function DriverCorpPremium() {
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
-    if (!loading && user && user.role !== 'driver') router.push('/');
-    if (user && user.role === 'driver') loadData();
+    if (!loading && user && user.role !== 'admin') router.push('/');
+    if (user && user.role === 'admin') loadData();
   }, [user, loading]);
 
   const loadData = async () => {
