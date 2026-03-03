@@ -8,100 +8,47 @@ import { useToast } from '../../components/Toast';
 import { supabase } from '../../../lib/supabase';
 import useMobile from '../../components/useMobile';
 import { getCategoryByKey, getEquipmentLabel } from '../../../lib/constants';
-import { VEHICLE_MODES, ADDON_OPTIONS, legacyVehicleLabel, checkVehicleFit } from '../../../lib/fares';
+import { ADDON_OPTIONS, checkVehicleFit } from '../../../lib/fares';
+import { getAreaName, formatPickupTime, formatBudgetRange, getCountdown, getVehicleLabel, getJobBudget, sortByPickupUrgency } from '../../../lib/job-helpers';
+import JobCard from '../../components/JobCard';
 
-function getAreaFromAddress(addr) {
-  if (!addr) return '—';
-  const parts = addr.split(',').map(p => p.trim());
-  if (parts.length >= 3) return parts[parts.length - 2];
-  if (parts.length === 2) return parts[0];
-  return addr.length > 35 ? addr.slice(0, 32) + '...' : addr;
-}
-
-// Singapore postal code first-2-digits → area name
-const SG_POSTAL_AREAS = {
-  '01': 'Raffles Place', '02': 'Cecil',
-  '03': 'Telok Blangah', '04': 'Harbourfront',
-  '05': 'Pasir Panjang',
-  '06': 'Beach Road', '07': 'Bugis',
-  '08': 'Little India',
-  '09': 'Orchard', '10': 'River Valley',
-  '11': 'Newton', '12': 'Novena',
-  '13': 'Macpherson', '14': 'Toa Payoh',
-  '15': 'Serangoon', '16': 'Bishan',
-  '17': 'Changi',
-  '18': 'Tampines', '19': 'Pasir Ris',
-  '20': 'Ayer Rajah', '21': 'Buona Vista',
-  '22': 'Boon Lay', '23': 'Jurong',
-  '24': 'Kranji', '25': 'Woodlands',
-  '26': 'Upper Thomson', '27': 'Mandai',
-  '28': 'Yishun',
-  '29': 'Admiralty', '30': 'Woodlands',
-  '31': 'Bukit Batok', '32': 'Choa Chu Kang',
-  '33': 'Bukit Timah', '34': 'Holland',
-  '35': 'Ang Mo Kio', '36': 'Bishan',
-  '37': 'Serangoon Garden', '38': 'Hougang',
-  '39': 'Punggol', '40': 'Sengkang',
-  '41': 'Bedok', '42': 'Chai Chee',
-  '43': 'Katong', '44': 'Marine Parade',
-  '45': 'Paya Lebar',
-  '46': 'Simei', '47': 'Tampines',
-  '48': 'Changi', '49': 'Loyang',
-  '50': 'Bukit Merah', '51': 'Queenstown', '52': 'Queenstown',
-  '53': 'Bukit Merah', '56': 'Bishan', '57': 'Ang Mo Kio',
-  '58': 'Upper Bukit Timah', '59': 'Clementi',
-  '60': 'Jurong', '61': 'Jurong', '62': 'Jurong', '63': 'Jurong', '64': 'Jurong',
-  '65': 'Bukit Panjang', '66': 'Choa Chu Kang', '67': 'Bukit Panjang', '68': 'Choa Chu Kang',
-  '69': 'Lim Chu Kang', '70': 'Tengah', '71': 'Tengah',
-  '72': 'Kranji', '73': 'Woodgrove',
-  '75': 'Yishun', '76': 'Sembawang',
-  '77': 'Upper Thomson', '78': 'Springleaf',
-  '79': 'Seletar', '80': 'Seletar', '81': 'Changi', '82': 'Punggol',
-};
-
-function getAreaName(addr) {
-  if (!addr) return '—';
-  // Try Singapore 6-digit postal code
-  const match = addr.match(/(?:Singapore\s*)?(\d{6})(?:\s|,|$)/i);
-  if (match) {
-    const area = SG_POSTAL_AREAS[match[1].substring(0, 2)];
-    if (area) return area;
+// Parse addons from special_requirements JSON
+function parseAddons(job) {
+  const addons = [];
+  if (job.special_requirements) {
+    try {
+      const parsed = JSON.parse(job.special_requirements);
+      if (parsed.addons) {
+        for (const [key, qty] of Object.entries(parsed.addons)) {
+          if (qty > 0) {
+            const opt = ADDON_OPTIONS.find(a => a.key === key);
+            if (opt && key !== 'extra_manpower') addons.push(opt.label);
+          }
+        }
+      }
+    } catch {}
   }
-  return getAreaFromAddress(addr);
+  return addons;
 }
 
-function formatPickupTime(dateStr) {
-  if (!dateStr) return '';
-  const d = new Date(dateStr);
-  const day = d.getDate();
-  const mon = d.toLocaleDateString('en', { month: 'short' });
-  const time = d.toLocaleTimeString('en', { hour: 'numeric', minute: '2-digit', hour12: true });
-  return `${day} ${mon}, ${time}`;
+// Parse notes from special_requirements JSON
+function parseNotes(job) {
+  if (!job.special_requirements) return null;
+  try {
+    const parsed = JSON.parse(job.special_requirements);
+    return parsed.notes || null;
+  } catch {
+    return job.special_requirements;
+  }
 }
 
-function getVehicleLabel(key) {
-  if (!key || key === 'any') return null;
-  const mode = VEHICLE_MODES.find(v => v.key === key);
-  if (mode) return `${mode.icon} ${mode.label}`;
-  return legacyVehicleLabel(key);
-}
-
-/** Get the instant-accept price for a job (minimum budget = base rate) */
-function getJobBudget(job) {
-  const min = parseFloat(job.budget_min);
-  const max = parseFloat(job.budget_max);
-  if (min > 0) return min;
-  if (max > 0) return max;
-  return null;
-}
-
-function formatBudgetRange(job) {
-  const max = parseFloat(job.budget_max);
-  const min = parseFloat(job.budget_min);
-  if (min > 0 && max > 0) return `$${min.toFixed(0)} - $${max.toFixed(0)}`;
-  if (max > 0) return `$${max.toFixed(2)}`;
-  if (min > 0) return `$${min.toFixed(2)}`;
-  return 'Open bid';
+// Parse special equipment comment (Other Request detail)
+function parseEquipComment(job) {
+  if (!job.special_requirements) return null;
+  try {
+    const parsed = JSON.parse(job.special_requirements);
+    return parsed.special_equipment_comment || null;
+  } catch { return null; }
 }
 
 export default function DriverJobs() {
@@ -134,7 +81,7 @@ export default function DriverJobs() {
     setDataLoading(true);
     try {
       const [jobsRes, bidsRes] = await Promise.all([
-        supabase.from('express_jobs').select('*').in('status', ['open', 'bidding']),
+        supabase.from('express_jobs').select('*').in('status', ['open', 'bidding']).order('pickup_by', { ascending: true, nullsLast: true }),
         supabase.from('express_bids').select('*').eq('driver_id', user.id),
       ]);
 
@@ -230,88 +177,15 @@ export default function DriverJobs() {
   const input = { width: '100%', padding: '12px 16px', borderRadius: '10px', fontSize: '14px', background: '#f8fafc', border: '1px solid #e2e8f0', color: '#1e293b', outline: 'none', fontFamily: "'Inter', sans-serif", boxSizing: 'border-box' };
   const urgencyColor = { standard: '#64748b', express: '#f59e0b', urgent: '#ef4444' };
   const jobTypeColor = { spot: '#3b82f6', regular: '#8b5cf6', scheduled: '#8b5cf6', recurring: '#059669' };
-  const badge = (text, bg, fg) => ({ display: 'inline-block', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '700', background: bg, color: fg, textTransform: 'uppercase', letterSpacing: '0.3px' });
+  const badgeStyle = (text, bg, fg) => ({ display: 'inline-block', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '700', background: bg, color: fg, textTransform: 'uppercase', letterSpacing: '0.3px' });
 
-  // Parse addons from special_requirements JSON
-  const parseAddons = (job) => {
-    const addons = [];
-    if (job.special_requirements) {
-      try {
-        const parsed = JSON.parse(job.special_requirements);
-        if (parsed.addons) {
-          for (const [key, qty] of Object.entries(parsed.addons)) {
-            if (qty > 0) {
-              const opt = ADDON_OPTIONS.find(a => a.key === key);
-              if (opt && key !== 'extra_manpower') addons.push(opt.label);
-            }
-          }
-        }
-      } catch {}
-    }
-    return addons;
-  };
-
-  // Parse notes from special_requirements JSON
-  const parseNotes = (job) => {
-    if (!job.special_requirements) return null;
-    try {
-      const parsed = JSON.parse(job.special_requirements);
-      return parsed.notes || null;
-    } catch {
-      return job.special_requirements;
-    }
-  };
-
-  // Parse special equipment comment (Other Request detail)
-  const parseEquipComment = (job) => {
-    if (!job.special_requirements) return null;
-    try {
-      const parsed = JSON.parse(job.special_requirements);
-      return parsed.special_equipment_comment || null;
-    } catch { return null; }
-  };
-
-  // Sort by pickup urgency: pickup_by ASC (soonest first), null after, past at bottom
-  const sortByPickupUrgency = (a, b) => {
-    const now = Date.now();
-    const aTime = a.pickup_by ? new Date(a.pickup_by).getTime() : null;
-    const bTime = b.pickup_by ? new Date(b.pickup_by).getTime() : null;
-    const aPast = aTime && aTime < now;
-    const bPast = bTime && bTime < now;
-    // Past pickup_by goes to bottom
-    if (aPast && !bPast) return 1;
-    if (!aPast && bPast) return -1;
-    // Both past: most recent first
-    if (aPast && bPast) return bTime - aTime;
-    // null pickup_by goes after real dates
-    if (aTime && !bTime) return -1;
-    if (!aTime && bTime) return 1;
-    // Both null: newest created first
-    if (!aTime && !bTime) return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    // Both have future pickup_by: soonest first
-    return aTime - bTime;
-  };
-
-  // Categorize jobs into tabs by job_type
-  // Customer creates: spot → 'spot', Scheduled → 'regular', Recurring schedule → creates jobs with 'recurring'
+  // Categorize jobs into tabs by job_type, sorted by pickup urgency
   const spotJobs = jobs.filter(j => !j.job_type || j.job_type === 'spot').sort(sortByPickupUrgency);
   const scheduledJobs = jobs.filter(j => j.job_type === 'regular' || j.job_type === 'scheduled').sort(sortByPickupUrgency);
   const regularJobs = jobs.filter(j => j.job_type === 'recurring').sort(sortByPickupUrgency);
 
   const filteredJobs = activeTab === 'spot' ? spotJobs : activeTab === 'scheduled' ? scheduledJobs : regularJobs;
   const tabCounts = { spot: spotJobs.length, scheduled: scheduledJobs.length, regular: regularJobs.length };
-
-  const getCountdown = (dateStr) => {
-    if (!dateStr) return null;
-    const diff = new Date(dateStr).getTime() - Date.now();
-    if (diff <= -3600000) return 'Overdue';
-    if (diff <= 0) return 'Now';
-    const hrs = Math.floor(diff / 3600000);
-    const mins = Math.floor((diff % 3600000) / 60000);
-    if (hrs > 24) return `${Math.floor(hrs / 24)}d ${hrs % 24}h`;
-    if (hrs > 0) return `${hrs}h ${mins}m`;
-    return `${mins}m`;
-  };
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>
@@ -328,9 +202,8 @@ export default function DriverJobs() {
               </div>
               <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '14px', marginBottom: '20px' }}>
                 <div style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b', marginBottom: '4px' }}>{selectedJob.job_number || selectedJob.item_description}</div>
-                <div style={{ fontSize: '12px', color: '#64748b' }}>{getAreaFromAddress(selectedJob.pickup_address)} → {getAreaFromAddress(selectedJob.delivery_address)}</div>
+                <div style={{ fontSize: '12px', color: '#64748b' }}>{getAreaName(selectedJob.pickup_address)} → {getAreaName(selectedJob.delivery_address)}</div>
                 <div style={{ fontSize: '13px', color: '#10b981', fontWeight: '700', marginTop: '6px' }}>Budget: {formatBudgetRange(selectedJob)}</div>
-                {/* Customer requested equipment */}
                 {selectedJob.equipment_needed && selectedJob.equipment_needed.length > 0 && (
                   <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                     <span style={{ fontSize: '11px', color: '#64748b' }}>Requested:</span>
@@ -339,7 +212,6 @@ export default function DriverJobs() {
                     ))}
                   </div>
                 )}
-                {/* Other Request detail */}
                 {parseEquipComment(selectedJob) && (
                   <div style={{ marginTop: '6px', padding: '8px 10px', borderRadius: '6px', background: '#fef3c7', border: '1px solid #fde68a', fontSize: '12px', color: '#92400e' }}>
                     ⚠️ <strong>Other Request:</strong> {parseEquipComment(selectedJob)}
@@ -378,7 +250,6 @@ export default function DriverJobs() {
                       </label>
                     );
                   })}
-                  {/* Other custom equipment */}
                   <div style={{ padding: '8px 12px', borderRadius: '8px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
                     <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '6px' }}>Other equipment</div>
                     <div style={{ display: 'flex', gap: '6px' }}>
@@ -392,7 +263,6 @@ export default function DriverJobs() {
                       }} style={{ padding: '8px 12px', borderRadius: '8px', border: 'none', background: '#3b82f6', color: 'white', fontSize: '13px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' }}>Add</button>
                     </div>
                   </div>
-                  {/* Show custom items added */}
                   {equipmentCharges.filter(e => !['Pallet Jack', 'Lift Truck', 'Crane'].includes(e.name)).map((eq, i) => (
                     <div key={`custom-${i}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '8px', background: '#f0fdf4', border: '1px solid #86efac' }}>
                       <span style={{ fontSize: '13px', color: '#1e293b', flex: 1 }}>{eq.name}</span>
@@ -401,7 +271,6 @@ export default function DriverJobs() {
                     </div>
                   ))}
                 </div>
-                {/* Running total */}
                 {equipmentCharges.length > 0 && bidAmount && (
                   <div style={{ padding: '10px 12px', borderRadius: '8px', background: '#fffbeb', border: '1px solid #fde68a', fontSize: '13px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
@@ -433,14 +302,13 @@ export default function DriverJobs() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', flexWrap: 'wrap', gap: '10px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <h1 style={{ fontSize: '22px', fontWeight: '700', color: '#1e293b', margin: 0 }}>{detailJob.job_number || 'Job Details'}</h1>
-                  <span style={badge(detailJob.job_type || 'spot', `${jobTypeColor[detailJob.job_type] || jobTypeColor.spot}15`, jobTypeColor[detailJob.job_type] || jobTypeColor.spot)}>{detailJob.job_type || 'spot'}</span>
-                  <span style={badge(detailJob.urgency || 'standard', `${urgencyColor[detailJob.urgency]}15`, urgencyColor[detailJob.urgency])}>{detailJob.urgency || 'standard'}</span>
+                  <span style={badgeStyle(detailJob.job_type || 'spot', `${jobTypeColor[detailJob.job_type] || jobTypeColor.spot}15`, jobTypeColor[detailJob.job_type] || jobTypeColor.spot)}>{detailJob.job_type || 'spot'}</span>
+                  <span style={badgeStyle(detailJob.urgency || 'standard', `${urgencyColor[detailJob.urgency]}15`, urgencyColor[detailJob.urgency])}>{detailJob.urgency || 'standard'}</span>
                 </div>
                 <div style={{ fontSize: '22px', fontWeight: '800', color: '#10b981' }}>{formatBudgetRange(detailJob)}</div>
               </div>
             </div>
 
-            {/* Scheduled date banner */}
             {detailJob.pickup_by && (
               <div style={{ ...card, background: '#f5f3ff', border: '1px solid #ddd6fe', padding: '14px 20px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <span style={{ fontSize: '18px' }}>📅</span>
@@ -452,14 +320,12 @@ export default function DriverJobs() {
             )}
 
             <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr' : '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-              {/* Pickup */}
               <div style={card}>
                 <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#3b82f6', marginBottom: '10px' }}>PICKUP</h3>
                 <div style={{ fontSize: '14px', color: '#1e293b', fontWeight: '600', marginBottom: '6px' }}>{detailJob.pickup_address}</div>
                 {detailJob.pickup_contact && <div style={{ fontSize: '13px', color: '#64748b' }}>{detailJob.pickup_contact} {detailJob.pickup_phone ? `| ${detailJob.pickup_phone}` : ''}</div>}
                 {detailJob.pickup_instructions && <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '6px' }}>{detailJob.pickup_instructions}</div>}
               </div>
-              {/* Delivery */}
               <div style={card}>
                 <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#10b981', marginBottom: '10px' }}>DELIVERY</h3>
                 <div style={{ fontSize: '14px', color: '#1e293b', fontWeight: '600', marginBottom: '6px' }}>{detailJob.delivery_address}</div>
@@ -468,7 +334,6 @@ export default function DriverJobs() {
               </div>
             </div>
 
-            {/* Item & Package Details */}
             <div style={{ ...card, marginBottom: '16px' }}>
               <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b', marginBottom: '14px' }}>Package Details</h3>
               <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr 1fr' : '1fr 1fr 1fr 1fr', gap: '14px' }}>
@@ -514,7 +379,6 @@ export default function DriverJobs() {
                 )}
               </div>
 
-              {/* Addons & Equipment badges */}
               {(() => {
                 const addons = parseAddons(detailJob);
                 const equip = detailJob.equipment_needed || [];
@@ -531,13 +395,11 @@ export default function DriverJobs() {
                 );
               })()}
 
-              {/* Notes / Special instructions */}
               {parseNotes(detailJob) && (
                 <div style={{ marginTop: '14px', padding: '12px', background: '#f8fafc', borderRadius: '8px', fontSize: '13px', color: '#374151' }}>
                   <strong>Notes:</strong> {parseNotes(detailJob)}
                 </div>
               )}
-              {/* Other Request detail from customer */}
               {parseEquipComment(detailJob) && (
                 <div style={{ marginTop: '10px', padding: '12px', background: '#fef3c7', borderRadius: '8px', fontSize: '13px', color: '#92400e', border: '1px solid #fde68a' }}>
                   <strong>⚠️ Special Equipment Request:</strong> {parseEquipComment(detailJob)}
@@ -545,7 +407,6 @@ export default function DriverJobs() {
               )}
             </div>
 
-            {/* Action buttons */}
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
               {myBids[detailJob.id] ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -608,65 +469,18 @@ export default function DriverJobs() {
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {filteredJobs.map(job => {
-                  const hasBid = myBids[job.id];
-                  const countdown = getCountdown(job.pickup_by);
-                  const vLabel = getVehicleLabel(job.vehicle_required);
-                  return (
-                    <div key={job.id} onClick={() => setDetailJob(job)} style={{
-                      ...card, cursor: 'pointer', transition: 'box-shadow 0.15s', padding: '16px 20px',
-                    }}>
-                      {/* Row 1: Vehicle + Weight + Urgency badge + Amount */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', minWidth: 0 }}>
-                          {vLabel && <span style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b' }}>{vLabel}</span>}
-                          {job.item_weight && <span style={{ fontSize: '13px', color: '#475569', fontWeight: '600' }}>{job.item_weight} kg</span>}
-                          {!vLabel && !job.item_weight && <span style={{ fontSize: '13px', color: '#94a3b8' }}>—</span>}
-                          <span style={badge(job.urgency || 'standard', `${urgencyColor[job.urgency] || '#64748b'}15`, urgencyColor[job.urgency] || '#64748b')}>{job.urgency || 'standard'}</span>
-                        </div>
-                        <div style={{ fontSize: '18px', fontWeight: '800', color: '#10b981', flexShrink: 0, marginLeft: '10px' }}>{formatBudgetRange(job)}</div>
-                      </div>
-
-                      {/* Row 2: Date/Time + Countdown */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-                        <span style={{ fontSize: '13px', color: '#64748b' }}>
-                          {job.pickup_by ? `📅 ${formatPickupTime(job.pickup_by)}` : `📅 ${formatPickupTime(job.created_at)}`}
-                        </span>
-                        {countdown && (
-                          <span style={{ padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '700', background: countdown === 'Overdue' ? '#fef2f2' : countdown === 'Now' ? '#fef2f2' : '#fef3c7', color: countdown === 'Overdue' ? '#dc2626' : countdown === 'Now' ? '#dc2626' : '#92400e' }}>
-                            {countdown === 'Overdue' ? 'OVERDUE' : countdown === 'Now' ? 'ASAP' : `in ${countdown}`}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Row 3: Area → Area */}
-                      <div style={{ fontSize: '13px', color: '#374151', marginBottom: '8px' }}>
-                        {getAreaName(job.pickup_address)} → {getAreaName(job.delivery_address)}
-                        {job.distance_km ? <span style={{ color: '#94a3b8', marginLeft: '8px' }}>{parseFloat(job.distance_km).toFixed(1)} km</span> : ''}
-                      </div>
-
-                      {/* Row 4: Job ID (small) + bid status or buttons */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} onClick={e => e.stopPropagation()}>
-                        <span style={{ fontSize: '11px', color: '#b0b8c4' }}>{job.job_number || '—'}</span>
-                        {hasBid ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '12px', fontWeight: '600', color: hasBid.status === 'accepted' ? '#10b981' : hasBid.status === 'rejected' ? '#ef4444' : '#f59e0b' }}>
-                              ${hasBid.amount} ({hasBid.status === 'outbid' ? 'not selected' : hasBid.status})
-                            </span>
-                            {['rejected', 'outbid'].includes(hasBid.status) && (
-                              <button onClick={() => setSelectedJob(job)} style={{ padding: '5px 12px', borderRadius: '8px', border: '1px solid #f59e0b', background: 'white', color: '#f59e0b', fontSize: '11px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>Re-bid</button>
-                            )}
-                          </div>
-                        ) : (
-                          <div style={{ display: 'flex', gap: '8px' }}>
-                            {getJobBudget(job) && <button onClick={() => instantAccept(job)} disabled={accepting === job.id} style={{ padding: '6px 14px', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontSize: '12px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif", opacity: accepting === job.id ? 0.7 : 1 }}>{accepting === job.id ? '...' : `Accept $${getJobBudget(job).toFixed(2)}`}</button>}
-                            <button onClick={() => setSelectedJob(job)} style={{ padding: '6px 14px', borderRadius: '8px', border: '1px solid #3b82f6', background: 'white', color: '#3b82f6', fontSize: '12px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>{getJobBudget(job) ? 'Bid' : 'Place Bid'}</button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+                {filteredJobs.map(job => (
+                  <JobCard
+                    key={job.id}
+                    job={job}
+                    myBid={myBids[job.id]}
+                    accepting={accepting}
+                    onClick={() => setDetailJob(job)}
+                    onAccept={instantAccept}
+                    onBid={(j) => setSelectedJob(j)}
+                    onReBid={(j) => setSelectedJob(j)}
+                  />
+                ))}
               </div>
             )}
           </>

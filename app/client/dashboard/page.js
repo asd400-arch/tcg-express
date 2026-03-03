@@ -7,48 +7,7 @@ import Spinner from '../../components/Spinner';
 import PromoBanner from '../../components/PromoBanner';
 import { supabase } from '../../../lib/supabase';
 import useMobile from '../../components/useMobile';
-
-const SG_POSTAL_AREAS = {
-  '01': 'Raffles Place', '02': 'Cecil', '03': 'Telok Blangah', '04': 'Harbourfront',
-  '05': 'Pasir Panjang', '06': 'Beach Road', '07': 'Bugis', '08': 'Little India',
-  '09': 'Orchard', '10': 'River Valley', '11': 'Newton', '12': 'Novena',
-  '13': 'Macpherson', '14': 'Toa Payoh', '15': 'Serangoon', '16': 'Bishan',
-  '17': 'Changi', '18': 'Tampines', '19': 'Pasir Ris',
-  '20': 'Ayer Rajah', '21': 'Buona Vista', '22': 'Boon Lay', '23': 'Jurong',
-  '24': 'Kranji', '25': 'Woodlands', '26': 'Upper Thomson', '27': 'Mandai',
-  '28': 'Yishun', '29': 'Admiralty', '30': 'Woodlands',
-  '31': 'Bukit Batok', '32': 'Choa Chu Kang', '33': 'Bukit Timah', '34': 'Holland',
-  '35': 'Ang Mo Kio', '36': 'Bishan', '37': 'Serangoon Garden', '38': 'Hougang',
-  '39': 'Punggol', '40': 'Sengkang', '41': 'Bedok', '42': 'Chai Chee',
-  '43': 'Katong', '44': 'Marine Parade', '45': 'Paya Lebar',
-  '46': 'Simei', '47': 'Tampines', '48': 'Changi', '49': 'Loyang',
-  '50': 'Bukit Merah', '51': 'Queenstown', '52': 'Queenstown',
-  '53': 'Bukit Merah', '56': 'Bishan', '57': 'Ang Mo Kio',
-  '58': 'Upper Bukit Timah', '59': 'Clementi',
-  '60': 'Jurong', '61': 'Jurong', '62': 'Jurong', '63': 'Jurong', '64': 'Jurong',
-  '65': 'Bukit Panjang', '66': 'Choa Chu Kang', '67': 'Bukit Panjang', '68': 'Choa Chu Kang',
-  '72': 'Kranji', '73': 'Woodgrove', '75': 'Yishun', '76': 'Sembawang',
-  '77': 'Upper Thomson', '78': 'Springleaf', '79': 'Seletar', '80': 'Seletar', '81': 'Changi', '82': 'Punggol',
-};
-
-function getAreaName(addr) {
-  if (!addr) return '—';
-  const match = addr.match(/(?:Singapore\s*)?(\d{6})(?:\s|,|$)/i);
-  if (match) {
-    const area = SG_POSTAL_AREAS[match[1].substring(0, 2)];
-    if (area) return area;
-  }
-  const parts = addr.split(',').map(p => p.trim());
-  if (parts.length >= 3) return parts[parts.length - 2];
-  if (parts.length === 2) return parts[0];
-  return addr.length > 30 ? addr.slice(0, 28) + '...' : addr;
-}
-
-function formatPickupTime(dateStr) {
-  if (!dateStr) return '';
-  const d = new Date(dateStr);
-  return `${d.getDate()} ${d.toLocaleDateString('en', { month: 'short' })}, ${d.toLocaleTimeString('en', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
-}
+import { getAreaName, formatPickupTime } from '../../../lib/job-helpers';
 
 export default function ClientDashboard() {
   const { user, loading } = useAuth();

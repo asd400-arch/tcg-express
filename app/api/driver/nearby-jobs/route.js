@@ -41,7 +41,7 @@ export async function GET(request) {
       .from('express_jobs')
       .select('*')
       .in('status', ['open', 'bidding'])
-      .order('created_at', { ascending: false })
+      .order('pickup_by', { ascending: true, nullsLast: true })
       .limit(50);
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
