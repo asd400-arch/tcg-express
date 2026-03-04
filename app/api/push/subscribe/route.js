@@ -30,11 +30,14 @@ export async function POST(request) {
       );
 
     if (error) {
-      return NextResponse.json({ error: 'Failed to save subscription' }, { status: 500 });
+      console.error('[push/subscribe] Upsert failed:', error.message, error.details, error.hint);
+      return NextResponse.json({ error: 'Failed to save subscription', details: error.message }, { status: 500 });
     }
 
+    console.log('[push/subscribe] Saved subscription for user', session.userId, '— endpoint:', endpoint.substring(0, 60));
     return NextResponse.json({ success: true });
   } catch (err) {
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+    console.error('[push/subscribe] Server error:', err);
+    return NextResponse.json({ error: 'Server error', details: err.message }, { status: 500 });
   }
 }

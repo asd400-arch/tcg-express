@@ -4,6 +4,7 @@ import { ToastProvider } from './components/Toast';
 import { UnreadMessagesProvider } from './components/UnreadMessagesContext';
 import ServiceWorkerRegister from './components/ServiceWorkerRegister';
 import ChatWidget from './components/help/ChatWidget';
+import PushPromptBanner from './components/PushPromptBanner';
 
 export const metadata = {
   title: 'TCG Express | B2B Express Delivery Platform',
@@ -52,6 +53,7 @@ export default function RootLayout({ children }) {
             <UnreadMessagesProvider>
               {children}
               <ChatWidget />
+              <PushPromptBanner />
             </UnreadMessagesProvider>
           </ToastProvider>
         </AuthProvider>
