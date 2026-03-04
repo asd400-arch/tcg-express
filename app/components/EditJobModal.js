@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { VEHICLE_MODES } from '../../lib/fares';
+import { toLocalDatetime } from '../../lib/job-helpers';
 
 const inputStyle = {
   width: '100%', padding: '10px 14px', borderRadius: '10px',
@@ -28,8 +29,8 @@ export default function EditJobModal({ job, onClose, onSaved }) {
     delivery_contact: job.delivery_contact || '',
     delivery_phone: job.delivery_phone || '',
     delivery_instructions: job.delivery_instructions || '',
-    pickup_by: job.pickup_by ? new Date(new Date(job.pickup_by).getTime() - new Date(job.pickup_by).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '',
-    deliver_by: job.deliver_by ? new Date(new Date(job.deliver_by).getTime() - new Date(job.deliver_by).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '',
+    pickup_by: job.pickup_by ? toLocalDatetime(job.pickup_by) : '',
+    deliver_by: job.deliver_by ? toLocalDatetime(job.deliver_by) : '',
     item_description: job.item_description || '',
     item_weight: job.item_weight || '',
     item_dimensions: job.item_dimensions || '',

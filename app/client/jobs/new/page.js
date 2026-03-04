@@ -15,6 +15,7 @@ import {
   SAVE_MODE_WINDOWS, SAVE_MODE_GREEN_POINTS, DIMENSION_PRESETS,
 } from '../../../../lib/fares';
 import { findMatchingZones, calculateZoneSurcharge, isInRestrictedZone } from '../../../../lib/geo';
+import { toLocalDatetime } from '../../../../lib/job-helpers';
 
 function AddressAutocomplete({ value, onChange, onSelect, placeholder, inputStyle }) {
   const [suggestions, setSuggestions] = useState([]);
@@ -329,7 +330,8 @@ export default function NewJob() {
         urgency: form.urgency, budget_min: budgetMin, budget_max: budgetMax,
         vehicle_required: effectiveVehicleMode || 'any', special_requirements: specialReqs || null,
         equipment_needed: allEquipment, manpower_count: form.manpower_count,
-        pickup_by: form.pickup_by || null, deliver_by: form.deliver_by || null,
+        pickup_by: form.pickup_by ? new Date(form.pickup_by).toISOString() : null,
+        deliver_by: form.deliver_by ? new Date(form.deliver_by).toISOString() : null,
         status: 'open',
         job_type: jobType,
         delivery_mode: deliveryMode,
@@ -1031,8 +1033,8 @@ export default function NewJob() {
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
-                <div><label style={label}>Pickup By</label><input type="datetime-local" style={input} value={form.pickup_by} onChange={e => set('pickup_by', e.target.value)} min={new Date(Date.now() + 30 * 60000).toISOString().slice(0, 16)} /></div>
-                <div><label style={label}>Deliver By</label><input type="datetime-local" style={input} value={form.deliver_by} onChange={e => set('deliver_by', e.target.value)} min={form.pickup_by || new Date(Date.now() + 30 * 60000).toISOString().slice(0, 16)} /></div>
+                <div><label style={label}>Pickup By</label><input type="datetime-local" style={input} value={form.pickup_by} onChange={e => set('pickup_by', e.target.value)} min={toLocalDatetime(Date.now() + 30 * 60000)} /></div>
+                <div><label style={label}>Deliver By</label><input type="datetime-local" style={input} value={form.deliver_by} onChange={e => set('deliver_by', e.target.value)} min={form.pickup_by || toLocalDatetime(Date.now() + 30 * 60000)} /></div>
               </div>
               <div><label style={label}>Special Requirements</label><textarea style={{ ...input, height: '60px', resize: 'vertical' }} value={form.special_requirements} onChange={e => set('special_requirements', e.target.value)} placeholder="Handling instructions, insurance needs, etc." /></div>
             </div>
@@ -1074,7 +1076,7 @@ export default function NewJob() {
               {form.schedule_mode === 'once' && (
                 <div style={{ padding: '16px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
                   <label style={label}>Date & Time *</label>
-                  <input type="datetime-local" style={input} value={form.schedule_date} onChange={e => set('schedule_date', e.target.value)} min={new Date().toISOString().slice(0, 16)} />
+                  <input type="datetime-local" style={input} value={form.schedule_date} onChange={e => set('schedule_date', e.target.value)} min={toLocalDatetime(Date.now())} />
                 </div>
               )}
 
