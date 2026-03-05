@@ -195,20 +195,20 @@ export async function POST(request) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    // Notify all active drivers about the new job
+    // Notify all drivers about the new job
+    // IMPORTANT: Must await push — Vercel kills serverless functions after response is sent
     try {
-      console.log(`[jobs/create] Step 1: Querying active drivers...`);
+      // Query ALL drivers (no is_active filter — column may not exist or be NULL)
       const { data: drivers, error: driverQueryErr } = await supabaseAdmin
         .from('express_users')
         .select('id, vehicle_type')
-        .eq('role', 'driver')
-        .or('is_active.eq.true,is_active.is.null');
+        .eq('role', 'driver');
 
       if (driverQueryErr) {
-        console.error('[jobs/create] Driver query failed:', driverQueryErr.message);
+        console.error('[JOB-CREATED] Driver query FAILED:', driverQueryErr.message);
       }
 
-      console.log(`[jobs/create] Step 2: Found ${drivers?.length || 0} active driver(s)`);
+      console.log(`[JOB-CREATED] Found ${drivers?.length || 0} driver(s)`);
 
       if (drivers && drivers.length > 0) {
         // Filter drivers by vehicle fit if job requires specific vehicle
@@ -224,7 +224,7 @@ export async function POST(request) {
               return driverIdx >= jobIdx;
             });
 
-        console.log(`[jobs/create] Step 3: ${eligibleDrivers.length} eligible (vehicle: ${jobVehicle || 'any'}, filtered out: ${drivers.length - eligibleDrivers.length})`);
+        console.log(`[JOB-CREATED] ${eligibleDrivers.length} eligible drivers (vehicle: ${jobVehicle || 'any'})`);
 
         // In-app notifications
         const notifications = eligibleDrivers.map(d => ({
@@ -236,56 +236,41 @@ export async function POST(request) {
           is_read: false,
         }));
         const { error: notifInsertErr } = await supabaseAdmin.from('express_notifications').insert(notifications);
-        if (notifInsertErr) console.error('[jobs/create] In-app notification insert error:', notifInsertErr.message);
-        else console.log(`[jobs/create] Step 4: In-app notifications inserted for ${notifications.length} driver(s)`);
+        if (notifInsertErr) console.error('[JOB-CREATED] In-app notification insert error:', notifInsertErr.message);
 
-        // Push notifications (fire-and-forget)
+        // Push notifications — MUST await so Vercel doesn't kill the function before sending
         const pickupArea = getAreaFromAddress(jobData.pickup_address);
         const deliveryArea = getAreaFromAddress(jobData.delivery_address);
         const budgetMin = jobData.budget_min ? `$${jobData.budget_min}` : '';
         const budgetMax = jobData.budget_max ? `$${jobData.budget_max}` : '';
         const budgetStr = budgetMin && budgetMax ? `${budgetMin}-${budgetMax}` : budgetMin || budgetMax;
         const pushBody = `${data.job_number} - ${pickupArea} → ${deliveryArea}${budgetStr ? ` - ${budgetStr}` : ''}`;
-        console.log(`[jobs/create] Step 5: Sending push to ${eligibleDrivers.length} driver(s): "${pushBody}"`);
 
-        // Check subscription counts before sending
-        const { data: subCounts } = await supabaseAdmin
-          .from('express_push_subscriptions')
-          .select('user_id, type')
-          .in('user_id', eligibleDrivers.map(d => d.id));
-        const totalSubs = subCounts?.length || 0;
-        const driversWithSubs = new Set(subCounts?.map(s => s.user_id)).size;
-        console.log(`[jobs/create] Step 6: Push subscriptions — ${totalSubs} total across ${driversWithSubs}/${eligibleDrivers.length} drivers`);
+        console.log(`[JOB-CREATED] Sending push to ${eligibleDrivers.length} drivers: "${pushBody}"`);
 
-        if (totalSubs === 0) {
-          console.warn('[jobs/create] WARNING: No push subscriptions found for any eligible driver — push notifications will not be delivered');
-        }
-
-        Promise.allSettled(
+        const pushResults = await Promise.allSettled(
           eligibleDrivers.map(d =>
             sendPushToUser(d.id, {
-              title: 'New Job Available',
+              title: '🚚 New Job Available',
               body: pushBody,
               url: '/driver/jobs',
             })
           )
-        ).then(results => {
-          const ok = results.filter(r => r.status === 'fulfilled').length;
-          const fail = results.filter(r => r.status === 'rejected').length;
-          console.log(`[jobs/create] Step 7: Push results — ${ok} succeeded, ${fail} failed out of ${eligibleDrivers.length} drivers`);
-          results.forEach((r, i) => {
-            if (r.status === 'rejected') {
-              console.error(`[jobs/create] Push failed for driver ${eligibleDrivers[i]?.id}:`, r.reason?.message || r.reason);
-            }
-          });
-        }).catch(err => {
-          console.error('[jobs/create] Push notification error:', err?.message || err);
+        );
+
+        const sent = pushResults.filter(r => r.status === 'fulfilled').length;
+        const failed = pushResults.filter(r => r.status === 'rejected').length;
+        console.log(`[JOB-CREATED] Push results: ${sent} sent, ${failed} failed out of ${eligibleDrivers.length} drivers`);
+        pushResults.forEach((r, i) => {
+          if (r.status === 'rejected') {
+            console.error(`[JOB-CREATED] Push failed for driver ${eligibleDrivers[i]?.id}:`, r.reason?.message || r.reason);
+          }
         });
       } else {
-        console.warn('[jobs/create] No active drivers found — skipping notifications');
+        console.warn('[JOB-CREATED] No drivers found — skipping notifications');
       }
     } catch (notifErr) {
-      console.error('[jobs/create] Notification block error:', notifErr?.message || notifErr);
+      console.error('[JOB-CREATED] Notification error:', notifErr?.message || notifErr);
     }
 
     // Record green points for EV delivery
