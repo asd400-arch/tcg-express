@@ -1,5 +1,4 @@
 import { supabaseAdmin } from '../../../lib/supabase-server';
-import { createNotification } from '../../../lib/notifications';
 import { NextResponse } from 'next/server';
 import { getSession } from '../../../lib/auth';
 import { notify } from '../../../lib/notify';
@@ -42,8 +41,8 @@ export async function POST(req) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    if (!['client', 'driver'].includes(user.role)) {
-      return NextResponse.json({ error: 'Only clients and drivers can open disputes' }, { status: 403 });
+    if (!['client', 'admin'].includes(user.role)) {
+      return NextResponse.json({ error: 'Only clients and admins can open disputes' }, { status: 403 });
     }
 
     // Fetch job
@@ -57,11 +56,8 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Job not found' }, { status: 404 });
     }
 
-    // Verify user is part of this job
+    // Verify user is part of this job (clients must own the job, admins can dispute any)
     if (user.role === 'client' && job.client_id !== session.userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
-    if (user.role === 'driver' && job.assigned_driver_id !== session.userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
@@ -136,7 +132,7 @@ export async function POST(req) {
       console.error('Dispute notify other party error:', notifyErr?.message);
     }
 
-    // Notify all admins (in-app only)
+    // Notify all admins (in-app + push)
     try {
       const { data: admins } = await supabaseAdmin
         .from('express_users')
@@ -145,12 +141,14 @@ export async function POST(req) {
 
       if (admins) {
         for (const admin of admins) {
-          await createNotification(
-            admin.id,
-            'dispute',
-            `New dispute on ${job.job_number}`,
-            `${user.contact_name} (${user.role}) opened a dispute: ${reasonLabel}`
-          );
+          await notify(admin.id, {
+            type: 'dispute',
+            category: 'job_updates',
+            title: `Dispute: ${job.job_number}`,
+            message: `${user.contact_name} (${user.role}) opened a dispute: ${reasonLabel}`,
+            referenceId: String(jobId),
+            url: '/admin/disputes',
+          });
         }
       }
     } catch (adminNotifyErr) {

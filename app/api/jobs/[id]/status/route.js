@@ -60,20 +60,7 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: `Cannot transition from ${job.status} to ${status}` }, { status: 400 });
     }
 
-    // Prevent early completion: only for scheduled/regular jobs with a future deliver_by
-    // Spot/immediate deliveries (job_type='spot' or missing) are never blocked
-    const isScheduledJob = job.job_type === 'scheduled' || job.job_type === 'regular';
-    if (status === 'delivered' && session.role === 'driver' && isScheduledJob && job.deliver_by) {
-      const scheduledDate = new Date(job.deliver_by);
-      const now = new Date();
-      if (scheduledDate > now) {
-        const dateStr = scheduledDate.toLocaleDateString('en-SG', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-        return NextResponse.json({
-          error: `This delivery is scheduled for ${dateStr}. You cannot complete it before the scheduled date.`,
-          scheduled_date: job.deliver_by,
-        }, { status: 400 });
-      }
-    }
+    // deliver_by is a deadline, not an exact time — early delivery is always allowed in B2B logistics
 
     // Normalize status alias
     const normalizedStatus = STATUS_ALIASES[status] || status;

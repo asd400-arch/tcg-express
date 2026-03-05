@@ -202,7 +202,7 @@ export async function POST(request) {
         .from('express_users')
         .select('id, vehicle_type')
         .eq('role', 'driver')
-        .eq('is_active', true);
+        .or('is_active.eq.true,is_active.is.null');
 
       if (driverQueryErr) {
         console.error('[jobs/create] Driver query failed:', driverQueryErr.message);

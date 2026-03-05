@@ -32,13 +32,21 @@ export default function DriverDashboard() {
       supabase.from('express_jobs').select('*').eq('assigned_driver_id', user.id).order('created_at', { ascending: false }),
       supabase.from('express_jobs').select('*').in('status', ['open', 'bidding']).order('pickup_by', { ascending: true, nullsLast: true }).limit(10),
       supabase.from('express_transactions').select('driver_payout').eq('driver_id', user.id).eq('payment_status', 'paid'),
-      supabase.from('express_reviews').select('*, client:client_id(contact_name)').eq('driver_id', user.id).eq('reviewer_role', 'client').order('created_at', { ascending: false }).limit(5),
+      supabase.from('express_reviews').select('*').eq('driver_id', user.id).eq('reviewer_role', 'client').order('created_at', { ascending: false }).limit(5),
     ]);
     const mj = myJ.data || []; const oj = (openJ.data || []).sort(sortByPickupUrgency);
     const totalEarnings = (txn.data || []).reduce((sum, t) => sum + (parseFloat(t.driver_payout) || 0), 0);
     setMyJobs(mj);
     setAvailableJobs(oj);
-    setRecentReviews(revRes.data || []);
+    // Fetch client names for reviews separately (avoids FK join issues)
+    const reviews = revRes.data || [];
+    if (reviews.length > 0) {
+      const clientIds = [...new Set(reviews.map(r => r.client_id).filter(Boolean))];
+      const { data: clients } = await supabase.from('express_users').select('id, contact_name').in('id', clientIds);
+      const clientMap = Object.fromEntries((clients || []).map(c => [c.id, c.contact_name]));
+      reviews.forEach(r => r._clientName = clientMap[r.client_id] || 'Client');
+    }
+    setRecentReviews(reviews);
     setStats({
       active: mj.filter(x => ['assigned','pickup_confirmed','in_transit'].includes(x.status)).length,
       completed: mj.filter(x => ['confirmed','completed'].includes(x.status)).length,
@@ -197,7 +205,7 @@ export default function DriverDashboard() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span style={{ color: '#f59e0b', fontSize: '14px' }}>{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</span>
-                    <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>{r.client?.contact_name || 'Client'}</span>
+                    <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>{r._clientName || 'Client'}</span>
                   </div>
                   <span style={{ fontSize: '11px', color: '#94a3b8' }}>{new Date(r.created_at).toLocaleDateString()}</span>
                 </div>

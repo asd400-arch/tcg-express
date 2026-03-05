@@ -271,26 +271,42 @@ export default function ClientJobDetail({ params }) {
         </div>
 
         {/* Tabs */}
-        <div style={{ display: 'flex', gap: '4px', marginBottom: '20px', background: '#f1f5f9', borderRadius: '10px', padding: '4px', flexWrap: 'wrap' }}>
-          {['details', 'bids', ...(showMap ? ['tracking'] : []), ...(showChat ? ['messages'] : [])].map(t => (
-            <button key={t} onClick={() => { setTab(t); if (t === 'messages') markJobRead(jobId); }} style={{
-              flex: 1, minWidth: '70px', padding: '10px', borderRadius: '8px', border: 'none', cursor: 'pointer',
-              background: tab === t ? 'white' : 'transparent', color: tab === t ? '#1e293b' : '#64748b',
-              fontSize: '13px', fontWeight: '600', fontFamily: "'Inter', sans-serif",
-              boxShadow: tab === t ? '0 1px 3px rgba(0,0,0,0.08)' : 'none', textTransform: 'capitalize',
-              position: 'relative',
-            }}>
-              {t} {t === 'bids' ? `(${bids.length})` : ''}
-              {t === 'messages' && unreadByJob[jobId] > 0 && (
-                <span style={{
-                  position: 'absolute', top: '4px', right: '4px',
-                  width: '8px', height: '8px', borderRadius: '50%',
-                  background: '#ef4444',
-                }} />
-              )}
-            </button>
-          ))}
-        </div>
+        {(() => {
+          const pendingBids = bids.filter(b => b.status === 'pending').length;
+          return (
+            <div style={{ display: 'flex', gap: '4px', marginBottom: '20px', background: '#f1f5f9', borderRadius: '10px', padding: '4px', flexWrap: 'wrap' }}>
+              {['details', 'bids', ...(showMap ? ['tracking'] : []), ...(showChat ? ['messages'] : [])].map(t => (
+                <button key={t} onClick={() => { setTab(t); if (t === 'messages') markJobRead(jobId); }} style={{
+                  flex: 1, minWidth: '70px', padding: '10px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                  background: tab === t ? 'white' : t === 'bids' && pendingBids > 0 ? '#fff7ed' : 'transparent',
+                  color: tab === t ? '#1e293b' : t === 'bids' && pendingBids > 0 ? '#ea580c' : '#64748b',
+                  fontSize: '13px', fontWeight: tab === t || (t === 'bids' && pendingBids > 0) ? '700' : '600',
+                  fontFamily: "'Inter', sans-serif",
+                  boxShadow: tab === t ? '0 1px 3px rgba(0,0,0,0.08)' : 'none', textTransform: 'capitalize',
+                  position: 'relative',
+                  animation: t === 'bids' && pendingBids > 0 && tab !== 'bids' ? 'bidPulse 2s ease-in-out infinite' : 'none',
+                }}>
+                  {t === 'bids' ? (pendingBids > 0 ? `🔔 Bids (${pendingBids} new)` : `Bids (${bids.length})`) : t}
+                  {t === 'bids' && pendingBids > 0 && (
+                    <span style={{
+                      position: 'absolute', top: '2px', right: '2px',
+                      width: '10px', height: '10px', borderRadius: '50%',
+                      background: '#ef4444', border: '2px solid white',
+                    }} />
+                  )}
+                  {t === 'messages' && unreadByJob[jobId] > 0 && (
+                    <span style={{
+                      position: 'absolute', top: '4px', right: '4px',
+                      width: '8px', height: '8px', borderRadius: '50%',
+                      background: '#ef4444',
+                    }} />
+                  )}
+                </button>
+              ))}
+              <style>{`@keyframes bidPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }`}</style>
+            </div>
+          );
+        })()}
 
         {/* Details Tab */}
         {tab === 'details' && (
@@ -540,9 +556,9 @@ export default function ClientJobDetail({ params }) {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: '12px', color: '#94a3b8' }}>{new Date(bid.created_at).toLocaleString()}</span>
                     {bid.status === 'pending' && ['open', 'bidding'].includes(job.status) ? (
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button onClick={() => rejectBid(bid)} disabled={!!acceptingBid} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #ef4444', background: 'white', color: '#ef4444', fontSize: '13px', fontWeight: '600', cursor: acceptingBid ? 'not-allowed' : 'pointer', fontFamily: "'Inter', sans-serif", opacity: acceptingBid ? 0.5 : 1 }}>Reject</button>
-                        <button onClick={() => acceptBid(bid)} disabled={!!acceptingBid} style={{ padding: '8px 20px', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontSize: '13px', fontWeight: '600', cursor: acceptingBid ? 'not-allowed' : 'pointer', fontFamily: "'Inter', sans-serif", opacity: acceptingBid === bid.id ? 0.7 : 1 }}>{acceptingBid === bid.id ? 'Processing...' : '✅ Accept Bid'}</button>
+                      <div style={{ display: 'flex', gap: '10px' }}>
+                        <button onClick={() => rejectBid(bid)} disabled={!!acceptingBid} style={{ padding: '12px 24px', borderRadius: '10px', border: '2px solid #ef4444', background: 'white', color: '#ef4444', fontSize: '15px', fontWeight: '700', cursor: acceptingBid ? 'not-allowed' : 'pointer', fontFamily: "'Inter', sans-serif", opacity: acceptingBid ? 0.5 : 1 }}>✕ Reject</button>
+                        <button onClick={() => acceptBid(bid)} disabled={!!acceptingBid} style={{ padding: '12px 28px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontSize: '15px', fontWeight: '700', cursor: acceptingBid ? 'not-allowed' : 'pointer', fontFamily: "'Inter', sans-serif", opacity: acceptingBid === bid.id ? 0.7 : 1, boxShadow: '0 4px 14px rgba(16,185,129,0.3)' }}>{acceptingBid === bid.id ? 'Processing...' : '✅ Accept Bid'}</button>
                       </div>
                     ) : (
                       <span style={{ padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', background: bid.status === 'accepted' ? '#f0fdf4' : bid.status === 'outbid' ? '#fffbeb' : '#fef2f2', color: bid.status === 'accepted' ? '#10b981' : bid.status === 'outbid' ? '#d97706' : '#ef4444', textTransform: 'capitalize' }}>{bid.status === 'outbid' ? 'not selected' : bid.status}</span>

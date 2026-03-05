@@ -430,14 +430,9 @@ export default function DriverMyJobs() {
               const nextStatus = statusFlow[selected.status].next;
               const needsPhoto = (nextStatus === 'pickup_confirmed' && !selected.pickup_photo)
                 || (nextStatus === 'delivered' && !selected.delivery_photo);
-              const photoHint = nextStatus === 'pickup_confirmed' ? 'Upload pickup photo first'
-                : nextStatus === 'delivered' ? 'Upload delivery photo first' : null;
-              // Prevent early completion: only for scheduled/regular jobs with future deliver_by
-              // Spot/immediate deliveries are never blocked
-              const isScheduledJob = selected.job_type === 'scheduled' || selected.job_type === 'regular';
-              const scheduledFuture = nextStatus === 'delivered' && isScheduledJob && selected.deliver_by && new Date(selected.deliver_by) > new Date();
-              const scheduledDateStr = selected.deliver_by ? new Date(selected.deliver_by).toLocaleDateString('en-SG', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
-              const isDisabled = needsPhoto || scheduledFuture || statusUpdating;
+              const photoHint = nextStatus === 'pickup_confirmed' ? '⚠️ Upload pickup photo first'
+                : nextStatus === 'delivered' ? '⚠️ Upload delivery photo first' : null;
+              const isDisabled = needsPhoto || statusUpdating;
               return (
                 <div style={{ marginBottom: '10px' }}>
                   <button onClick={() => !isDisabled && updateStatus(nextStatus)} disabled={isDisabled} style={{
@@ -450,13 +445,8 @@ export default function DriverMyJobs() {
                     opacity: isDisabled ? 0.7 : 1,
                   }}>{statusUpdating ? 'Processing...' : statusFlow[selected.status].label}</button>
                   {needsPhoto && photoHint && (
-                    <div style={{ textAlign: 'center', fontSize: '12px', color: '#f59e0b', fontWeight: '600', marginTop: '6px' }}>
+                    <div style={{ textAlign: 'center', fontSize: '13px', color: '#ef4444', fontWeight: '700', marginTop: '6px' }}>
                       {photoHint}
-                    </div>
-                  )}
-                  {scheduledFuture && (
-                    <div style={{ textAlign: 'center', fontSize: '12px', color: '#ef4444', fontWeight: '600', marginTop: '6px' }}>
-                      Delivery scheduled for {scheduledDateStr} — cannot complete before then
                     </div>
                   )}
                 </div>
@@ -657,13 +647,7 @@ export default function DriverMyJobs() {
                   </div>
                 )}
 
-                {/* Open Dispute button */}
-                {['assigned', 'pickup_confirmed', 'in_transit', 'delivered'].includes(selected.status) && !dispute && (
-                  <button onClick={() => setShowDispute(true)} style={{
-                    padding: '12px 24px', borderRadius: '10px', border: '1px solid #e11d48', background: 'white',
-                    color: '#e11d48', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
-                  }}>⚠️ Open Dispute</button>
-                )}
+                {/* Dispute: drivers cannot open disputes — only clients and admins can */}
 
                 {/* Rate Client button */}
                 {['confirmed', 'completed'].includes(selected.status) && !hasReviewedClient && (
