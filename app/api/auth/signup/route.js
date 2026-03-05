@@ -81,12 +81,16 @@ export async function POST(request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Send verification email
-    await sendEmail(
-      email,
-      'Verify your email - TCG Express',
-      `<h2>Email Verification</h2><p>Your verification code is:</p><div style="font-size:32px;font-weight:700;letter-spacing:6px;text-align:center;padding:20px;background:#f8fafc;border-radius:10px;margin:16px 0">${verification_code}</div><p>This code expires in 15 minutes.</p><p>If you did not sign up for TCG Express, please ignore this email.</p>`
-    );
+    // Send verification email (non-blocking — account is already created, user can resend later)
+    try {
+      await sendEmail(
+        email,
+        'Verify your email - TCG Express',
+        `<h2>Email Verification</h2><p>Your verification code is:</p><div style="font-size:32px;font-weight:700;letter-spacing:6px;text-align:center;padding:20px;background:#f8fafc;border-radius:10px;margin:16px 0">${verification_code}</div><p>This code expires in 15 minutes.</p><p>If you did not sign up for TCG Express, please ignore this email.</p>`
+      );
+    } catch (emailErr) {
+      console.error('[signup] Verification email failed:', emailErr.message);
+    }
 
     // Strip sensitive fields before returning
     const { password_hash: _, verification_code: _vc, verification_code_expires: _vce, ...safeUser } = data;
