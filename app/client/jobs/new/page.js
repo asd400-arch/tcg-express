@@ -628,7 +628,7 @@ export default function NewJob() {
           <div>
             <div style={card}>
               <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>📋 Item Details</h3>
-              <div style={{ marginBottom: '14px' }}><label style={label}>Description<span style={req}>*</span></label><input style={inputErr('item_description')} value={form.item_description} onChange={e => set('item_description', e.target.value)} placeholder="What are you sending?" /><div style={errText('item_description')}>{errors.item_description}</div></div>
+              <div style={{ marginBottom: '14px' }}><label style={label}>Description<span style={req}>*</span></label><input style={inputErr('item_description')} value={form.item_description} onChange={e => set('item_description', e.target.value)} placeholder={['electronics', 'rack_server', 'white_glove', 'project', 'installation'].includes(form.item_category) ? 'e.g., Dell PowerEdge R740 Server, 25kg, fragile' : 'What are you sending?'} /><div style={errText('item_description')}>{errors.item_description}</div></div>
               <div style={{ marginBottom: '14px' }}>
                 <label style={label}>Category</label>
                 <select style={input} value={form.item_category} onChange={e => set('item_category', e.target.value)}>
@@ -987,7 +987,13 @@ export default function NewJob() {
 
             <div style={{ display: 'flex', gap: '10px' }}>
               <button onClick={() => setStep(1)} style={btnBack}>← Back</button>
-              <button onClick={() => { if (!form.item_description.trim()) { setErrors({ item_description: 'Item description is required' }); toast.error('Please describe the item'); return; } setStep(3); }} style={btnPrimary}>Next →</button>
+              <button onClick={() => {
+                const desc = form.item_description.trim();
+                const equipCats = ['electronics', 'rack_server', 'white_glove', 'project', 'installation'];
+                if (!desc) { setErrors({ item_description: 'Item description is required' }); toast.error('Please describe the item'); return; }
+                if (equipCats.includes(form.item_category) && desc.length < 10) { setErrors({ item_description: 'Please provide equipment details (model, specs, weight)' }); toast.error('Equipment description needs more detail (model, specs)'); return; }
+                setStep(3);
+              }} style={btnPrimary}>Next →</button>
             </div>
           </div>
         )}

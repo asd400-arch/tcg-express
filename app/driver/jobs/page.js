@@ -309,13 +309,36 @@ export default function DriverJobs() {
               </div>
             </div>
 
-            {detailJob.pickup_by && (
-              <div style={{ ...card, background: '#f5f3ff', border: '1px solid #ddd6fe', padding: '14px 20px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '18px' }}>📅</span>
-                <div>
-                  <div style={{ fontSize: '13px', fontWeight: '700', color: '#6d28d9' }}>Scheduled Pickup</div>
-                  <div style={{ fontSize: '14px', color: '#374151' }}>{new Date(detailJob.pickup_by).toLocaleString()}</div>
-                </div>
+            {(detailJob.pickup_by || detailJob.deliver_by) && (
+              <div style={{ ...card, background: '#f5f3ff', border: '1px solid #ddd6fe', padding: '14px 20px', marginBottom: '16px' }}>
+                {detailJob.pickup_by && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: detailJob.deliver_by ? '8px' : 0 }}>
+                    <span style={{ fontSize: '18px' }}>📦</span>
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: '700', color: '#3b82f6' }}>
+                        {detailJob.delivery_mode === 'save_mode' ? `SaveMode Pickup (${detailJob.save_mode_window || ''}h window)` : detailJob.job_type === 'scheduled' ? 'Scheduled Pickup' : detailJob.job_type === 'recurring' ? 'Recurring Pickup' : 'Pickup By'}
+                      </div>
+                      <div style={{ fontSize: '14px', color: '#374151' }}>{new Date(detailJob.pickup_by).toLocaleString()} {getCountdown(detailJob.pickup_by) ? `(${getCountdown(detailJob.pickup_by) === 'Overdue' ? 'OVERDUE' : getCountdown(detailJob.pickup_by) === 'Now' ? 'NOW' : `in ${getCountdown(detailJob.pickup_by)}`})` : ''}</div>
+                    </div>
+                  </div>
+                )}
+                {detailJob.deliver_by ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '18px' }}>🏠</span>
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: '700', color: '#10b981' }}>Deliver By</div>
+                      <div style={{ fontSize: '14px', color: '#374151' }}>{new Date(detailJob.deliver_by).toLocaleString()} {getCountdown(detailJob.deliver_by) ? `(${getCountdown(detailJob.deliver_by) === 'Overdue' ? 'OVERDUE' : getCountdown(detailJob.deliver_by) === 'Now' ? 'NOW' : `in ${getCountdown(detailJob.deliver_by)}`})` : ''}</div>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '18px' }}>🏠</span>
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: '700', color: '#10b981' }}>Delivery Deadline</div>
+                      <div style={{ fontSize: '14px', color: '#94a3b8' }}>Flexible</div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
