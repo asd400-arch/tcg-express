@@ -83,14 +83,12 @@ self.addEventListener('fetch', (event) => {
 
 // Push notification handler
 self.addEventListener('push', (event) => {
-  console.log('[SW] Push received:', event.data?.text());
   let data = { title: 'TCG Express', body: 'You have a new notification' };
   try {
     data = event.data.json();
   } catch (e) {
-    console.warn('[SW] Failed to parse push data, using defaults');
+    // fallback to defaults
   }
-  console.log('[SW] Showing notification:', data.title, data.body);
   event.waitUntil(
     self.registration.showNotification(data.title || 'TCG Express', {
       body: data.body || '',

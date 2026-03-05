@@ -21,19 +21,16 @@ export default function usePushSubscription() {
   useEffect(() => {
     const check = async () => {
       if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window) || !vapidKey) {
-        console.log('[PUSH] Not supported — SW:', 'serviceWorker' in (typeof navigator !== 'undefined' ? navigator : {}), 'PushManager:', typeof window !== 'undefined' && 'PushManager' in window, 'VAPID:', !!vapidKey);
         setSupported(false);
         setLoading(false);
         return;
       }
       setSupported(true);
       setPermission(Notification.permission);
-      console.log('[PUSH] Supported. Permission:', Notification.permission);
 
       try {
         const reg = await navigator.serviceWorker.ready;
         const sub = await reg.pushManager.getSubscription();
-        console.log('[PUSH] Existing subscription:', sub ? 'yes' : 'none');
         setSubscribed(!!sub);
       } catch {
         setSubscribed(false);
@@ -47,21 +44,17 @@ export default function usePushSubscription() {
     if (!supported) return false;
     setLoading(true);
     try {
-      console.log('[PUSH] 1. Requesting permission...');
       const perm = await Notification.requestPermission();
       setPermission(perm);
-      console.log('[PUSH] 2. Permission result:', perm);
       if (perm !== 'granted') { setLoading(false); return false; }
 
       const reg = await navigator.serviceWorker.ready;
-      console.log('[PUSH] 3. SW ready, subscribing to push...');
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(vapidKey),
       });
 
       const subJson = sub.toJSON();
-      console.log('[PUSH] 4. Browser subscription created:', subJson.endpoint?.substring(0, 60));
 
       const res = await fetch('/api/push/subscribe', {
         method: 'POST',
@@ -77,10 +70,9 @@ export default function usePushSubscription() {
       });
 
       const body = await res.json();
-      console.log('[PUSH] 5. Server response:', res.status, body);
 
       if (!res.ok) {
-        console.error('[PUSH] Server rejected subscription:', body.error);
+        console.error('[PUSH] Server rejected:', body.error);
         // Unsubscribe from browser since server didn't save it
         await sub.unsubscribe();
         setLoading(false);
@@ -89,7 +81,6 @@ export default function usePushSubscription() {
 
       setSubscribed(true);
       setLoading(false);
-      console.log('[PUSH] 6. Subscription complete!');
       return true;
     } catch (err) {
       console.error('[PUSH] Subscribe error:', err);

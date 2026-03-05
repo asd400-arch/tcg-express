@@ -3,8 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import usePushSubscription from './usePushSubscription';
 
-const DISMISS_KEY = 'push_prompt_dismissed_at';
-const DISMISS_HOURS = 24;
+const DISMISS_KEY = 'push_prompt_dismissed';
 
 export default function PushPromptBanner() {
   const { user } = useAuth();
@@ -21,18 +20,13 @@ export default function PushPromptBanner() {
     // Permission already granted but not subscribed — auto-subscribe silently
     if (push.permission === 'granted' && !autoSubAttempted.current) {
       autoSubAttempted.current = true;
-      console.log('[PUSH] Permission granted but not subscribed — auto-subscribing...');
       push.subscribe();
       return;
     }
 
-    // Permission is 'default' — show banner (unless dismissed recently)
+    // Permission is 'default' — show banner (unless dismissed this session)
     if (push.permission === 'default') {
-      const dismissedAt = localStorage.getItem(DISMISS_KEY);
-      if (dismissedAt) {
-        const hoursSince = (Date.now() - parseInt(dismissedAt, 10)) / 3600000;
-        if (hoursSince < DISMISS_HOURS) return;
-      }
+      if (sessionStorage.getItem(DISMISS_KEY)) return;
       setVisible(true);
     }
   }, [user, push.supported, push.subscribed, push.permission, push.loading]);
@@ -50,7 +44,7 @@ export default function PushPromptBanner() {
   };
 
   const handleDismiss = () => {
-    localStorage.setItem(DISMISS_KEY, String(Date.now()));
+    sessionStorage.setItem(DISMISS_KEY, '1');
     setVisible(false);
   };
 
