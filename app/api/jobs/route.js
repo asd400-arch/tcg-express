@@ -195,6 +195,39 @@ export async function POST(request) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+    // Push notifications FIRST (time-critical — must run before anything that could timeout)
+    try {
+      const { data: subs } = await supabaseAdmin
+        .from('express_push_subscriptions')
+        .select('user_id');
+
+      if (subs && subs.length > 0) {
+        const uniqueUserIds = [...new Set(subs.map(s => s.user_id))];
+        const pickupArea = getAreaFromAddress(jobData.pickup_address);
+        const deliveryArea = getAreaFromAddress(jobData.delivery_address);
+        const pushBody = `${data.job_number} | $${jobData.budget_min || 0}-$${jobData.budget_max || 0} | ${pickupArea} → ${deliveryArea}`;
+
+        console.log(`[JOB-PUSH] Sending to ${uniqueUserIds.length} subscribed users: "${pushBody}"`);
+
+        const results = await Promise.allSettled(
+          uniqueUserIds.map(userId =>
+            sendPushToUser(userId, {
+              title: '🚚 New Job Available',
+              body: pushBody,
+              url: '/driver/jobs',
+            })
+          )
+        );
+        const sent = results.filter(r => r.status === 'fulfilled').length;
+        const failed = results.filter(r => r.status === 'rejected').length;
+        console.log(`[JOB-PUSH] Push results: ${sent} sent, ${failed} failed`);
+      } else {
+        console.warn('[JOB-PUSH] No push subscriptions found — no push sent');
+      }
+    } catch (pushError) {
+      console.error('[JOB-PUSH] Error:', pushError?.message);
+    }
+
     // In-app notifications for all drivers
     try {
       const { data: drivers } = await supabaseAdmin
@@ -214,44 +247,7 @@ export async function POST(request) {
         await supabaseAdmin.from('express_notifications').insert(notifications);
       }
     } catch (notifErr) {
-      console.error('[JOB-PUSH] In-app notification error:', notifErr?.message);
-    }
-
-    // Push to all users who have push subscriptions (same pattern as /api/push/test)
-    try {
-      const { data: subs } = await supabaseAdmin
-        .from('express_push_subscriptions')
-        .select('user_id');
-
-      if (subs && subs.length > 0) {
-        const uniqueUserIds = [...new Set(subs.map(s => s.user_id))];
-        const pickupArea = getAreaFromAddress(jobData.pickup_address);
-        const deliveryArea = getAreaFromAddress(jobData.delivery_address);
-        const pushBody = `${data.job_number} | $${jobData.budget_min || 0}-$${jobData.budget_max || 0} | ${pickupArea} → ${deliveryArea}`;
-
-        console.log(`[JOB-PUSH] Sending to ${uniqueUserIds.length} subscribed users: "${pushBody}"`);
-
-        let sent = 0;
-        let failed = 0;
-        for (const userId of uniqueUserIds) {
-          try {
-            await sendPushToUser(userId, {
-              title: '🚚 New Job Available',
-              body: pushBody,
-              url: '/driver/jobs',
-            });
-            sent++;
-          } catch (e) {
-            failed++;
-            console.error(`[JOB-PUSH] Failed for ${userId}:`, e.message);
-          }
-        }
-        console.log(`[JOB-PUSH] Push results: ${sent} sent, ${failed} failed`);
-      } else {
-        console.warn('[JOB-PUSH] No push subscriptions found — no push sent');
-      }
-    } catch (pushError) {
-      console.error('[JOB-PUSH] Error:', pushError?.message);
+      console.error('[JOB-NOTIF] In-app notification error:', notifErr?.message);
     }
 
     // Record green points for EV delivery
