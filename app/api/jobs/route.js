@@ -118,8 +118,10 @@ export async function POST(request) {
       delivery_address: body.delivery_address || '',
       pickup_contact: body.pickup_contact || '',
       pickup_phone: body.pickup_phone || '',
+      pickup_instructions: body.pickup_instructions || null,
       delivery_contact: body.delivery_contact || '',
       delivery_phone: body.delivery_phone || '',
+      delivery_instructions: body.delivery_instructions || null,
       item_weight: body.weight != null ? parseFloat(body.weight) : (body.item_weight != null ? parseFloat(body.item_weight) : null),
       item_dimensions: body.dimensions || body.item_dimensions || null,
       special_requirements: specialReqs || null,
@@ -138,6 +140,7 @@ export async function POST(request) {
       delivery_mode: body.delivery_mode || 'express',
       save_mode_window: body.save_mode_window != null ? parseInt(body.save_mode_window) : null,
       save_mode_deadline: body.save_mode_deadline || null,
+      schedule_id: body.schedule_id || null,
     };
 
     // Geo-fencing validation

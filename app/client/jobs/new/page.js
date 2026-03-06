@@ -353,30 +353,47 @@ export default function NewJob() {
       return { ...base, ...overrides };
     };
 
+    // Helper: create job via API (triggers push + in-app notifications)
+    const createJobViaAPI = async (overrides = {}) => {
+      const res = await fetch('/api/jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(buildJobInsert(overrides)),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        if (result.available != null) {
+          const shortfall = Math.ceil((parseFloat(result.required) - parseFloat(result.available)) * 100) / 100;
+          setBalanceModal({ available: result.available, required: result.required, shortfall: shortfall.toFixed(2) });
+        } else {
+          toast.error(result.error || 'Failed to create job');
+        }
+        return null;
+      }
+      return result.data;
+    };
+
     if (form.schedule_mode === 'now') {
-      // Immediate job — insert directly
+      // Immediate job
       setSubmitting(true);
-      const { data, error } = await supabase.from('express_jobs').insert([buildJobInsert()]).select().single();
+      const job = await createJobViaAPI();
       setSubmitting(false);
-      if (error) { toast.error('Error: ' + error.message); return; }
+      if (!job) return;
       setSuccessType('job');
-      setSuccess(data);
+      setSuccess(job);
     } else if (form.schedule_mode === 'once') {
-      // One-time scheduled job — insert directly with scheduled pickup time
+      // One-time scheduled job
       if (!form.schedule_date) {
         toast.error('Please select a date and time for the scheduled delivery');
         return;
       }
       setSubmitting(true);
       const scheduledTime = new Date(form.schedule_date).toISOString();
-      const { data, error } = await supabase.from('express_jobs').insert([buildJobInsert({
-        job_type: 'scheduled',
-        pickup_by: scheduledTime,
-      })]).select().single();
+      const job = await createJobViaAPI({ job_type: 'scheduled', pickup_by: scheduledTime });
       setSubmitting(false);
-      if (error) { toast.error('Error: ' + error.message); return; }
+      if (!job) return;
       setSuccessType('job');
-      setSuccess(data);
+      setSuccess(job);
     } else {
       // Recurring — create schedule AND first job
       setSubmitting(true);
@@ -404,14 +421,14 @@ export default function NewJob() {
         if (!res.ok) { toast.error(result.error || 'Failed to create schedule'); setSubmitting(false); return; }
 
         // Also create the first job so drivers can see it immediately
-        const { data: firstJob, error: jobErr } = await supabase.from('express_jobs').insert([buildJobInsert({
+        const firstJob = await createJobViaAPI({
           job_type: 'recurring',
           pickup_by: firstRunAt,
           schedule_id: result.data?.id || null,
-        })]).select().single();
+        });
 
         setSubmitting(false);
-        if (jobErr) {
+        if (!firstJob) {
           // Schedule created but first job failed — still show success
           toast.info('Schedule created! First job will be posted at the scheduled time.');
           setSuccessType('schedule');
