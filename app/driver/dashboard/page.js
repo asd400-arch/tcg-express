@@ -93,7 +93,7 @@ export default function DriverDashboard() {
         </div>
 
         {/* Welcome Bonus Banner */}
-        {!user.welcome_bonus_claimed && stats.completed < 5 && (
+        {!dataLoading && !user.welcome_bonus_claimed && stats.completed < 5 && (
           <div style={{
             ...card, marginBottom: '16px',
             background: 'linear-gradient(135deg, #f5f3ff, #ede9fe)',
