@@ -32,6 +32,7 @@ const adminLinks = [
   { label: 'Drivers', href: '/admin/drivers', icon: '🚗' },
   { label: 'Clients', href: '/admin/clients', icon: '🏢' },
   { label: 'Coupons', href: '/admin/coupons', icon: '🎟️' },
+  { label: 'Promotions', href: '/admin/promotions', icon: '🎯' },
   { label: 'Warehouse', href: '/admin/warehouse', icon: '🏭' },
   { label: 'Corp Premium', href: '/admin/corp-premium', icon: '🏆' },
   { label: 'Geo Zones', href: '/admin/geo-zones', icon: '🗺️' },

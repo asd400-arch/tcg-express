@@ -7,6 +7,7 @@ import { useToast } from '../../components/Toast';
 import Spinner from '../../components/Spinner';
 import useMobile from '../../components/useMobile';
 import NotificationPreferences from '../../components/NotificationPreferences';
+import { supabase } from '../../../lib/supabase';
 
 export default function ClientSettings() {
   const { user, loading, updateUser } = useAuth();
@@ -24,6 +25,9 @@ export default function ClientSettings() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [changingPw, setChangingPw] = useState(false);
 
+  const [referralStats, setReferralStats] = useState({ total: 0, earned: 0, pending: 0 });
+  const [referralCopied, setReferralCopied] = useState(false);
+
   useEffect(() => {
     if (!loading && !user) router.push('/login');
     if (!loading && user && user.role !== 'client') router.push('/');
@@ -31,6 +35,16 @@ export default function ClientSettings() {
       setContactName(user.contact_name || '');
       setPhone(user.phone || '');
       setCompanyName(user.company_name || '');
+      // Load referral stats
+      supabase.from('referral_rewards').select('*').eq('referrer_id', user.id).then(({ data }) => {
+        const rewards = data || [];
+        const completed = rewards.filter(r => r.status === 'completed');
+        setReferralStats({
+          total: rewards.length,
+          earned: completed.reduce((s, r) => s + parseFloat(r.referrer_amount || 0), 0),
+          pending: rewards.filter(r => r.status === 'pending').length,
+        });
+      });
     }
   }, [user, loading]);
 
@@ -109,6 +123,45 @@ export default function ClientSettings() {
         </div>
 
         <NotificationPreferences user={user} onSave={updateUser} toast={toast} />
+
+        {/* Referral Program */}
+        {user.referral_code && (
+          <div style={card}>
+            <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>🎁 Referral Program</h3>
+            <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '14px' }}>Share your code and earn $30 when your referral completes their first order!</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+              <div style={{ flex: 1, padding: '12px 16px', borderRadius: '10px', background: '#f8fafc', border: '2px dashed #3b82f6', fontFamily: 'monospace', fontSize: '18px', fontWeight: '800', color: '#3b82f6', textAlign: 'center', letterSpacing: '2px' }}>
+                {user.referral_code}
+              </div>
+              <button onClick={() => {
+                navigator.clipboard.writeText(user.referral_code).then(() => { setReferralCopied(true); setTimeout(() => setReferralCopied(false), 2000); });
+              }} style={{ ...btn('#3b82f6'), minWidth: '70px' }}>
+                {referralCopied ? '✓ Copied' : 'Copy'}
+              </button>
+              {typeof navigator !== 'undefined' && navigator.share && (
+                <button onClick={() => {
+                  navigator.share({ title: 'Join TCG Express', text: `Use my referral code ${user.referral_code} to sign up on TCG Express and get $10 bonus!`, url: 'https://app.techchainglobal.com/signup' }).catch(() => {});
+                }} style={btn('#8b5cf6')}>
+                  Share
+                </button>
+              )}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+              <div style={{ textAlign: 'center', padding: '10px', borderRadius: '8px', background: '#f8fafc' }}>
+                <div style={{ fontSize: '20px', fontWeight: '800', color: '#3b82f6' }}>{referralStats.total}</div>
+                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '500' }}>Total Referrals</div>
+              </div>
+              <div style={{ textAlign: 'center', padding: '10px', borderRadius: '8px', background: '#f0fdf4' }}>
+                <div style={{ fontSize: '20px', fontWeight: '800', color: '#16a34a' }}>${referralStats.earned}</div>
+                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '500' }}>Earned</div>
+              </div>
+              <div style={{ textAlign: 'center', padding: '10px', borderRadius: '8px', background: '#fff7ed' }}>
+                <div style={{ fontSize: '20px', fontWeight: '800', color: '#f59e0b' }}>{referralStats.pending}</div>
+                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '500' }}>Pending</div>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div style={card}>
           <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>Change Password</h3>

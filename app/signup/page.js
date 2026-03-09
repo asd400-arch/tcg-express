@@ -12,7 +12,8 @@ export default function Signup() {
   const [step, setStep] = useState(1);
   const [role, setRole] = useState('');
   const [driverType, setDriverType] = useState('');
-  const [form, setForm] = useState({ email: '', password: '', confirm: '', first_name: '', last_name: '', phone: '', company_name: '', vehicle_type: '', vehicle_plate: '', license_number: '', nric_number: '', business_reg_number: '', is_ev_vehicle: false });
+  const [form, setForm] = useState({ email: '', password: '', confirm: '', first_name: '', last_name: '', phone: '', company_name: '', vehicle_type: '', vehicle_plate: '', license_number: '', nric_number: '', business_reg_number: '', is_ev_vehicle: false, referral_code: '' });
+  const [referralStatus, setReferralStatus] = useState(null); // null | { valid, name }
   const [files, setFiles] = useState({ nric_front: null, nric_back: null, license_photo: null, vehicle_insurance: null, business_reg_cert: null });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -83,6 +84,7 @@ export default function Signup() {
     try {
       // Phase 1: Create user with text fields
       const userData = { email: form.email, password: form.password, contact_name: `${form.first_name} ${form.last_name}`.trim(), phone: form.phone, role };
+      if (form.referral_code.trim() && referralStatus?.valid) userData.referred_by = form.referral_code.trim();
       if (role === 'client') {
         userData.company_name = form.company_name;
       }
@@ -383,6 +385,35 @@ export default function Signup() {
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* Referral Code (optional) */}
+            <div style={{ marginBottom: '2px' }}>
+              <label style={label}>Referral Code <span style={{ color: '#94a3b8', fontWeight: '400' }}>(optional)</span></label>
+              <input
+                style={inputStyle('referral_code')}
+                value={form.referral_code}
+                onChange={e => {
+                  const val = e.target.value.toUpperCase();
+                  set('referral_code', val);
+                  setReferralStatus(null);
+                }}
+                onBlur={async () => {
+                  if (!form.referral_code.trim() || form.referral_code.trim().length < 4) { setReferralStatus(null); return; }
+                  try {
+                    const res = await fetch(`/api/referral/validate?code=${encodeURIComponent(form.referral_code.trim())}`);
+                    const data = await res.json();
+                    setReferralStatus(data);
+                  } catch { setReferralStatus({ valid: false }); }
+                }}
+                placeholder="TCG-XXXX"
+              />
+              {referralStatus?.valid && (
+                <div style={{ fontSize: '12px', color: '#16a34a', fontWeight: '500', marginTop: '4px' }}>✅ Referred by: {referralStatus.name}</div>
+              )}
+              {referralStatus && !referralStatus.valid && (
+                <div style={{ fontSize: '12px', color: '#ef4444', fontWeight: '500', marginTop: '4px' }}>Invalid referral code</div>
+              )}
             </div>
 
             {/* T&C Checkboxes */}

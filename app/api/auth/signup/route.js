@@ -13,8 +13,15 @@ const ALLOWED_SIGNUP_FIELDS = [
   'role', 'contact_name', 'phone', 'company_name', 'company_registration',
   'billing_address', 'vehicle_type', 'vehicle_plate', 'license_number',
   'driver_type', 'nric_number', 'business_reg_number',
-  'is_ev_vehicle', 'ev_vehicle_type',
+  'is_ev_vehicle', 'ev_vehicle_type', 'referred_by',
 ];
+
+function generateReferralCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = 'TCG-';
+  for (let i = 0; i < 4; i++) code += chars[crypto.randomInt(chars.length)];
+  return code;
+}
 
 export async function POST(request) {
   try {
@@ -56,12 +63,33 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Email already registered' }, { status: 409 });
     }
 
+    // Validate referral code if provided
+    let validReferredBy = null;
+    if (safeFields.referred_by) {
+      const { data: referrer } = await supabaseAdmin
+        .from('express_users')
+        .select('id, referral_code')
+        .eq('referral_code', safeFields.referred_by.toUpperCase())
+        .single();
+      if (referrer) validReferredBy = referrer.referral_code;
+      delete safeFields.referred_by;
+    }
+
     // Hash password with bcrypt
     const password_hash = await bcrypt.hash(password, 12);
 
     // Generate verification code
     const verification_code = String(crypto.randomInt(100000, 999999));
     const verification_code_expires = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+
+    // Generate unique referral code (retry on collision)
+    let referral_code;
+    for (let i = 0; i < 5; i++) {
+      const candidate = generateReferralCode();
+      const { data: dup } = await supabaseAdmin.from('express_users').select('id').eq('referral_code', candidate).single();
+      if (!dup) { referral_code = candidate; break; }
+    }
+    if (!referral_code) referral_code = 'TCG-' + crypto.randomBytes(3).toString('hex').toUpperCase().slice(0, 4);
 
     const { data, error } = await supabaseAdmin
       .from('express_users')
@@ -72,6 +100,8 @@ export async function POST(request) {
         verification_code_expires,
         is_verified: false,
         phone: '',
+        referral_code,
+        referred_by: validReferredBy,
         ...safeFields,
       }])
       .select()
@@ -79,6 +109,32 @@ export async function POST(request) {
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Create referral reward record if referred by someone
+    if (validReferredBy) {
+      try {
+        const { data: referrer } = await supabaseAdmin
+          .from('express_users')
+          .select('id')
+          .eq('referral_code', validReferredBy)
+          .single();
+        if (referrer) {
+          const triggerEvent = safeFields.role === 'driver' ? 'first_delivery' : 'first_order';
+          await supabaseAdmin.from('referral_rewards').insert([{
+            referrer_id: referrer.id,
+            referred_id: data.id,
+            referral_code: validReferredBy,
+            reward_type: 'referral',
+            referrer_amount: 30,
+            referred_amount: 10,
+            status: 'pending',
+            trigger_event: triggerEvent,
+          }]);
+        }
+      } catch {
+        // Don't fail signup if referral record creation fails
+      }
     }
 
     // Send verification email (non-blocking — account is already created, user can resend later)

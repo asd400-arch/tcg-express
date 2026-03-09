@@ -55,6 +55,22 @@ export async function POST(request, { params }) {
       if (settings?.value) rate = parseFloat(settings.value);
     } catch {}
 
+    // Zero Commission: new drivers within 30 days get 0% commission
+    try {
+      const { data: driver } = await supabaseAdmin
+        .from('express_users')
+        .select('created_at')
+        .eq('id', bid.driver_id)
+        .single();
+      if (driver?.created_at) {
+        const daysSinceCreation = (Date.now() - new Date(driver.created_at).getTime()) / 86400000;
+        if (daysSinceCreation < 30) {
+          rate = 0;
+          console.log(`[bid/accept] Zero commission applied for new driver ${bid.driver_id} (${Math.floor(daysSinceCreation)} days old)`);
+        }
+      }
+    } catch {}
+
     // Idempotency key
     const idempotencyKey = `accept_${job.id}_${bid.id}`;
 

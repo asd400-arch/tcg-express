@@ -92,6 +92,57 @@ export default function DriverDashboard() {
           </div>
         </div>
 
+        {/* Welcome Bonus Banner */}
+        {!user.welcome_bonus_claimed && stats.completed < 5 && (
+          <div style={{
+            ...card, marginBottom: '16px',
+            background: 'linear-gradient(135deg, #f5f3ff, #ede9fe)',
+            border: '1px solid #c4b5fd',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#7c3aed', margin: 0 }}>
+                🎁 Welcome Bonus
+              </h3>
+              <span style={{ fontSize: '13px', fontWeight: '700', color: '#7c3aed' }}>{stats.completed}/5</span>
+            </div>
+            <p style={{ fontSize: '13px', color: '#6d28d9', margin: '0 0 10px', fontWeight: '500' }}>
+              Complete 5 deliveries to earn $50 wallet credit!
+            </p>
+            <div style={{ height: '8px', borderRadius: '4px', background: '#ddd6fe', overflow: 'hidden' }}>
+              <div style={{ height: '100%', borderRadius: '4px', background: '#7c3aed', width: `${(stats.completed / 5) * 100}%`, transition: 'width 0.3s' }} />
+            </div>
+          </div>
+        )}
+
+        {/* Zero Commission Banner */}
+        {(() => {
+          const daysSinceCreation = user.created_at ? Math.floor((Date.now() - new Date(user.created_at).getTime()) / 86400000) : 999;
+          const daysLeft = 30 - daysSinceCreation;
+          if (daysLeft <= 0) return null;
+          return (
+            <div style={{
+              ...card, marginBottom: '16px',
+              background: 'linear-gradient(135deg, #fff7ed, #ffedd5)',
+              border: '1px solid #fdba74',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#ea580c', margin: '0 0 4px' }}>
+                    🔥 Zero Commission Period
+                  </h3>
+                  <p style={{ fontSize: '13px', color: '#c2410c', margin: 0, fontWeight: '500' }}>
+                    Keep 100% of your earnings — no platform fee!
+                  </p>
+                </div>
+                <div style={{ textAlign: 'center', minWidth: '60px' }}>
+                  <div style={{ fontSize: '24px', fontWeight: '800', color: '#ea580c' }}>{daysLeft}</div>
+                  <div style={{ fontSize: '10px', color: '#c2410c', fontWeight: '600' }}>days left</div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* EV Savings Card */}
         {user.is_ev_vehicle && (
           <div style={{
