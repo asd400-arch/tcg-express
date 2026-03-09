@@ -111,6 +111,10 @@ export default function NewJob() {
   const [serviceZones, setServiceZones] = useState([]);
   const [zoneWarning, setZoneWarning] = useState(null); // { type: 'restricted' | 'surcharge', message, surcharge? }
   const [errors, setErrors] = useState({});
+  const [voucherCode, setVoucherCode] = useState('');
+  const [voucherResult, setVoucherResult] = useState(null); // { valid, coupon: { id, code, type, value, max_discount }, discount }
+  const [voucherLoading, setVoucherLoading] = useState(false);
+  const [voucherError, setVoucherError] = useState('');
   const [form, setForm] = useState({
     pickup_address: '', pickup_blk: '', pickup_unit: '', pickup_contact_first: '', pickup_contact_last: '', pickup_phone: '', pickup_instructions: '',
     delivery_address: '', delivery_blk: '', delivery_unit: '', delivery_contact_first: '', delivery_contact_last: '', delivery_phone: '', delivery_instructions: '',
@@ -350,6 +354,10 @@ export default function NewJob() {
         base.co2_saved_kg = evCo2Saved || null;
         base.green_points_earned = evGreenPoints || null;
       }
+      if (voucherResult) {
+        base.coupon_id = voucherResult.coupon.id;
+        base.coupon_discount = parseFloat(voucherResult.discount);
+      }
       return { ...base, ...overrides };
     };
 
@@ -456,6 +464,9 @@ export default function NewJob() {
     setPickupCoords(null);
     setDeliveryCoords(null);
     setZoneWarning(null);
+    setVoucherCode('');
+    setVoucherResult(null);
+    setVoucherError('');
     setForm({
       pickup_address: '', pickup_blk: '', pickup_unit: '', pickup_contact_first: '', pickup_contact_last: '', pickup_phone: '', pickup_instructions: '',
       delivery_address: '', delivery_blk: '', delivery_unit: '', delivery_contact_first: '', delivery_contact_last: '', delivery_phone: '', delivery_instructions: '',
@@ -544,10 +555,18 @@ export default function NewJob() {
             <span style={{ fontWeight: '600', color: '#f59e0b' }}>+${fare.zoneSurcharge.toFixed(2)}</span>
           </div>
         )}
+        {voucherResult && parseFloat(voucherResult.discount) > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: '14px' }}>
+            <span style={{ color: '#d946ef', fontWeight: '500' }}>🎟️ Voucher ({voucherResult.coupon.code})</span>
+            <span style={{ fontWeight: '600', color: '#d946ef' }}>-${parseFloat(voucherResult.discount).toFixed(2)}</span>
+          </div>
+        )}
         <div style={{ height: '1px', background: '#3b82f6', opacity: 0.2, margin: '10px 0' }} />
         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0' }}>
           <span style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b' }}>Estimated Total</span>
-          <span style={{ fontSize: '22px', fontWeight: '700', color: '#3b82f6' }}>${fare.total.toFixed(2)}</span>
+          <span style={{ fontSize: '22px', fontWeight: '700', color: '#3b82f6' }}>
+            ${voucherResult ? (Math.max(fare.total - parseFloat(voucherResult.discount), 0)).toFixed(2) : fare.total.toFixed(2)}
+          </span>
         </div>
         <div style={{ background: '#eff6ff', borderRadius: '8px', padding: '10px', marginTop: '8px', textAlign: 'center' }}>
           <span style={{ fontSize: '12px', fontWeight: '600', color: '#3b82f6' }}>
@@ -1037,6 +1056,61 @@ export default function NewJob() {
                 <button type="button" onClick={() => setForm(prev => ({ ...prev, budget_min: String(fare.budgetMin), budget_max: String(fare.budgetMax) }))} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid #3b82f6', background: '#eff6ff', color: '#3b82f6', fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>
                   Use recommended: ${fare.budgetMin} – ${fare.budgetMax}
                 </button>
+              )}
+            </div>
+
+            {/* Voucher Code */}
+            <div style={card}>
+              <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '12px' }}>🎟️ Have a voucher code?</h3>
+              {voucherResult ? (
+                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <span style={{ fontSize: '14px', fontWeight: '700', color: '#16a34a' }}>
+                      {voucherResult.coupon.code} applied!{' '}
+                      {voucherResult.coupon.type === 'percentage'
+                        ? `${voucherResult.coupon.value}% off`
+                        : `$${voucherResult.coupon.value} off`}
+                    </span>
+                    <span style={{ fontSize: '13px', color: '#16a34a', marginLeft: '6px' }}>
+                      (save ${parseFloat(voucherResult.discount).toFixed(2)})
+                    </span>
+                  </div>
+                  <button onClick={() => { setVoucherResult(null); setVoucherCode(''); setVoucherError(''); }} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '18px', cursor: 'pointer', padding: '0 4px', fontWeight: '700' }}>✕</button>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input
+                      style={{ ...input, flex: 1, marginBottom: 0, textTransform: 'uppercase' }}
+                      value={voucherCode}
+                      onChange={e => { setVoucherCode(e.target.value.toUpperCase()); setVoucherError(''); }}
+                      placeholder="Enter voucher code"
+                      onKeyDown={e => { if (e.key === 'Enter') e.preventDefault(); }}
+                    />
+                    <button
+                      onClick={async () => {
+                        if (!voucherCode.trim()) return;
+                        setVoucherLoading(true); setVoucherError('');
+                        try {
+                          const orderAmt = parseFloat(form.budget_min) || fare?.total || 0;
+                          const res = await fetch('/api/coupons/validate', {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ code: voucherCode.trim(), orderAmount: orderAmt }),
+                          });
+                          const data = await res.json();
+                          if (res.ok && data.valid) { setVoucherResult(data); setVoucherError(''); }
+                          else setVoucherError(data.error || 'Invalid voucher code');
+                        } catch { setVoucherError('Failed to validate voucher'); }
+                        setVoucherLoading(false);
+                      }}
+                      disabled={voucherLoading || !voucherCode.trim()}
+                      style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', background: voucherLoading ? '#94a3b8' : '#3b82f6', color: 'white', fontSize: '13px', fontWeight: '600', cursor: voucherLoading ? 'default' : 'pointer', fontFamily: "'Inter', sans-serif", whiteSpace: 'nowrap' }}
+                    >
+                      {voucherLoading ? '...' : 'Apply'}
+                    </button>
+                  </div>
+                  {voucherError && <p style={{ fontSize: '12px', color: '#ef4444', fontWeight: '500', marginTop: '8px', marginBottom: 0 }}>{voucherError}</p>}
+                </div>
               )}
             </div>
 

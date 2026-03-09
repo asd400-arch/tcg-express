@@ -58,6 +58,65 @@ export async function POST(request) {
 
     const body = await request.json();
 
+    // Validate and calculate voucher discount (if provided)
+    let couponDiscount = 0;
+    let validatedCouponId = null;
+    if (body.coupon_id) {
+      const { data: promo } = await supabaseAdmin
+        .from('promo_codes')
+        .select('*')
+        .eq('id', body.coupon_id)
+        .single();
+
+      if (promo && promo.is_active) {
+        const now = new Date();
+        const notExpired = !promo.valid_until || new Date(promo.valid_until) >= now;
+        const isStarted = !promo.valid_from || new Date(promo.valid_from) <= now;
+        const withinUsageLimit = !promo.usage_limit || promo.usage_count < promo.usage_limit;
+
+        if (notExpired && isStarted && withinUsageLimit) {
+          // Per-user usage check
+          let perUserOk = true;
+          if (promo.per_user_limit) {
+            const { count } = await supabaseAdmin
+              .from('express_jobs')
+              .select('id', { count: 'exact', head: true })
+              .eq('coupon_id', promo.id)
+              .eq('client_id', session.userId);
+            if (count >= promo.per_user_limit) perUserOk = false;
+          }
+
+          // New customers only check
+          let newCustomerOk = true;
+          if (promo.new_customers_only) {
+            const { count } = await supabaseAdmin
+              .from('express_jobs')
+              .select('id', { count: 'exact', head: true })
+              .eq('client_id', session.userId)
+              .not('status', 'eq', 'cancelled');
+            if (count > 0) newCustomerOk = false;
+          }
+
+          if (perUserOk && newCustomerOk) {
+            const orderAmount = parseFloat(body.budget_min) || parseFloat(body.budget) || parseFloat(body.estimated_fare) || 0;
+            const meetsMinOrder = !promo.min_order_amount || orderAmount >= parseFloat(promo.min_order_amount);
+
+            if (meetsMinOrder) {
+              if (promo.discount_type === 'percentage') {
+                couponDiscount = orderAmount * (parseFloat(promo.discount_value) / 100);
+                if (promo.max_discount) couponDiscount = Math.min(couponDiscount, parseFloat(promo.max_discount));
+              } else {
+                couponDiscount = parseFloat(promo.discount_value);
+              }
+              couponDiscount = Math.min(couponDiscount, orderAmount);
+              validatedCouponId = promo.id;
+            }
+          }
+        }
+      }
+      // If validation fails silently, job still creates without discount
+    }
+
     // Check wallet balance before allowing job creation
     const minBudget = parseFloat(body.budget_min) || parseFloat(body.budget) || parseFloat(body.estimated_fare) || 0;
     if (minBudget > 0) {
@@ -143,6 +202,12 @@ export async function POST(request) {
       schedule_id: body.schedule_id || null,
     };
 
+    // Apply validated voucher discount
+    if (validatedCouponId) {
+      jobData.coupon_id = validatedCouponId;
+      jobData.coupon_discount = couponDiscount;
+    }
+
     // Geo-fencing validation
     const hasCoords = body.pickup_lat != null || body.delivery_lat != null;
     if (hasCoords) {
@@ -197,6 +262,21 @@ export async function POST(request) {
       .single();
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    // Increment voucher usage count
+    if (validatedCouponId) {
+      try {
+        await supabaseAdmin.rpc('increment_field', { table_name: 'promo_codes', field_name: 'usage_count', row_id: validatedCouponId });
+      } catch {
+        // Fallback: direct update if RPC not available
+        try {
+          const { data: current } = await supabaseAdmin.from('promo_codes').select('usage_count').eq('id', validatedCouponId).single();
+          await supabaseAdmin.from('promo_codes').update({ usage_count: (current?.usage_count || 0) + 1 }).eq('id', validatedCouponId);
+        } catch {
+          // Don't fail job creation if usage count update fails
+        }
+      }
+    }
 
     // Push notifications FIRST (time-critical — must run before anything that could timeout)
     try {
