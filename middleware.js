@@ -81,6 +81,21 @@ function checkOrigin(request) {
 export async function middleware(request) {
   const { pathname } = request.nextUrl;
 
+  // Domain redirect: express.techchainglobal.com → app.techchainglobal.com
+  const host = request.headers.get('host') || '';
+  if (host === 'express.techchainglobal.com') {
+    const url = request.nextUrl.clone();
+    url.host = 'app.techchainglobal.com';
+    return NextResponse.redirect(url, 301);
+  }
+
+  // /driver/register → /signup?role=driver
+  if (pathname === '/driver/register') {
+    const signupUrl = new URL('/signup', request.url);
+    signupUrl.searchParams.set('role', 'driver');
+    return NextResponse.redirect(signupUrl, 301);
+  }
+
   // Public pages — no auth required
   if (PUBLIC_PATHS.includes(pathname)) {
     return NextResponse.next();
@@ -117,6 +132,7 @@ export async function middleware(request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('redirect', pathname);
     return NextResponse.redirect(loginUrl);
   }
 

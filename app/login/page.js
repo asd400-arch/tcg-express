@@ -1,11 +1,12 @@
 'use client';
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../components/AuthContext';
 
 export default function Login() {
   const { login } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -18,8 +19,11 @@ export default function Login() {
     const result = await login(email, password);
     if (result.error) { setError(result.error); setLoading(false); return; }
     const user = result.data;
+    const redirect = searchParams.get('redirect');
     if (!user.is_verified) {
       router.push('/verify-email');
+    } else if (redirect && redirect.startsWith('/')) {
+      router.push(redirect);
     } else if (user.role === 'admin') router.push('/admin/dashboard');
     else if (user.role === 'driver') router.push('/driver/dashboard');
     else router.push('/client/dashboard');

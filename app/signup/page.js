@@ -1,6 +1,6 @@
 'use client';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../components/AuthContext';
 import TermsModal from '../components/TermsModal';
 import LiabilityCapModal from '../components/LiabilityCapModal';
@@ -9,8 +9,15 @@ import { VEHICLE_MODES } from '../../lib/fares';
 export default function Signup() {
   const { signup } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [step, setStep] = useState(1);
   const [role, setRole] = useState('');
+
+  useEffect(() => {
+    const roleParam = searchParams.get('role');
+    if (roleParam === 'driver') { setRole('driver'); setStep(2); }
+    else if (roleParam === 'client') { setRole('client'); setStep(3); }
+  }, []);
   const [driverType, setDriverType] = useState('');
   const [form, setForm] = useState({ email: '', password: '', confirm: '', first_name: '', last_name: '', phone: '', company_name: '', vehicle_type: '', vehicle_plate: '', license_number: '', nric_number: '', business_reg_number: '', is_ev_vehicle: false, referral_code: '' });
   const [referralStatus, setReferralStatus] = useState(null); // null | { valid, name }
