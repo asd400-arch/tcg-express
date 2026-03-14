@@ -23,50 +23,55 @@ export default function DriverDashboard() {
   useEffect(() => {
     if (!loading && !user) router.push('/login');
     if (!loading && user && user.role !== 'driver') router.push('/');
-    if (user) loadData();
+    if (!loading && user) loadData();
   }, [user, loading]);
 
   const loadData = async () => {
     setDataLoading(true);
-    const [myJ, openJ, txn, revRes] = await Promise.all([
-      supabase.from('express_jobs').select('*').eq('assigned_driver_id', user.id).order('created_at', { ascending: false }),
-      supabase.from('express_jobs').select('*').in('status', ['open', 'bidding']).order('pickup_by', { ascending: true, nullsLast: true }).limit(10),
-      supabase.from('express_transactions').select('driver_payout').eq('driver_id', user.id).eq('payment_status', 'paid'),
-      supabase.from('express_reviews').select('*').eq('driver_id', user.id).eq('reviewer_role', 'client').order('created_at', { ascending: false }).limit(5),
-    ]);
-    const mj = myJ.data || []; const oj = (openJ.data || []).sort(sortByPickupUrgency);
-    const totalEarnings = (txn.data || []).reduce((sum, t) => sum + (parseFloat(t.driver_payout) || 0), 0);
-    setMyJobs(mj);
-    setAvailableJobs(oj);
-    // Fetch client names for reviews separately (avoids FK join issues)
-    const reviews = revRes.data || [];
-    if (reviews.length > 0) {
-      const clientIds = [...new Set(reviews.map(r => r.client_id).filter(Boolean))];
-      const { data: clients } = await supabase.from('express_users').select('id, contact_name').in('id', clientIds);
-      const clientMap = Object.fromEntries((clients || []).map(c => [c.id, c.contact_name]));
-      reviews.forEach(r => r._clientName = clientMap[r.client_id] || 'Client');
-    }
-    setRecentReviews(reviews);
-    setStats({
-      active: mj.filter(x => ['assigned','pickup_confirmed','in_transit'].includes(x.status)).length,
-      completed: mj.filter(x => ['confirmed','completed'].includes(x.status)).length,
-      earnings: totalEarnings,
-      rating: user.driver_rating || 5.0,
-    });
+    try {
+      const [myJ, openJ, txn, revRes] = await Promise.all([
+        supabase.from('express_jobs').select('*').eq('assigned_driver_id', user.id).order('created_at', { ascending: false }),
+        supabase.from('express_jobs').select('*').in('status', ['open', 'bidding']).order('pickup_by', { ascending: true, nullsLast: true }).limit(10),
+        supabase.from('express_transactions').select('driver_payout').eq('driver_id', user.id).eq('payment_status', 'paid'),
+        supabase.from('express_reviews').select('*').eq('driver_id', user.id).eq('reviewer_role', 'client').order('created_at', { ascending: false }).limit(5),
+      ]);
+      const mj = myJ.data || []; const oj = (openJ.data || []).sort(sortByPickupUrgency);
+      const totalEarnings = (txn.data || []).reduce((sum, t) => sum + (parseFloat(t.driver_payout) || 0), 0);
+      setMyJobs(mj);
+      setAvailableJobs(oj);
+      // Fetch client names for reviews separately (avoids FK join issues)
+      const reviews = revRes.data || [];
+      if (reviews.length > 0) {
+        const clientIds = [...new Set(reviews.map(r => r.client_id).filter(Boolean))];
+        const { data: clients } = await supabase.from('express_users').select('id, contact_name').in('id', clientIds);
+        const clientMap = Object.fromEntries((clients || []).map(c => [c.id, c.contact_name]));
+        reviews.forEach(r => r._clientName = clientMap[r.client_id] || 'Client');
+      }
+      setRecentReviews(reviews);
+      setStats({
+        active: mj.filter(x => ['assigned','pickup_confirmed','in_transit'].includes(x.status)).length,
+        completed: mj.filter(x => ['confirmed','completed'].includes(x.status)).length,
+        earnings: totalEarnings,
+        rating: user.driver_rating || 5.0,
+      });
 
-    if (user.is_ev_vehicle) {
-      const now = new Date();
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-      const completedJobs = mj.filter(x => ['confirmed', 'completed'].includes(x.status));
-      const monthJobs = completedJobs.filter(j => j.completed_at && j.completed_at >= monthStart);
-      const monthSavings = monthJobs.reduce((sum, j) => {
-        const amount = parseFloat(j.final_amount) || 0;
-        return sum + (amount * 0.05);
-      }, 0);
-      const totalCo2 = completedJobs.reduce((sum, j) => sum + (parseFloat(j.co2_saved_kg) || 0), 0);
-      setEvStats({ monthSavings, totalCo2 });
+      if (user.is_ev_vehicle) {
+        const now = new Date();
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+        const completedJobs = mj.filter(x => ['confirmed', 'completed'].includes(x.status));
+        const monthJobs = completedJobs.filter(j => j.completed_at && j.completed_at >= monthStart);
+        const monthSavings = monthJobs.reduce((sum, j) => {
+          const amount = parseFloat(j.final_amount) || 0;
+          return sum + (amount * 0.05);
+        }, 0);
+        const totalCo2 = completedJobs.reduce((sum, j) => sum + (parseFloat(j.co2_saved_kg) || 0), 0);
+        setEvStats({ monthSavings, totalCo2 });
+      }
+    } catch (err) {
+      console.error('Dashboard loadData error:', err);
+    } finally {
+      setDataLoading(false);
     }
-    setDataLoading(false);
   };
 
   if (loading || !user) return <Spinner />;
