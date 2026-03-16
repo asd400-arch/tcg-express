@@ -1,8 +1,8 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '../../../components/AuthContext';
-import Sidebar from '../../../components/Sidebar';
+import { useAuth } from '../../components/AuthContext';
+import Sidebar from '../../components/Sidebar';
 
 const SOURCES = ['generic', 'shopify', 'lazada', 'shopee', 'easyship', 'shippit', 'anchanto', 'dhl', 'dsv', 'ceva'];
 
