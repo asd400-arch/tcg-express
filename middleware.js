@@ -16,6 +16,7 @@ const PUBLIC_API_PATHS = [
   '/api/auth/reset-password',
   '/api/cron/process-schedules',
   '/api/stripe/webhook',
+  '/api/external/orders',
 ];
 
 // Paths accessible when logged in but unverified
