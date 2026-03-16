@@ -27,7 +27,7 @@ export default function AdminApiKeysPage() {
     setPageLoading(true);
     const [keysRes, clientsRes] = await Promise.all([
       fetch('/api/admin/api-keys'),
-      fetch('/api/admin/clients'),
+      fetch('/api/admin/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role: 'client' }) }),
     ]);
     const keysData = await keysRes.json();
     const clientsData = await clientsRes.json();
