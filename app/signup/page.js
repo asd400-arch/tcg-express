@@ -1,12 +1,12 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../components/AuthContext';
 import TermsModal from '../components/TermsModal';
 import LiabilityCapModal from '../components/LiabilityCapModal';
 import { VEHICLE_MODES } from '../../lib/fares';
 
-export default function Signup() {
+function SignupForm() {
   const { signup } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -468,5 +468,13 @@ export default function Signup() {
         {showLiabilityModal && <LiabilityCapModal onClose={() => setShowLiabilityModal(false)} />}
       </div>
     </div>
+  );
+}
+
+export default function Signup() {
+  return (
+    <Suspense>
+      <SignupForm />
+    </Suspense>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import useMobile from '../useMobile';
 import { useWallet } from '@/lib/hooks/useWallet';
@@ -19,7 +19,7 @@ const card: React.CSSProperties = {
   border: '1px solid #f1f5f9',
 };
 
-export default function WalletPage() {
+function WalletPageInner() {
   const m = useMobile();
   const searchParams = useSearchParams();
   const { data, loading, error, refetch } = useWallet();
@@ -191,5 +191,13 @@ export default function WalletPage() {
         wallet={wallet}
       />
     </div>
+  );
+}
+
+export default function WalletPage() {
+  return (
+    <Suspense>
+      <WalletPageInner />
+    </Suspense>
   );
 }
