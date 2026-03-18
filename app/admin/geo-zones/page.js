@@ -100,7 +100,7 @@ export default function AdminGeoZonesPage() {
           <div style={{ ...card, border: '2px solid #3b82f6' }}>
             <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>{editing ? 'Edit Zone' : 'Create Zone'}</h3>
             <label style={label}>Zone Name</label>
-            <input style={input} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Singapore Central" />
+            <input style={input} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Central Business District" />
             <label style={label}>Description</label>
             <input style={input} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Areas covered" />
 
@@ -127,17 +127,17 @@ export default function AdminGeoZonesPage() {
             <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '10px', padding: '14px', marginBottom: '14px' }}>
               <div style={{ fontSize: '13px', fontWeight: '700', color: '#0c4a6e', marginBottom: '10px' }}>Bounding Box Coordinates</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div><label style={label}>Latitude Min (South)</label><input style={input} type="number" step="0.0001" value={form.lat_min} onChange={e => setForm({ ...form, lat_min: e.target.value })} placeholder="1.2400" /></div>
-                <div><label style={label}>Latitude Max (North)</label><input style={input} type="number" step="0.0001" value={form.lat_max} onChange={e => setForm({ ...form, lat_max: e.target.value })} placeholder="1.4500" /></div>
-                <div><label style={label}>Longitude Min (West)</label><input style={input} type="number" step="0.0001" value={form.lng_min} onChange={e => setForm({ ...form, lng_min: e.target.value })} placeholder="103.6800" /></div>
-                <div><label style={label}>Longitude Max (East)</label><input style={input} type="number" step="0.0001" value={form.lng_max} onChange={e => setForm({ ...form, lng_max: e.target.value })} placeholder="103.9900" /></div>
+                <div><label style={label}>Latitude Min (South)</label><input style={input} type="number" step="0.0001" value={form.lat_min} onChange={e => setForm({ ...form, lat_min: e.target.value })} placeholder="-90 to 90" /></div>
+                <div><label style={label}>Latitude Max (North)</label><input style={input} type="number" step="0.0001" value={form.lat_max} onChange={e => setForm({ ...form, lat_max: e.target.value })} placeholder="-90 to 90" /></div>
+                <div><label style={label}>Longitude Min (West)</label><input style={input} type="number" step="0.0001" value={form.lng_min} onChange={e => setForm({ ...form, lng_min: e.target.value })} placeholder="-180 to 180" /></div>
+                <div><label style={label}>Longitude Max (East)</label><input style={input} type="number" step="0.0001" value={form.lng_max} onChange={e => setForm({ ...form, lng_max: e.target.value })} placeholder="-180 to 180" /></div>
               </div>
             </div>
 
             {form.zone_type === 'surcharge' && (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div><label style={label}>Surcharge Rate (%)</label><input style={input} type="number" step="0.01" value={form.surcharge_rate} onChange={e => setForm({ ...form, surcharge_rate: e.target.value })} /></div>
-                <div><label style={label}>Surcharge Flat ($)</label><input style={input} type="number" step="0.50" value={form.surcharge_flat} onChange={e => setForm({ ...form, surcharge_flat: e.target.value })} /></div>
+                <div><label style={label}>Surcharge Flat (fixed amount)</label><input style={input} type="number" step="0.50" value={form.surcharge_flat} onChange={e => setForm({ ...form, surcharge_flat: e.target.value })} /></div>
               </div>
             )}
 

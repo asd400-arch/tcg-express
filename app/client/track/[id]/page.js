@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../components/AuthContext';
 import LiveMap from '../../../components/LiveMap';
+import useLocale from '../../../components/useLocale';
 import CallButtons from '../../../components/CallButtons';
 import Spinner from '../../../components/Spinner';
 import { supabase } from '../../../../lib/supabase';
@@ -85,6 +86,7 @@ function StatusTimeline({ status }) {
 export default function ClientTrackPage({ params }) {
   const resolvedParams = use(params);
   const { user, loading } = useAuth();
+  const { locale } = useLocale();
   const router = useRouter();
   const [jobId] = useState(resolvedParams.id);
   const [job, setJob] = useState(null);
@@ -240,6 +242,7 @@ export default function ClientTrackPage({ params }) {
             mapHeight="280px"
             onEtaUpdate={handleEtaUpdate}
             onLastUpdated={handleLastUpdated}
+            locale={locale}
           />
         </div>
 

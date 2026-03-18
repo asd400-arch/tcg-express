@@ -159,6 +159,7 @@ export default function LiveMap({
   fullscreen = false,
   onEtaUpdate = null,
   onLastUpdated = null,
+  locale = 'sg',
 }) {
   const mapRef = useRef(null);
   const mapInstance = useRef(null);
@@ -270,7 +271,7 @@ export default function LiveMap({
       if (!mapRef.current || mapInstance.current) return;
       const map = L.map(mapRef.current, {
         zoomControl: !fullscreen,
-      }).setView([1.3521, 103.8198], 12);
+      }).setView(locale === 'id' ? [-6.2088, 106.8456] : [1.3521, 103.8198], 12);
 
       L.tileLayer(tileUrl, { attribution: tileAttribution }).addTo(map);
       mapInstance.current = map;

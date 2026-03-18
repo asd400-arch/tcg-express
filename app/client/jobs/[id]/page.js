@@ -576,7 +576,7 @@ export default function ClientJobDetail({ params }) {
         {/* Tracking Tab */}
         {tab === 'tracking' && showMap && (
           <div>
-            <LiveMap jobId={jobId} driverId={job.assigned_driver_id} isDriver={false} />
+            <LiveMap jobId={jobId} driverId={job.assigned_driver_id} isDriver={false} locale={locale} />
           </div>
         )}
 

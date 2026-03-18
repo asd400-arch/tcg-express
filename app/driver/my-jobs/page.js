@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../components/AuthContext';
+import useLocale from '../../components/useLocale';
 import Sidebar from '../../components/Sidebar';
 import Spinner from '../../components/Spinner';
 import ChatBox from '../../components/ChatBox';
@@ -19,6 +20,7 @@ import { useUnreadMessages } from '../../components/UnreadMessagesContext';
 
 export default function DriverMyJobs() {
   const { user, loading } = useAuth();
+  const { locale } = useLocale();
   const router = useRouter();
   const toast = useToast();
   const m = useMobile();
@@ -662,7 +664,7 @@ export default function DriverMyJobs() {
 
             {/* Tracking Tab */}
             {activeTab === 'tracking' && showMap && (
-              <LiveMap jobId={selected.id} driverId={user.id} isDriver={true} driverLocation={gps.currentLocation} locationHistory={gps.locationHistory} />
+              <LiveMap jobId={selected.id} driverId={user.id} isDriver={true} driverLocation={gps.currentLocation} locationHistory={gps.locationHistory} locale={locale} />
             )}
 
             {/* Uploads Tab */}
