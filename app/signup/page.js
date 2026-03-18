@@ -6,7 +6,8 @@ import TermsModal from '../components/TermsModal';
 import LiabilityCapModal from '../components/LiabilityCapModal';
 import { VEHICLE_MODES } from '../../lib/fares';
 
-function SignupForm() {
+function SignupForm({ initialLocale = 'sg' }) {
+  const locale = initialLocale;
   const { signup } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -90,7 +91,7 @@ function SignupForm() {
     setLoading(true);
     try {
       // Phase 1: Create user with text fields
-      const userData = { email: form.email, password: form.password, contact_name: `${form.first_name} ${form.last_name}`.trim(), phone: form.phone, role };
+      const userData = { email: form.email, password: form.password, contact_name: `${form.first_name} ${form.last_name}`.trim(), phone: form.phone, role, locale };
       if (form.referral_code.trim() && referralStatus?.valid) userData.referred_by = form.referral_code.trim();
       if (role === 'client') {
         userData.company_name = form.company_name;
@@ -263,13 +264,13 @@ function SignupForm() {
                 </div>
                 <div>
                   <label style={label}>Phone<span style={req}>*</span></label>
-                  <input style={inputStyle('phone')} value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="+65 xxxx xxxx" />
+                  <input style={inputStyle('phone')} value={form.phone} onChange={e => set('phone', e.target.value)} placeholder={locale === 'id' ? '+62 xxx xxxx xxxx' : '+65 xxxx xxxx'} />
                   <div style={errText('phone')}>{errors.phone}</div>
                 </div>
                 {role === 'driver' && (
                   <div>
-                    <label style={label}>NRIC Number<span style={req}>*</span></label>
-                    <input style={inputStyle('nric_number')} value={form.nric_number} onChange={e => set('nric_number', e.target.value)} placeholder="S1234567D" />
+                    <label style={label}>{locale === 'id' ? 'NIK (KTP)' : 'NRIC Number'}<span style={req}>*</span></label>
+                    <input style={inputStyle('nric_number')} value={form.nric_number} onChange={e => set('nric_number', e.target.value)} placeholder={locale === 'id' ? '3271234567890001' : 'S1234567D'} />
                     <div style={errText('nric_number')}>{errors.nric_number}</div>
                   </div>
                 )}
@@ -303,7 +304,7 @@ function SignupForm() {
                     </div>
                     <div style={{ flex: 1 }}>
                       <label style={label}>Plate Number<span style={req}>*</span></label>
-                      <input style={inputStyle('vehicle_plate')} value={form.vehicle_plate} onChange={e => set('vehicle_plate', e.target.value)} placeholder="SGX1234A" />
+                      <input style={inputStyle('vehicle_plate')} value={form.vehicle_plate} onChange={e => set('vehicle_plate', e.target.value)} placeholder={locale === 'id' ? 'B 1234 XYZ' : 'SGX1234A'} />
                       <div style={errText('vehicle_plate')}>{errors.vehicle_plate}</div>
                     </div>
                   </div>
@@ -471,10 +472,10 @@ function SignupForm() {
   );
 }
 
-export default function Signup() {
+export default function Signup({ initialLocale = 'sg' }) {
   return (
     <Suspense>
-      <SignupForm />
+      <SignupForm initialLocale={initialLocale} />
     </Suspense>
   );
 }

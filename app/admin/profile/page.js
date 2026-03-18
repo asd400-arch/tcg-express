@@ -6,12 +6,14 @@ import Sidebar from '../../components/Sidebar';
 import { useToast } from '../../components/Toast';
 import Spinner from '../../components/Spinner';
 import useMobile from '../../components/useMobile';
+import useLocale from '../../components/useLocale';
 
 export default function AdminProfile() {
   const { user, loading, updateUser } = useAuth();
   const router = useRouter();
   const toast = useToast();
   const m = useMobile();
+  const { config } = useLocale();
 
   const [contactName, setContactName] = useState('');
   const [phone, setPhone] = useState('');
@@ -93,7 +95,7 @@ export default function AdminProfile() {
             </div>
             <div>
               <label style={label}>Phone</label>
-              <input type="text" value={phone} onChange={e => setPhone(e.target.value)} placeholder="e.g. +65 9123 4567" style={input} />
+              <input type="text" value={phone} onChange={e => setPhone(e.target.value)} placeholder={`e.g. ${config.phonePrefix} 9123 4567`} style={input} />
             </div>
           </div>
           <button onClick={saveProfile} disabled={saving} style={{ ...btn('#ef4444'), marginTop: '16px', opacity: saving ? 0.7 : 1 }}>

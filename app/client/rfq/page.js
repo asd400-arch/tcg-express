@@ -7,6 +7,7 @@ import Spinner from '../../components/Spinner';
 import { useToast } from '../../components/Toast';
 import { supabase } from '../../../lib/supabase';
 import useMobile from '../../components/useMobile';
+import useLocale from '../../components/useLocale';
 
 const CONTRACT_DURATIONS = [
   { key: '3_months', label: '3 Months', months: 3 },
@@ -27,6 +28,8 @@ export default function RFQPage() {
   const router = useRouter();
   const toast = useToast();
   const m = useMobile();
+  const { locale } = useLocale();
+  const dateLocale = locale === 'id' ? 'id-ID' : 'en-SG';
   const [tab, setTab] = useState('new');
   const [quotes, setQuotes] = useState([]);
   const [quotesLoading, setQuotesLoading] = useState(true);
@@ -391,7 +394,7 @@ export default function RFQPage() {
 
                         {/* Terms */}
                         <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: '#64748b', padding: '10px 0', borderTop: '1px solid #f1f5f9', flexWrap: 'wrap' }}>
-                          {validUntil && <span>📅 Valid until: <strong style={{ color: isExpired ? '#ef4444' : '#374151' }}>{validUntil.toLocaleDateString('en-SG', { day: '2-digit', month: 'short', year: 'numeric' })}</strong></span>}
+                          {validUntil && <span>📅 Valid until: <strong style={{ color: isExpired ? '#ef4444' : '#374151' }}>{validUntil.toLocaleDateString(dateLocale,{ day: '2-digit', month: 'short', year: 'numeric' })}</strong></span>}
                           {aq.payment_terms && <span>💳 Payment: <strong style={{ color: '#374151' }}>{formatPaymentTerms(aq.payment_terms)}</strong></span>}
                         </div>
 

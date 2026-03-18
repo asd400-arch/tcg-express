@@ -16,6 +16,7 @@ import {
 } from '../../../../lib/fares';
 import { findMatchingZones, calculateZoneSurcharge, isInRestrictedZone } from '../../../../lib/geo';
 import { toLocalDatetime } from '../../../../lib/job-helpers';
+import useLocale from '../../../components/useLocale';
 
 function AddressAutocomplete({ value, onChange, onSelect, placeholder, inputStyle }) {
   const [suggestions, setSuggestions] = useState([]);
@@ -97,6 +98,7 @@ export default function NewJob() {
   const router = useRouter();
   const toast = useToast();
   const m = useMobile();
+  const { config } = useLocale();
   const [jobType, setJobType] = useState('spot');
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
@@ -628,7 +630,7 @@ export default function NewJob() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '14px' }}>
                 <div><label style={label}>First Name</label><input style={input} value={form.pickup_contact_first} onChange={e => set('pickup_contact_first', e.target.value)} placeholder="First name" /></div>
                 <div><label style={label}>Last Name</label><input style={input} value={form.pickup_contact_last} onChange={e => set('pickup_contact_last', e.target.value)} placeholder="Last name" /></div>
-                <div><label style={label}>Phone</label><input style={input} value={form.pickup_phone} onChange={e => set('pickup_phone', e.target.value)} placeholder="+65 xxxx xxxx" /></div>
+                <div><label style={label}>Phone</label><input style={input} value={form.pickup_phone} onChange={e => set('pickup_phone', e.target.value)} placeholder={`${config.phonePrefix} xxxx xxxx`} /></div>
               </div>
               <div style={{ marginTop: '14px' }}><label style={label}>Instructions</label><textarea style={{ ...input, height: '60px', resize: 'vertical' }} value={form.pickup_instructions} onChange={e => set('pickup_instructions', e.target.value)} placeholder="Loading dock, gate code, etc." /></div>
             </div>
@@ -642,7 +644,7 @@ export default function NewJob() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '14px' }}>
                 <div><label style={label}>First Name</label><input style={input} value={form.delivery_contact_first} onChange={e => set('delivery_contact_first', e.target.value)} placeholder="First name" /></div>
                 <div><label style={label}>Last Name</label><input style={input} value={form.delivery_contact_last} onChange={e => set('delivery_contact_last', e.target.value)} placeholder="Last name" /></div>
-                <div><label style={label}>Phone</label><input style={input} value={form.delivery_phone} onChange={e => set('delivery_phone', e.target.value)} placeholder="+65 xxxx xxxx" /></div>
+                <div><label style={label}>Phone</label><input style={input} value={form.delivery_phone} onChange={e => set('delivery_phone', e.target.value)} placeholder={`${config.phonePrefix} xxxx xxxx`} /></div>
               </div>
               <div style={{ marginTop: '14px' }}><label style={label}>Instructions</label><textarea style={{ ...input, height: '60px', resize: 'vertical' }} value={form.delivery_instructions} onChange={e => set('delivery_instructions', e.target.value)} placeholder="Leave at reception, call on arrival, etc." /></div>
             </div>

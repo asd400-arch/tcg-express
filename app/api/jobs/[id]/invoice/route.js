@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../../../lib/supabase-server';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { getLocaleConfig, formatCurrency } from '../../../../../lib/locale/config';
 
 async function ensureBucket(name) {
   const { data } = await supabaseAdmin.storage.getBucket(name);
@@ -15,7 +16,7 @@ export async function POST(request, { params }) {
 
     const { data: job, error: jobErr } = await supabaseAdmin
       .from('express_jobs')
-      .select('*, client:client_id(contact_name, company_name, email, phone)')
+      .select('*, client:client_id(contact_name, company_name, email, phone, locale)')
       .eq('id', id)
       .single();
 
@@ -32,6 +33,10 @@ export async function POST(request, { params }) {
         .single();
       driver = d;
     }
+
+    const clientLocale = job.client?.locale || 'sg';
+    const localeConfig = getLocaleConfig(clientLocale);
+    const dateLocale = clientLocale === 'id' ? 'id-ID' : 'en-SG';
 
     let finalAmount = parseFloat(job.final_amount) || 0;
     if (!finalAmount && job.assigned_bid_id) {
@@ -100,17 +105,17 @@ export async function POST(request, { params }) {
     y -= 18;
     text('Tech Chain Global Pte Ltd', LM, y, { size: 9, color: gray });
     y -= 12;
-    text('Singapore', LM, y, { size: 9, color: gray });
+    text(localeConfig.country, LM, y, { size: 9, color: gray });
     y -= 12;
     text('www.techchainglobal.com', LM, y, { size: 9, color: gray });
 
     // Invoice title (right)
     text('INVOICE', 350, 792, { font: bold, size: 26, color: dark, align: 'right', maxWidth: 195 });
     text('Invoice #: ' + (job.job_number || 'N/A'), 350, 772, { size: 10, color: gray, align: 'right', maxWidth: 195 });
-    const today = new Date().toLocaleDateString('en-SG', { day: '2-digit', month: 'short', year: 'numeric' });
+    const today = new Date().toLocaleDateString(dateLocale, { day: '2-digit', month: 'short', year: 'numeric' });
     text('Date: ' + today, 350, 758, { size: 10, color: gray, align: 'right', maxWidth: 195 });
     if (job.completed_at || job.updated_at) {
-      const cd = new Date(job.completed_at || job.updated_at).toLocaleDateString('en-SG', { day: '2-digit', month: 'short', year: 'numeric' });
+      const cd = new Date(job.completed_at || job.updated_at).toLocaleDateString(dateLocale, { day: '2-digit', month: 'short', year: 'numeric' });
       text('Completed: ' + cd, 350, 744, { size: 10, color: gray, align: 'right', maxWidth: 195 });
     }
 
@@ -178,12 +183,12 @@ export async function POST(request, { params }) {
     y -= 32;
     text(job.item_description || 'Delivery Service', LM + 8, y, { size: 10 });
     text(job.item_category || '-', 280, y, { size: 10 });
-    text('$' + subtotal.toFixed(2), 460, y, { font: bold, size: 10, align: 'right', maxWidth: 80 });
+    text(formatCurrency(subtotal, clientLocale), 460, y, { font: bold, size: 10, align: 'right', maxWidth: 80 });
 
     equipmentCharges.forEach((eq) => {
       y -= 20;
       text('Equipment: ' + eq.name, LM + 8, y, { size: 9, color: gray });
-      text('$' + parseFloat(eq.amount).toFixed(2), 460, y, { font: bold, size: 9, align: 'right', maxWidth: 80 });
+      text(formatCurrency(parseFloat(eq.amount), clientLocale), 460, y, { font: bold, size: 9, align: 'right', maxWidth: 80 });
     });
 
     // ─── Totals ───
@@ -192,24 +197,24 @@ export async function POST(request, { params }) {
     y -= 16;
 
     text('Subtotal', 350, y, { size: 10, color: gray });
-    text('$' + subtotal.toFixed(2), 460, y, { font: bold, size: 10, align: 'right', maxWidth: 80 });
+    text(formatCurrency(subtotal, clientLocale), 460, y, { font: bold, size: 10, align: 'right', maxWidth: 80 });
 
     if (equipTotal > 0) {
       y -= 18;
       text('Equipment', 350, y, { size: 10, color: gray });
-      text('$' + equipTotal.toFixed(2), 460, y, { font: bold, size: 10, align: 'right', maxWidth: 80 });
+      text(formatCurrency(equipTotal, clientLocale), 460, y, { font: bold, size: 10, align: 'right', maxWidth: 80 });
     }
 
     y -= 26;
     drawRect(345, y - 4, 200, 24, blue);
     text('TOTAL', 355, y + 2, { font: bold, size: 12, color: white });
-    text('$' + grandTotal.toFixed(2), 460, y + 2, { font: bold, size: 12, color: white, align: 'right', maxWidth: 80 });
+    text(formatCurrency(grandTotal, clientLocale), 460, y + 2, { font: bold, size: 12, color: white, align: 'right', maxWidth: 80 });
 
     // ─── Payment ───
     y -= 40;
     text('PAYMENT', LM, y, { font: bold, size: 9, color: blue });
     y -= 14;
-    text('Payment method: Wallet / PayNow', LM, y, { size: 9, color: gray });
+    text('Payment method: Wallet / ' + localeConfig.payment.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' / '), LM, y, { size: 9, color: gray });
     y -= 14;
     const paidStatus = ['confirmed', 'completed'].includes(job.status) ? 'PAID' : 'PENDING';
     text('Status: ' + paidStatus, LM, y, { size: 9, color: gray });

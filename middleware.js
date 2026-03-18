@@ -97,6 +97,18 @@ export async function middleware(request) {
     return NextResponse.redirect(signupUrl, 301);
   }
 
+  // /id/* 경로 → locale 쿠키 세팅
+  if (pathname.startsWith('/id')) {
+    const response = NextResponse.next();
+    response.cookies.set('locale', 'id', { path: '/', maxAge: 60 * 60 * 24 * 365 });
+    return response;
+  }
+  if (pathname.startsWith('/sg')) {
+    const response = NextResponse.next();
+    response.cookies.set('locale', 'sg', { path: '/', maxAge: 60 * 60 * 24 * 365 });
+    return response;
+  }
+
   // Public pages — no auth required
   if (PUBLIC_PATHS.includes(pathname)) {
     return NextResponse.next();

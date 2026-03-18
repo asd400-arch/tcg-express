@@ -13,7 +13,7 @@ const ALLOWED_SIGNUP_FIELDS = [
   'role', 'contact_name', 'phone', 'company_name', 'company_registration',
   'billing_address', 'vehicle_type', 'vehicle_plate', 'license_number',
   'driver_type', 'nric_number', 'business_reg_number',
-  'is_ev_vehicle', 'ev_vehicle_type', 'referred_by',
+  'is_ev_vehicle', 'ev_vehicle_type', 'referred_by', 'locale',
 ];
 
 function generateReferralCode() {

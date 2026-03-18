@@ -4,10 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../../components/AuthContext';
 import Sidebar from '../../components/Sidebar';
 import { supabase } from '../../../lib/supabase';
-
-function formatSGD(amount) {
-  return `$${parseFloat(amount || 0).toFixed(2)}`;
-}
+import { formatCurrency } from '../../../lib/locale/config';
 
 function formatDate(date) {
   if (!date) return '—';
@@ -49,7 +46,7 @@ export default function AdminWalletPage() {
     setLoadingData(true);
     let query = supabase
       .from('wallet_topups')
-      .select('*, user:user_id(contact_name, email, company_name, role)')
+      .select('*, user:user_id(contact_name, email, company_name, role, locale)')
       .order('created_at', { ascending: false });
 
     if (filter !== 'all') {
@@ -115,7 +112,7 @@ export default function AdminWalletPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        showToast(`${formatSGD(topup.amount)} credited to ${topup.user?.contact_name || 'user'}`);
+        showToast(`${formatCurrency(topup.amount, topup.user?.locale || 'sg')} credited to ${topup.user?.contact_name || 'user'}`);
         setShowConfirmModal(null);
         setRefInput('');
         fetchTopups();
@@ -129,7 +126,7 @@ export default function AdminWalletPage() {
   };
 
   const handleReject = async (topup) => {
-    if (!confirm(`Reject ${formatSGD(topup.amount)} top-up from ${topup.user?.contact_name}?`)) return;
+    if (!confirm(`Reject ${formatCurrency(topup.amount, topup.user?.locale || 'sg')} top-up from ${topup.user?.contact_name}?`)) return;
     setRejectingId(topup.id);
     try {
       await supabase
@@ -194,7 +191,7 @@ export default function AdminWalletPage() {
           </div>
           <div style={{ ...card, borderLeft: '4px solid #3b82f6' }}>
             <div style={{ fontSize: '12px', color: '#94a3b8', fontWeight: '600' }}>Pending Amount</div>
-            <div style={{ fontSize: '28px', fontWeight: '800', color: '#3b82f6' }}>{formatSGD(stats.totalPending)}</div>
+            <div style={{ fontSize: '28px', fontWeight: '800', color: '#3b82f6' }}>{formatCurrency(stats.totalPending, 'sg')}</div>
           </div>
           <div style={{ ...card, borderLeft: '4px solid #10b981' }}>
             <div style={{ fontSize: '12px', color: '#94a3b8', fontWeight: '600' }}>Approved Today</div>
@@ -273,7 +270,7 @@ export default function AdminWalletPage() {
                           </div>
                         </td>
                         <td style={{ padding: '12px', fontWeight: '700', fontSize: '15px', color: '#1e293b' }}>
-                          {formatSGD(t.amount)}
+                          {formatCurrency(t.amount, t.user?.locale || 'sg')}
                         </td>
                         <td style={{ padding: '12px', color: '#64748b' }}>
                           {t.payment_method === 'paynow' ? '🏦 PayNow' : t.payment_method || '—'}
@@ -368,7 +365,7 @@ export default function AdminWalletPage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: '#64748b', fontSize: '13px' }}>Amount</span>
                   <span style={{ fontWeight: '800', color: '#10b981', fontSize: '18px' }}>
-                    {formatSGD(showConfirmModal.amount)}
+                    {formatCurrency(showConfirmModal.amount, showConfirmModal.user?.locale || 'sg')}
                   </span>
                 </div>
               </div>

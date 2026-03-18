@@ -8,12 +8,14 @@ import Spinner from '../../components/Spinner';
 import useMobile from '../../components/useMobile';
 import NotificationPreferences from '../../components/NotificationPreferences';
 import { supabase } from '../../../lib/supabase';
+import useLocale from '../../components/useLocale';
 
 export default function DriverSettings() {
   const { user, loading, updateUser } = useAuth();
   const router = useRouter();
   const toast = useToast();
   const m = useMobile();
+  const { config } = useLocale();
 
   const [contactName, setContactName] = useState('');
   const [phone, setPhone] = useState('');
@@ -165,7 +167,7 @@ export default function DriverSettings() {
             </div>
             <div>
               <label style={label}>Phone</label>
-              <input type="text" value={phone} onChange={e => setPhone(e.target.value)} placeholder="e.g. +65 9123 4567" style={input} />
+              <input type="text" value={phone} onChange={e => setPhone(e.target.value)} placeholder={`e.g. ${config.phonePrefix} 9123 4567`} style={input} />
             </div>
           </div>
         </div>
