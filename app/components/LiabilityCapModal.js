@@ -1,7 +1,10 @@
 'use client';
 import { LIABILITY_CAPS } from '../../lib/terms-content';
+import { LIABILITY_CAPS_ID } from '../../lib/terms-content-id';
+import { formatCurrency } from '../../lib/locale/config';
 
-export default function LiabilityCapModal({ onClose }) {
+export default function LiabilityCapModal({ onClose, locale = 'sg' }) {
+  const caps = locale === 'id' ? LIABILITY_CAPS_ID : LIABILITY_CAPS;
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
       <div style={{ background: 'white', borderRadius: '20px', padding: '30px', maxWidth: '540px', width: '100%', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
@@ -23,10 +26,10 @@ export default function LiabilityCapModal({ onClose }) {
               <div style={{ flex: 1, fontSize: '12px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'right' }}>Max Liability</div>
             </div>
             {/* Table rows */}
-            {LIABILITY_CAPS.map((row, i) => (
+            {caps.map((row, i) => (
               <div key={row.vehicle} style={{
                 display: 'flex', alignItems: 'center', padding: '12px 16px',
-                borderBottom: i < LIABILITY_CAPS.length - 1 ? '1px solid #f1f5f9' : 'none',
+                borderBottom: i < caps.length - 1 ? '1px solid #f1f5f9' : 'none',
                 background: i % 2 === 0 ? 'white' : '#fafafa',
               }}>
                 <div style={{ flex: 2, display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -34,7 +37,7 @@ export default function LiabilityCapModal({ onClose }) {
                   <span style={{ fontSize: '14px', fontWeight: '500', color: '#1e293b' }}>{row.vehicle}</span>
                 </div>
                 <div style={{ flex: 1, textAlign: 'right', fontSize: '15px', fontWeight: '700', color: '#dc2626' }}>
-                  ${row.cap.toLocaleString()}
+                  {formatCurrency(row.cap, locale)}
                 </div>
               </div>
             ))}

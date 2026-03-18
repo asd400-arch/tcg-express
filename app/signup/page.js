@@ -360,10 +360,20 @@ function SignupForm({ initialLocale = 'sg' }) {
                 <h3 style={sectionTitle}>KYC Documents</h3>
                 <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '12px' }}>Upload clear photos or scans of your documents (JPG, PNG, or PDF)</p>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-                  <FileInput id="nric_front" label="NRIC Front" required />
-                  <FileInput id="nric_back" label="NRIC Back" required />
-                  <FileInput id="license_photo" label="License Photo" required />
-                  <FileInput id="vehicle_insurance" label="Vehicle Insurance" required />
+                  {locale === 'id' ? (
+                    <>
+                      <FileInput id="nric_front" label="KTP (Depan)" required />
+                      <FileInput id="license_photo" label="SIM" required />
+                      <FileInput id="vehicle_insurance" label="STNK" required />
+                    </>
+                  ) : (
+                    <>
+                      <FileInput id="nric_front" label="NRIC Front" required />
+                      <FileInput id="nric_back" label="NRIC Back" required />
+                      <FileInput id="license_photo" label="License Photo" required />
+                      <FileInput id="vehicle_insurance" label="Vehicle Insurance" required />
+                    </>
+                  )}
                   {driverType === 'company' && (
                     <FileInput id="business_reg_cert" label="Business Reg Cert" required />
                   )}
@@ -465,8 +475,8 @@ function SignupForm({ initialLocale = 'sg' }) {
           </p>
         </div>
 
-        {showTermsModal && <TermsModal onClose={() => setShowTermsModal(false)} highlightSection={termsHighlightSection} />}
-        {showLiabilityModal && <LiabilityCapModal onClose={() => setShowLiabilityModal(false)} />}
+        {showTermsModal && <TermsModal onClose={() => setShowTermsModal(false)} highlightSection={termsHighlightSection} locale={locale} />}
+        {showLiabilityModal && <LiabilityCapModal onClose={() => setShowLiabilityModal(false)} locale={locale} />}
       </div>
     </div>
   );

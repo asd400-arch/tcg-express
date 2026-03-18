@@ -1,7 +1,9 @@
 'use client';
 import { TERMS_SECTIONS } from '../../lib/terms-content';
+import { TERMS_SECTIONS_ID } from '../../lib/terms-content-id';
 
-export default function TermsModal({ onClose, highlightSection }) {
+export default function TermsModal({ onClose, highlightSection, locale = 'sg' }) {
+  const sections = locale === 'id' ? TERMS_SECTIONS_ID : TERMS_SECTIONS;
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
       <div style={{ background: 'white', borderRadius: '20px', padding: '30px', maxWidth: '640px', width: '100%', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
@@ -14,7 +16,7 @@ export default function TermsModal({ onClose, highlightSection }) {
           <p style={{ fontSize: '14px', color: '#475569', lineHeight: '1.8', marginBottom: '16px' }}>
             Welcome to TCG Express ("Platform"), operated by Tech Chain Global Pte Ltd ("Company", "we", "us"). By accessing or using our Platform, you agree to be bound by these Terms of Service ("Terms").
           </p>
-          {TERMS_SECTIONS.map(section => {
+          {sections.map(section => {
             const isHighlighted = highlightSection === section.number;
             return (
               <div key={section.number} id={`section-${section.number}`} style={{
