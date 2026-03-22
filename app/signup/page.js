@@ -170,7 +170,7 @@ function SignupForm({ initialLocale = 'sg' }) {
           <div style={{ fontSize: '48px', marginBottom: '16px' }}>✅</div>
           <h2 style={{ fontSize: '22px', fontWeight: '700', color: '#1e293b', marginBottom: '10px' }}>Registration Submitted!</h2>
           <p style={{ color: '#64748b', fontSize: '14px', lineHeight: '1.6', marginBottom: '24px' }}>Your driver account is pending admin approval. We'll review your documents and notify you once approved.</p>
-          <a href="/login" style={{ display: 'inline-block', padding: '12px 32px', borderRadius: '10px', background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: 'white', textDecoration: 'none', fontWeight: '600', fontSize: '14px' }}>Back to Login</a>
+          <a href={locale === 'id' ? '/id/login' : '/login'} style={{ display: 'inline-block', padding: '12px 32px', borderRadius: '10px', background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: 'white', textDecoration: 'none', fontWeight: '600', fontSize: '14px' }}>Back to Login</a>
         </div>
       </div>
     );
@@ -471,7 +471,7 @@ function SignupForm({ initialLocale = 'sg' }) {
 
         <div style={{ textAlign: 'center', marginTop: '24px' }}>
           <p style={{ color: '#64748b', fontSize: '14px' }}>
-            Already have an account? <a href="/login" style={{ color: '#3b82f6', fontWeight: '600', textDecoration: 'none' }}>Sign In</a>
+            Already have an account? <a href={locale === 'id' ? '/id/login' : '/login'} style={{ color: '#3b82f6', fontWeight: '600', textDecoration: 'none' }}>Sign In</a>
           </p>
         </div>
 
