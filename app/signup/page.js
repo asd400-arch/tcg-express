@@ -68,12 +68,12 @@ function SignupForm({ initialLocale = 'sg' }) {
     else if (form.password !== form.confirm) errs.confirm = 'Passwords do not match';
     if (role === 'client' && !form.company_name.trim()) errs.company_name = 'Company name is required';
     if (role === 'driver') {
-      if (!form.nric_number.trim()) errs.nric_number = 'NRIC number is required';
+      if (!form.nric_number.trim()) errs.nric_number = locale === 'id' ? 'NIK number is required' : 'NRIC number is required';
       if (!form.vehicle_type) errs.vehicle_type = 'Select a vehicle type';
       if (!form.vehicle_plate.trim()) errs.vehicle_plate = 'Plate number is required';
       if (!form.license_number.trim()) errs.license_number = 'License number is required';
       if (!files.nric_front) errs.nric_front = 'Required';
-      if (!files.nric_back) errs.nric_back = 'Required';
+      if (locale !== 'id' && !files.nric_back) errs.nric_back = 'Required';
       if (!files.license_photo) errs.license_photo = 'Required';
       if (!files.vehicle_insurance) errs.vehicle_insurance = 'Required';
       if (driverType === 'company') {
@@ -119,7 +119,7 @@ function SignupForm({ initialLocale = 'sg' }) {
         const urls = {};
 
         urls.nric_front_url = await uploadFile(files.nric_front, userId, 'nric-front');
-        urls.nric_back_url = await uploadFile(files.nric_back, userId, 'nric-back');
+        if (locale !== 'id') urls.nric_back_url = await uploadFile(files.nric_back, userId, 'nric-back');
         urls.license_photo_url = await uploadFile(files.license_photo, userId, 'license-photo');
         urls.vehicle_insurance_url = await uploadFile(files.vehicle_insurance, userId, 'vehicle-insurance');
         if (driverType === 'company' && files.business_reg_cert) {
