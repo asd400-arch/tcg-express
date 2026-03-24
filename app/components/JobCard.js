@@ -1,5 +1,7 @@
 'use client';
 import { getAreaName, formatPickupTime, formatBudgetRange, getCountdown, getVehicleLabel, getJobBudget } from '../../lib/job-helpers';
+import useLocale from './useLocale';
+import { formatCurrency } from '../../lib/locale/config';
 
 function getJobBadge(job) {
   // SaveMode takes priority
@@ -19,6 +21,7 @@ function getJobBadge(job) {
  * Shared job card for driver-facing views (dashboard + available jobs).
  */
 export default function JobCard({ job, myBid, accepting, onClick, onAccept, onBid, onReBid, linkMode, linkHref }) {
+  const { locale } = useLocale();
   const pickupCountdown = getCountdown(job.pickup_by);
   const deliverCountdown = getCountdown(job.deliver_by);
   const vLabel = getVehicleLabel(job.vehicle_required);
@@ -61,7 +64,7 @@ export default function JobCard({ job, myBid, accepting, onClick, onAccept, onBi
           {vLabel && <span style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b' }}>{vLabel}</span>}
           {job.item_weight && <span style={{ fontSize: '13px', color: '#475569', fontWeight: '600' }}>{job.item_weight} kg</span>}
         </div>
-        <div style={{ fontSize: '18px', fontWeight: '800', color: '#10b981', flexShrink: 0, marginLeft: '10px' }}>{formatBudgetRange(job)}</div>
+        <div style={{ fontSize: '18px', fontWeight: '800', color: '#10b981', flexShrink: 0, marginLeft: '10px' }}>{formatBudgetRange(job, locale)}</div>
       </div>
 
       {/* Row 2: Pickup time + Deliver time */}
@@ -93,7 +96,7 @@ export default function JobCard({ job, myBid, accepting, onClick, onAccept, onBi
         {myBid ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '12px', fontWeight: '600', color: myBid.status === 'accepted' ? '#10b981' : myBid.status === 'rejected' ? '#ef4444' : '#f59e0b' }}>
-              ${myBid.amount} ({myBid.status === 'outbid' ? 'not selected' : myBid.status})
+              {formatCurrency(myBid.amount, locale)} ({myBid.status === 'outbid' ? 'not selected' : myBid.status})
             </span>
             {['rejected', 'outbid'].includes(myBid.status) && onReBid && (
               <button onClick={e => { e.preventDefault(); e.stopPropagation(); onReBid(job); }} style={{ padding: '5px 12px', borderRadius: '8px', border: '1px solid #f59e0b', background: 'white', color: '#f59e0b', fontSize: '11px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>Re-bid</button>
@@ -103,11 +106,11 @@ export default function JobCard({ job, myBid, accepting, onClick, onAccept, onBi
           <div style={{ display: 'flex', gap: '8px' }}>
             {budget && onAccept && (
               <button onClick={e => { e.preventDefault(); e.stopPropagation(); onAccept(job); }} disabled={accepting === job.id} style={{ padding: '6px 14px', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontSize: '12px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif", opacity: accepting === job.id ? 0.7 : 1 }}>
-                {accepting === job.id ? '...' : `Accept $${budget.toFixed(2)}`}
+                {accepting === job.id ? '...' : `Accept ${formatCurrency(budget, locale)}`}
               </button>
             )}
             {!onAccept && budget && (
-              <span style={{ padding: '6px 14px', borderRadius: '8px', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontSize: '12px', fontWeight: '600' }}>Accept ${budget.toFixed(2)}</span>
+              <span style={{ padding: '6px 14px', borderRadius: '8px', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontSize: '12px', fontWeight: '600' }}>Accept {formatCurrency(budget, locale)}</span>
             )}
             {onBid ? (
               <button onClick={e => { e.preventDefault(); e.stopPropagation(); onBid(job); }} style={{ padding: '6px 14px', borderRadius: '8px', border: '1px solid #3b82f6', background: 'white', color: '#3b82f6', fontSize: '12px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>{budget ? 'Bid' : 'Place Bid'}</button>

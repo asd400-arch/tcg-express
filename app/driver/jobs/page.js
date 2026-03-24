@@ -11,6 +11,7 @@ import { getCategoryByKey, getEquipmentLabel } from '../../../lib/constants';
 import { ADDON_OPTIONS, checkVehicleFit } from '../../../lib/fares';
 import { getAreaName, formatPickupTime, formatBudgetRange, getCountdown, getVehicleLabel, getJobBudget, sortByPickupUrgency } from '../../../lib/job-helpers';
 import JobCard from '../../components/JobCard';
+import useLocale from '../../components/useLocale';
 
 // Parse addons from special_requirements JSON
 function parseAddons(job) {
@@ -53,6 +54,7 @@ function parseEquipComment(job) {
 
 export default function DriverJobs() {
   const { user, loading } = useAuth();
+  const { locale } = useLocale();
   const router = useRouter();
   const toast = useToast();
   const m = useMobile();
@@ -203,7 +205,7 @@ export default function DriverJobs() {
               <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '14px', marginBottom: '20px' }}>
                 <div style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b', marginBottom: '4px' }}>{selectedJob.job_number || selectedJob.item_description}</div>
                 <div style={{ fontSize: '12px', color: '#64748b' }}>{getAreaName(selectedJob.pickup_address)} → {getAreaName(selectedJob.delivery_address)}</div>
-                <div style={{ fontSize: '13px', color: '#10b981', fontWeight: '700', marginTop: '6px' }}>Budget: {formatBudgetRange(selectedJob)}</div>
+                <div style={{ fontSize: '13px', color: '#10b981', fontWeight: '700', marginTop: '6px' }}>Budget: {formatBudgetRange(selectedJob, locale)}</div>
                 {selectedJob.equipment_needed && selectedJob.equipment_needed.length > 0 && (
                   <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                     <span style={{ fontSize: '11px', color: '#64748b' }}>Requested:</span>
@@ -305,7 +307,7 @@ export default function DriverJobs() {
                   <span style={badgeStyle(detailJob.job_type || 'spot', `${jobTypeColor[detailJob.job_type] || jobTypeColor.spot}15`, jobTypeColor[detailJob.job_type] || jobTypeColor.spot)}>{detailJob.job_type || 'spot'}</span>
                   <span style={badgeStyle(detailJob.urgency || 'standard', `${urgencyColor[detailJob.urgency]}15`, urgencyColor[detailJob.urgency])}>{detailJob.urgency || 'standard'}</span>
                 </div>
-                <div style={{ fontSize: '22px', fontWeight: '800', color: '#10b981' }}>{formatBudgetRange(detailJob)}</div>
+                <div style={{ fontSize: '22px', fontWeight: '800', color: '#10b981' }}>{formatBudgetRange(detailJob, locale)}</div>
               </div>
             </div>
 

@@ -7,9 +7,12 @@ import Spinner from '../../components/Spinner';
 import { supabase } from '../../../lib/supabase';
 import useMobile from '../../components/useMobile';
 import { getAreaName, formatPickupTime } from '../../../lib/job-helpers';
+import useLocale from '../../components/useLocale';
+import { formatCurrency } from '../../../lib/locale/config';
 
 export default function ClientJobs() {
   const { user, loading } = useAuth();
+  const { locale } = useLocale();
   const router = useRouter();
   const m = useMobile();
   const [jobs, setJobs] = useState([]);
@@ -86,9 +89,9 @@ export default function ClientJobs() {
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   {job.final_amount ? (
-                    <div style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b' }}>${job.final_amount}</div>
+                    <div style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b' }}>{formatCurrency(job.final_amount, locale)}</div>
                   ) : job.budget_min ? (
-                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#94a3b8' }}>${job.budget_min}–${job.budget_max || job.budget_min}</div>
+                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#94a3b8' }}>{formatCurrency(job.budget_min, locale)}–{formatCurrency(job.budget_max || job.budget_min, locale)}</div>
                   ) : null}
                   <div style={{ fontSize: '12px', color: '#94a3b8' }}>{new Date(job.created_at).toLocaleDateString()}</div>
                 </div>

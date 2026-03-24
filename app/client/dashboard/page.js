@@ -8,9 +8,12 @@ import PromoBanner from '../../components/PromoBanner';
 import { supabase } from '../../../lib/supabase';
 import useMobile from '../../components/useMobile';
 import { getAreaName, formatPickupTime } from '../../../lib/job-helpers';
+import useLocale from '../../components/useLocale';
+import { formatCurrency } from '../../../lib/locale/config';
 
 export default function ClientDashboard() {
   const { user, loading } = useAuth();
+  const { locale } = useLocale();
   const router = useRouter();
   const m = useMobile();
   const [jobs, setJobs] = useState([]);
@@ -101,9 +104,9 @@ export default function ClientDashboard() {
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       {job.final_amount ? (
-                        <span style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b' }}>${job.final_amount}</span>
+                        <span style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b' }}>{formatCurrency(job.final_amount, locale)}</span>
                       ) : job.budget_min ? (
-                        <span style={{ fontSize: '14px', fontWeight: '600', color: '#94a3b8' }}>${job.budget_min}–${job.budget_max || job.budget_min}</span>
+                        <span style={{ fontSize: '14px', fontWeight: '600', color: '#94a3b8' }}>{formatCurrency(job.budget_min, locale)}–{formatCurrency(job.budget_max || job.budget_min, locale)}</span>
                       ) : null}
                     </div>
                   </div>
