@@ -5,11 +5,14 @@ import { useAuth } from './AuthContext';
 import useMobile from './useMobile';
 import NotificationBell from './NotificationBell';
 import { useUnreadMessages } from './UnreadMessagesContext';
+import useLocale from './useLocale';
+import { formatCurrency } from '../../lib/locale/config';
 
 const clientLinks = [
   { label: 'Dashboard', href: '/client/dashboard', icon: '📊' },
   { label: 'New Delivery', href: '/client/jobs/new', icon: '➕' },
   { label: 'My Deliveries', href: '/client/jobs', icon: '📦' },
+  { label: 'Services', href: '/services', icon: '🖥️' },
   { label: 'Wallet', href: '/client/wallet', icon: '👛' },
   { label: 'Help', href: '/client/help', icon: '❓' },
   { label: 'Settings', href: '/client/settings', icon: '⚙️' },
@@ -47,6 +50,7 @@ const adminLinks = [
 
 export default function Sidebar({ active = '', title }) {
   const { user, logout } = useAuth();
+  const { locale } = useLocale();
   const router = useRouter();
   const m = useMobile();
   const [open, setOpen] = useState(false);
@@ -113,7 +117,7 @@ export default function Sidebar({ active = '', title }) {
                 padding: '2px 8px', borderRadius: '10px',
                 background: active === 'Wallet' ? `${roleColor}20` : '#f1f5f9',
                 color: active === 'Wallet' ? roleColor : '#475569',
-              }}>${walletBalance.toFixed(2)}</span>
+              }}>{formatCurrency(walletBalance, locale)}</span>
             )}
             {(link.label === 'My Jobs' || link.label === 'My Deliveries') && totalUnread > 0 && (
               <span style={{

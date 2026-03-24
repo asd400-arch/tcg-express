@@ -10,6 +10,8 @@ function getCookieLocale() {
 
 export default function useLocale() {
   const { user } = useAuth();
-  const locale = user?.locale || getCookieLocale() || 'sg';
+  // Cookie takes priority: /id/login explicitly sets locale=id cookie,
+  // which should override the stored DB value for the session.
+  const locale = getCookieLocale() || user?.locale || 'sg';
   return { locale, config: getLocaleConfig(locale) };
 }

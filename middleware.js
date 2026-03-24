@@ -7,6 +7,9 @@ const PUBLIC_PATHS = [
   '/signup',
   '/forgot-password',
   '/offline',
+  '/services',
+  '/terms',
+  '/privacy',
 ];
 
 const PUBLIC_API_PATHS = [

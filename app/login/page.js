@@ -69,6 +69,8 @@ function LoginForm() {
 
         <div style={{ textAlign: 'center', marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #f1f5f9' }}>
           <p style={{ color: '#94a3b8', fontSize: '12px' }}>
+            <a href="/services" style={{ color: '#3b82f6', textDecoration: 'none', fontWeight: '500' }}>Our Services</a>
+            {' · '}
             <a href="/terms" style={{ color: '#94a3b8', textDecoration: 'none' }}>Terms of Service</a>
             {' · '}
             <a href="/privacy" style={{ color: '#94a3b8', textDecoration: 'none' }}>Privacy Policy</a>
