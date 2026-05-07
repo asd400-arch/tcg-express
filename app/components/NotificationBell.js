@@ -47,7 +47,8 @@ export default function NotificationBell({ userId }) {
 
       {open && (
         <div style={{
-          position: 'absolute', top: '36px', right: 0, width: '320px', maxHeight: '400px',
+          position: 'absolute', top: '36px', right: 0, left: 'auto',
+          width: '320px', maxWidth: 'calc(100vw - 16px)', maxHeight: '400px',
           background: 'white', borderRadius: '14px', boxShadow: '0 10px 40px rgba(0,0,0,0.15)',
           border: '1px solid #e2e8f0', zIndex: 200, overflowY: 'auto',
         }}>
