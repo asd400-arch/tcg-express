@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import QRCode from 'qrcode';
+import { useState, useEffect, useMemo } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import useMobile from '../useMobile';
 import { useToast } from '../Toast';
 import { useTopup } from '@/lib/hooks/useWallet';
@@ -39,8 +39,12 @@ export default function TopupModal({ open, onClose, onSuccess, initialAmount }: 
   const [amount, setAmount] = useState<number | ''>('');
   const [method, setMethod] = useState<TopupPaymentMethod>('paynow');
   const [qrData, setQrData] = useState<PayNowQRData | null>(null);
-  const [qrImage, setQrImage] = useState('');
+  const [qrString, setQrString] = useState('');
+  const [referenceId, setReferenceId] = useState('');
   const [timeLeft, setTimeLeft] = useState(0);
+  const [qrLoading, setQrLoading] = useState(false);
+
+  const numAmount = useMemo(() => (amount === '' ? 0 : Number(amount)), [amount]);
 
   // Reset state on open
   useEffect(() => {
@@ -49,9 +53,48 @@ export default function TopupModal({ open, onClose, onSuccess, initialAmount }: 
       setAmount(initialAmount ? Math.max(10, Math.ceil(parseFloat(initialAmount))) : '');
       setMethod('paynow');
       setQrData(null);
-      setQrImage('');
+      setQrString('');
+      setReferenceId('');
     }
   }, [open]);
+
+  // Generate a short client reference (<=25 chars)
+  const makeReference = () => {
+    const t = Date.now().toString(36).toUpperCase();
+    const r = Math.random().toString(36).slice(2, 8).toUpperCase();
+    return `TOPUP${t}${r}`.slice(0, 25);
+  };
+
+  // Prefetch dynamic PayNow QR string when amount is selected (PayNow only)
+  useEffect(() => {
+    if (!open) return;
+    if (method !== 'paynow') return;
+    if (!numAmount) return;
+    if (numAmount < WALLET_CONSTANTS.MIN_TOPUP || numAmount > WALLET_CONSTANTS.MAX_TOPUP) return;
+
+    const ref = referenceId || makeReference();
+    if (!referenceId) setReferenceId(ref);
+
+    const controller = new AbortController();
+    setQrLoading(true);
+
+    fetch(`/api/wallet/paynow-qr?amount=${encodeURIComponent(numAmount)}&reference=${encodeURIComponent(ref)}`, {
+      signal: controller.signal,
+    })
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to generate PayNow QR');
+        setQrString(data.qrString || '');
+      })
+      .catch((e) => {
+        if (e?.name === 'AbortError') return;
+        setQrString('');
+      })
+      .finally(() => setQrLoading(false));
+
+    return () => controller.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, method, numAmount]);
 
   // Countdown timer for QR expiry
   useEffect(() => {
@@ -66,33 +109,40 @@ export default function TopupModal({ open, onClose, onSuccess, initialAmount }: 
     return () => clearInterval(interval);
   }, [qrData]);
 
-  // Generate QR image
-  const generateQRImage = useCallback(async (data: string) => {
-    try {
-      const url = await QRCode.toDataURL(data, {
-        width: 280,
-        margin: 2,
-        color: { dark: '#7c3aed', light: '#ffffff' },
-      });
-      setQrImage(url);
-    } catch {
-      setQrImage('');
-    }
-  }, []);
-
   const handleSubmit = async () => {
-    const numAmount = Number(amount);
     if (!numAmount || numAmount < WALLET_CONSTANTS.MIN_TOPUP || numAmount > WALLET_CONSTANTS.MAX_TOPUP) {
       toast.error(`Amount must be between ${formatSGD(WALLET_CONSTANTS.MIN_TOPUP)} and ${formatSGD(WALLET_CONSTANTS.MAX_TOPUP)}`);
       return;
     }
 
-    const result = await createTopup(numAmount, method);
+    const ref = method === 'paynow' ? (referenceId || makeReference()).slice(0, 25) : '';
+    if (method === 'paynow' && !referenceId) setReferenceId(ref);
+
+    if (method === 'paynow') {
+      // Ensure we have a QR string (prefetch may have failed)
+      let effectiveQrString = qrString;
+      if (!effectiveQrString) {
+        try {
+          setQrLoading(true);
+          const res = await fetch(`/api/wallet/paynow-qr?amount=${encodeURIComponent(numAmount)}&reference=${encodeURIComponent(ref)}`);
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Failed to generate PayNow QR');
+          effectiveQrString = data.qrString || '';
+          setQrString(effectiveQrString);
+        } catch (e: any) {
+          toast.error(e?.message || 'Failed to generate PayNow QR');
+          return;
+        } finally {
+          setQrLoading(false);
+        }
+      }
+    }
+
+    const result = await createTopup(numAmount, method, method === 'paynow' ? ref : undefined);
     if (!result) return;
 
     if (method === 'paynow' && result.paynow_qr) {
       setQrData(result.paynow_qr);
-      await generateQRImage(result.paynow_qr.qr_string);
       setStep('qr');
     } else if (method === 'stripe_card' && result.client_secret) {
       // Stripe card flow handled externally
@@ -329,16 +379,24 @@ export default function TopupModal({ open, onClose, onSuccess, initialAmount }: 
         {/* Step: QR Code */}
         {step === 'qr' && qrData && (
           <div style={{ textAlign: 'center' }}>
-            {/* QR Image */}
-            {qrImage && (
-              <div style={{ marginBottom: '20px' }}>
-                <img
-                  src={qrImage}
-                  alt="PayNow QR"
-                  style={{ width: '280px', height: '280px', margin: '0 auto', borderRadius: '16px' }}
-                />
-              </div>
-            )}
+            {/* QR Code */}
+            <div style={{
+              width: '280px',
+              height: '280px',
+              margin: '0 auto 20px',
+              borderRadius: '16px',
+              background: 'white',
+              border: '1px solid #e2e8f0',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+              {qrLoading ? (
+                <div style={{ color: '#64748b', fontWeight: 600, fontSize: '14px' }}>Generating QR…</div>
+              ) : (
+                <QRCodeSVG value={qrString || qrData.qr_string} size={200} />
+              )}
+            </div>
 
             {/* Amount */}
             <div style={{ fontSize: '28px', fontWeight: '800', color: '#1e293b', marginBottom: '4px' }}>
@@ -385,13 +443,13 @@ export default function TopupModal({ open, onClose, onSuccess, initialAmount }: 
               marginBottom: '20px',
               textAlign: 'left',
             }}>
-              <div style={{ fontSize: '13px', fontWeight: '700', color: '#7c3aed', marginBottom: '8px' }}>How to pay</div>
+              <div style={{ fontSize: '13px', fontWeight: '700', color: '#7c3aed', marginBottom: '8px' }}>
+                Scan with any Singapore banking app
+              </div>
               <div style={{ fontSize: '12px', color: '#6b21a8', lineHeight: '1.6' }}>
-                1. Open your banking app (DBS, OCBC, UOB, etc.)<br />
-                2. Tap on PayNow / Scan &amp; Pay<br />
-                3. Scan this QR code<br />
-                4. Verify the amount and confirm payment<br />
-                5. Your wallet will be credited after verification
+                1. Open your banking app and choose PayNow / Scan<br />
+                2. Scan this QR code and confirm the amount<br />
+                3. After payment, keep the reference number for verification
               </div>
             </div>
 
