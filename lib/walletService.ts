@@ -177,7 +177,7 @@ export async function createPayNowTopup(
   const ref = (reference || '').trim();
   if (!ref) throw new Error('PayNow reference is required');
   const referenceId = ref.slice(0, 25);
-  const qrString = generatePayNowQR(amount, referenceId);
+  const qrString = generatePayNowQR(amount);
 
   const expiry = new Date(Date.now() + WALLET_CONSTANTS.PAYNOW_QR_EXPIRY_MINUTES * 60 * 1000).toISOString();
 
