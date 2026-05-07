@@ -5,7 +5,7 @@
 
 import { supabaseAdmin } from './supabase-server';
 import { getStripe } from './stripe';
-import { generatePayNowTopupQR } from './paynow';
+import { generatePayNowQR } from './paynow-qr';
 import { WALLET_CONSTANTS } from '@/types/wallet';
 import type {
   Wallet,
@@ -166,14 +166,20 @@ export async function getTransactionHistory(
 
 export async function createPayNowTopup(
   userId: string,
-  amount: number
+  amount: number,
+  reference?: string
 ): Promise<TopupResponse> {
   if (amount < WALLET_CONSTANTS.MIN_TOPUP || amount > WALLET_CONSTANTS.MAX_TOPUP) {
     throw new Error(`Top-up amount must be between $${WALLET_CONSTANTS.MIN_TOPUP} and $${WALLET_CONSTANTS.MAX_TOPUP}`);
   }
 
   const wallet = await getOrCreateWallet(userId);
-  const qrData = generatePayNowTopupQR(amount);
+  const ref = (reference || '').trim();
+  if (!ref) throw new Error('PayNow reference is required');
+  const referenceId = ref.slice(0, 25);
+  const qrString = generatePayNowQR(amount, referenceId);
+
+  const expiry = new Date(Date.now() + WALLET_CONSTANTS.PAYNOW_QR_EXPIRY_MINUTES * 60 * 1000).toISOString();
 
   const { data: topup, error } = await supabaseAdmin
     .from('wallet_topups')
@@ -182,11 +188,11 @@ export async function createPayNowTopup(
       user_id: userId,
       amount,
       payment_method: 'paynow',
-      paynow_qr_data: qrData.qr_string,
-      paynow_reference: qrData.reference,
-      paynow_expiry: qrData.expiry,
+      paynow_qr_data: qrString,
+      paynow_reference: referenceId,
+      paynow_expiry: expiry,
       status: 'pending',
-      expires_at: qrData.expiry,
+      expires_at: expiry,
     })
     .select()
     .single();
@@ -195,7 +201,14 @@ export async function createPayNowTopup(
 
   return {
     topup: topup as WalletTopup,
-    paynow_qr: qrData,
+    paynow_qr: {
+      qr_string: qrString,
+      reference: referenceId,
+      amount,
+      expiry,
+      recipient_name: 'HHI Solutions Pte Ltd',
+      uen: '202005872W',
+    },
   };
 }
 
