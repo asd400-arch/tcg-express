@@ -19,24 +19,25 @@ export async function GET(request: Request) {
     const offset = (page - 1) * limit;
 
     if (type === 'topups') {
-      const { data, error, count } = await supabaseAdmin
+      let q = supabaseAdmin
         .from('wallet_topups')
-        .select('*, user:user_id(id, email, contact_name, phone)', { count: 'exact' })
-        .eq('status', status)
+        .select('*, user:user_id(id, email, contact_name, company_name, role, locale, phone)', { count: 'exact' })
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1);
-
+      if (status && status !== 'all') q = q.eq('status', status);
+      const { data, error, count } = await q;
       if (error) throw error;
       return NextResponse.json({ data, total: count });
     }
 
     // Default: withdrawals
-    const { data, error, count } = await supabaseAdmin
+    let wq = supabaseAdmin
       .from('wallet_withdrawals')
       .select('*, user:user_id(id, email, contact_name, phone)', { count: 'exact' })
-      .eq('status', status)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
+    if (status && status !== 'all') wq = wq.eq('status', status);
+    const { data, error, count } = await wq;
 
     if (error) throw error;
     return NextResponse.json({ data, total: count });
@@ -90,6 +91,19 @@ export async function POST(request: Request) {
           params.reason
         );
         return NextResponse.json({ data: rejected });
+      }
+
+      case 'reject_topup': {
+        if (!params.topup_id) {
+          return NextResponse.json({ error: 'Topup ID required' }, { status: 400 });
+        }
+        const { error: rejectError } = await supabaseAdmin
+          .from('wallet_topups')
+          .update({ status: 'expired', updated_at: new Date().toISOString() })
+          .eq('id', params.topup_id)
+          .eq('status', 'pending');
+        if (rejectError) throw rejectError;
+        return NextResponse.json({ data: { success: true } });
       }
 
       default:

@@ -47,46 +47,34 @@ export default function AdminWalletPage() {
     setLoadingData(true);
     setFetchError(null);
 
-    // Fetch filtered list for display
-    let query = supabase
-      .from('wallet_topups')
-      .select('*, user:user_id(contact_name, email, company_name, role, locale)')
-      .order('created_at', { ascending: false });
+    const listParams = new URLSearchParams({ type: 'topups', limit: '100' });
+    if (filter !== 'all') listParams.set('status', filter);
 
-    if (filter !== 'all') {
-      query = query.eq('status', filter);
-    }
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
 
-    const { data, error } = await query.limit(100);
+    const [listRes, pendingRes, todayRes] = await Promise.all([
+      fetch(`/api/admin/wallet?${listParams}`),
+      fetch('/api/admin/wallet?type=topups&status=pending&limit=500'),
+      fetch(`/api/admin/wallet?type=topups&status=completed&limit=200`),
+    ]);
 
-    if (error) {
-      setFetchError(error.message);
+    const listJson = await listRes.json();
+    if (!listRes.ok) {
+      setFetchError(listJson.error || 'Failed to load top-ups');
       setLoadingData(false);
       return;
     }
 
-    setTopups(data || []);
+    setTopups(listJson.data || []);
 
-    // Fetch stats separately so counts are always accurate regardless of current filter
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-
-    const [{ data: pendingData }, { data: todayData }] = await Promise.all([
-      supabase
-        .from('wallet_topups')
-        .select('amount')
-        .eq('status', 'pending'),
-      supabase
-        .from('wallet_topups')
-        .select('id')
-        .eq('status', 'completed')
-        .gte('updated_at', todayStart.toISOString()),
-    ]);
+    const pendingJson = pendingRes.ok ? await pendingRes.json() : { data: [], total: 0 };
+    const todayJson = todayRes.ok ? await todayRes.json() : { data: [] };
 
     setStats({
-      pending: pendingData?.length || 0,
-      today: todayData?.length || 0,
-      totalPending: (pendingData || []).reduce((s, t) => s + parseFloat(t.amount || 0), 0),
+      pending: pendingJson.total || 0,
+      today: (todayJson.data || []).filter(t => new Date(t.updated_at) >= todayStart).length,
+      totalPending: (pendingJson.data || []).reduce((s, t) => s + parseFloat(t.amount || 0), 0),
     });
 
     setLoadingData(false);
@@ -123,10 +111,10 @@ export default function AdminWalletPage() {
     }
     setConfirmingId(topup.id);
     try {
-      const res = await fetch('/api/wallet/topup', {
-        method: 'PATCH',
+      const res = await fetch('/api/admin/wallet', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paynow_reference: refInput.trim() }),
+        body: JSON.stringify({ action: 'confirm_topup', paynow_reference: refInput.trim() }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -137,7 +125,7 @@ export default function AdminWalletPage() {
       } else {
         showToast(data.error || 'Confirmation failed', 'error');
       }
-    } catch (err) {
+    } catch {
       showToast('Network error', 'error');
     }
     setConfirmingId(null);
@@ -147,14 +135,20 @@ export default function AdminWalletPage() {
     if (!confirm(`Reject ${formatCurrency(topup.amount, topup.user?.locale || 'sg')} top-up from ${topup.user?.contact_name}?`)) return;
     setRejectingId(topup.id);
     try {
-      await supabase
-        .from('wallet_topups')
-        .update({ status: 'expired', updated_at: new Date().toISOString() })
-        .eq('id', topup.id);
-      showToast('Top-up rejected');
-      fetchTopups();
+      const res = await fetch('/api/admin/wallet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reject_topup', topup_id: topup.id }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast('Top-up rejected');
+        fetchTopups();
+      } else {
+        showToast(data.error || 'Failed to reject', 'error');
+      }
     } catch {
-      showToast('Failed to reject', 'error');
+      showToast('Network error', 'error');
     }
     setRejectingId(null);
   };
