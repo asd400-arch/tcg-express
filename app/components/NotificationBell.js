@@ -85,9 +85,9 @@ export default function NotificationBell({ userId }) {
               >
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
                   <span style={{ fontSize: '16px', flexShrink: 0 }}>{typeIcons[n.type] || 'ℹ️'}</span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>{n.title}</div>
-                    {n.message && <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>{n.message}</div>}
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b', whiteSpace: 'normal', wordBreak: 'break-word' }}>{n.title}</div>
+                    {n.message && <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px', whiteSpace: 'normal', wordBreak: 'break-word' }}>{n.message}</div>}
                     <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>{timeAgo(n.created_at)}</div>
                   </div>
                   {!n.is_read && (
