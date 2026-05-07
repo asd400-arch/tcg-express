@@ -11,7 +11,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { amount, payment_method } = await request.json();
+    const { amount, payment_method, paynow_reference } = await request.json();
 
     if (!amount || !payment_method) {
       return NextResponse.json({ error: 'Amount and payment method required' }, { status: 400 });
@@ -27,7 +27,7 @@ export async function POST(request: Request) {
 
     let result;
     if (payment_method === 'paynow') {
-      result = await createPayNowTopup(session.userId, numAmount);
+      result = await createPayNowTopup(session.userId, numAmount, paynow_reference);
     } else if (payment_method === 'stripe_card') {
       result = await createStripeTopup(session.userId, numAmount);
     } else {

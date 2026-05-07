@@ -93,14 +93,22 @@ export function useTopup() {
   const [error, setError] = useState<string | null>(null);
 
   const createTopup = useCallback(
-    async (amount: number, paymentMethod: TopupPaymentMethod): Promise<TopupResponse | null> => {
+    async (
+      amount: number,
+      paymentMethod: TopupPaymentMethod,
+      paynowReference?: string
+    ): Promise<TopupResponse | null> => {
       setLoading(true);
       setError(null);
       try {
         const res = await fetch('/api/wallet/topup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ amount, payment_method: paymentMethod }),
+          body: JSON.stringify({
+            amount,
+            payment_method: paymentMethod,
+            ...(paynowReference ? { paynow_reference: paynowReference } : {}),
+          }),
         });
         const result = await res.json();
         if (!res.ok) throw new Error(result.error || 'Failed to create top-up');

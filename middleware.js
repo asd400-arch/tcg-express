@@ -20,6 +20,7 @@ const PUBLIC_API_PATHS = [
   '/api/cron/process-schedules',
   '/api/stripe/webhook',
   '/api/external/orders',
+  '/api/wallet/paynow-qr',
 ];
 
 // Paths accessible when logged in but unverified
