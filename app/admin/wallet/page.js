@@ -118,7 +118,7 @@ export default function AdminWalletPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        showToast(`${formatCurrency(topup.amount, topup.user?.locale || 'sg')} credited to ${topup.user?.contact_name || 'user'}`);
+        showToast(`${formatCurrency(topup.amount, 'sg')} credited to ${topup.user?.contact_name || 'user'}`);
         setShowConfirmModal(null);
         setRefInput('');
         fetchTopups();
@@ -132,7 +132,7 @@ export default function AdminWalletPage() {
   };
 
   const handleReject = async (topup) => {
-    if (!confirm(`Reject ${formatCurrency(topup.amount, topup.user?.locale || 'sg')} top-up from ${topup.user?.contact_name}?`)) return;
+    if (!confirm(`Reject ${formatCurrency(topup.amount, 'sg')} top-up from ${topup.user?.contact_name}?`)) return;
     setRejectingId(topup.id);
     try {
       const res = await fetch('/api/admin/wallet', {
@@ -286,7 +286,7 @@ export default function AdminWalletPage() {
                           </div>
                         </td>
                         <td style={{ padding: '12px', fontWeight: '700', fontSize: '15px', color: '#1e293b' }}>
-                          {formatCurrency(t.amount, t.user?.locale || 'sg')}
+                          {formatCurrency(t.amount, 'sg')}
                         </td>
                         <td style={{ padding: '12px', color: '#64748b' }}>
                           {t.payment_method === 'paynow' ? '🏦 PayNow' : t.payment_method || '—'}
@@ -381,7 +381,7 @@ export default function AdminWalletPage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: '#64748b', fontSize: '13px' }}>Amount</span>
                   <span style={{ fontWeight: '800', color: '#10b981', fontSize: '18px' }}>
-                    {formatCurrency(showConfirmModal.amount, showConfirmModal.user?.locale || 'sg')}
+                    {formatCurrency(showConfirmModal.amount, 'sg')}
                   </span>
                 </div>
               </div>
