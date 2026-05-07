@@ -35,6 +35,7 @@ export default function AdminWalletPage() {
   const [refInput, setRefInput] = useState('');
   const [showConfirmModal, setShowConfirmModal] = useState(null);
   const [toast, setToast] = useState(null);
+  const [fetchError, setFetchError] = useState(null);
   const [stats, setStats] = useState({ pending: 0, today: 0, totalPending: 0 });
 
   useEffect(() => {
@@ -44,6 +45,9 @@ export default function AdminWalletPage() {
 
   const fetchTopups = useCallback(async () => {
     setLoadingData(true);
+    setFetchError(null);
+
+    // Fetch filtered list for display
     let query = supabase
       .from('wallet_topups')
       .select('*, user:user_id(contact_name, email, company_name, role, locale)')
@@ -54,23 +58,37 @@ export default function AdminWalletPage() {
     }
 
     const { data, error } = await query.limit(100);
-    if (!error && data) {
-      setTopups(data);
 
-      // Calculate stats
-      const pending = data.filter(t => t.status === 'pending');
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
-      const todayCompleted = data.filter(t =>
-        t.status === 'completed' && new Date(t.updated_at) >= todayStart
-      );
-
-      setStats({
-        pending: pending.length,
-        today: todayCompleted.length,
-        totalPending: pending.reduce((s, t) => s + parseFloat(t.amount || 0), 0),
-      });
+    if (error) {
+      setFetchError(error.message);
+      setLoadingData(false);
+      return;
     }
+
+    setTopups(data || []);
+
+    // Fetch stats separately so counts are always accurate regardless of current filter
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const [{ data: pendingData }, { data: todayData }] = await Promise.all([
+      supabase
+        .from('wallet_topups')
+        .select('amount')
+        .eq('status', 'pending'),
+      supabase
+        .from('wallet_topups')
+        .select('id')
+        .eq('status', 'completed')
+        .gte('updated_at', todayStart.toISOString()),
+    ]);
+
+    setStats({
+      pending: pendingData?.length || 0,
+      today: todayData?.length || 0,
+      totalPending: (pendingData || []).reduce((s, t) => s + parseFloat(t.amount || 0), 0),
+    });
+
     setLoadingData(false);
   }, [filter]);
 
@@ -233,6 +251,10 @@ export default function AdminWalletPage() {
         <div style={card}>
           {loadingData ? (
             <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>Loading...</div>
+          ) : fetchError ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: '#dc2626' }}>
+              Error loading top-ups: {fetchError}
+            </div>
           ) : topups.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
               No {filter === 'all' ? '' : filter} top-ups found
