@@ -90,8 +90,28 @@ function checkOrigin(request) {
   return true;
 }
 
+function withCors(response) {
+  response.headers.set('Access-Control-Allow-Origin', '*');
+  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  return response;
+}
+
 export async function middleware(request) {
   const { pathname } = request.nextUrl;
+  const isApiRoute = pathname.startsWith('/api/');
+
+  // Handle CORS preflight
+  if (isApiRoute && request.method === 'OPTIONS') {
+    return new NextResponse(null, {
+      status: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      },
+    });
+  }
 
   // Domain redirect: express.techchainglobal.com → app.techchainglobal.com
   const host = request.headers.get('host') || '';
@@ -115,19 +135,19 @@ export async function middleware(request) {
 
   // Public API routes — no auth required (skip CSRF for login/signup/etc.)
   if (PUBLIC_API_PATHS.includes(pathname)) {
-    return NextResponse.next();
+    return withCors(NextResponse.next());
   }
 
   // CSRF: validate Origin/Referer on state-changing API requests (after public paths bypass)
   if (pathname.startsWith('/api/') && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)) {
     if (!checkOrigin(request)) {
-      return NextResponse.json({ error: 'Forbidden: invalid origin' }, { status: 403 });
+      return withCors(NextResponse.json({ error: 'Forbidden: invalid origin' }, { status: 403 }));
     }
   }
 
   // GET /api/admin/settings is public (commission rate)
   if (pathname === '/api/admin/settings' && request.method === 'GET') {
-    return NextResponse.next();
+    return withCors(NextResponse.next());
   }
 
   // Read session from cookie or Authorization header (mobile)
@@ -137,11 +157,9 @@ export async function middleware(request) {
   const token = cookieToken || bearerToken;
   const session = token ? await verifySession(token) : null;
 
-  const isApiRoute = pathname.startsWith('/api/');
-
   if (!session) {
     if (isApiRoute) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return withCors(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }));
     }
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirect', pathname);
@@ -157,7 +175,7 @@ export async function middleware(request) {
       // Allow verify-email page — fall through
     } else if (isApiRoute) {
       // Block other API routes for unverified users
-      return NextResponse.json({ error: 'Email not verified' }, { status: 403 });
+      return withCors(NextResponse.json({ error: 'Email not verified' }, { status: 403 }));
     } else {
       // Redirect unverified users to verify-email page
       const verifyUrl = new URL('/verify-email', request.url);
@@ -182,9 +200,12 @@ export async function middleware(request) {
   requestHeaders.set('x-user-email', session.email);
   requestHeaders.set('x-user-verified', String(session.isVerified));
 
-  return NextResponse.next({
+  const response = NextResponse.next({
     request: { headers: requestHeaders },
   });
+
+  if (isApiRoute) return withCors(response);
+  return response;
 }
 
 export const config = {
