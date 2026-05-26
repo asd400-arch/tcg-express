@@ -20,6 +20,10 @@ const STATUS_ALIASES = {
   picked_up: 'pickup_confirmed',
 };
 
+export async function PATCH(request, context) {
+  return POST(request, context);
+}
+
 export async function POST(request, { params }) {
   try {
     const session = getSession(request);
@@ -37,6 +41,7 @@ export async function POST(request, { params }) {
     let status = statusCheck.value;
 
     const photoUrl = cleanString(body.proof_photo_url || body.photo_url, 2000);
+    const signatureUrl = cleanString(body.signature_url, 2000);
 
     const { data: job, error: jobErr } = await supabaseAdmin
       .from('express_jobs')
@@ -73,6 +78,10 @@ export async function POST(request, { params }) {
       } else if (status === 'delivered') {
         updates.delivery_photo = photoUrl;
       }
+    }
+    if (signatureUrl && (status === 'delivered' || normalizedStatus === 'delivered')) {
+      updates.customer_signature_url = signatureUrl;
+      updates.signed_at = new Date().toISOString();
     }
     if (normalizedStatus === 'delivered' || status === 'delivered') updates.delivered_at = new Date().toISOString();
     if (normalizedStatus === 'confirmed' || normalizedStatus === 'completed') updates.completed_at = new Date().toISOString();

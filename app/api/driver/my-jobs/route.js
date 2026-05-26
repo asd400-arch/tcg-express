@@ -15,7 +15,7 @@ export async function GET(request) {
 
     let query = supabaseAdmin
       .from('express_jobs')
-      .select('*')
+      .select('*, client:client_id(contact_name, phone)')
       .eq('assigned_driver_id', session.userId);
 
     if (status === 'active') {

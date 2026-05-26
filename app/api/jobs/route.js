@@ -19,27 +19,38 @@ export async function GET(request) {
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { searchParams } = new URL(request.url);
+    const statuses = searchParams.getAll('status');
     const status = searchParams.get('status');
     const role = searchParams.get('role');
 
     let query = supabaseAdmin.from('express_jobs').select('*');
 
-    if (role === 'driver' || session.role === 'driver') {
-      // Drivers see their assigned jobs
-      query = query.eq('assigned_driver_id', session.userId);
-    } else if (session.role === 'client') {
-      query = query.eq('client_id', session.userId);
-    }
-    // Admins see all
+    const browseStatuses = statuses.length > 0 ? statuses : (status ? [status] : []);
+    const isJobBoard = browseStatuses.length > 0
+      && browseStatuses.every((s) => ['open', 'bidding'].includes(s));
 
-    if (status === 'open') {
-      // For available jobs listing (drivers browsing)
-      query = supabaseAdmin.from('express_jobs').select('*').eq('status', 'open');
-    } else if (status) {
-      query = query.eq('status', status);
-    }
+    if (isJobBoard) {
+      // Available jobs listing (drivers browsing open / bidding)
+      query = supabaseAdmin
+        .from('express_jobs')
+        .select('*')
+        .in('status', browseStatuses);
+      query = query.order('pickup_by', { ascending: true, nullsFirst: false });
+    } else {
+      if (role === 'driver' || session.role === 'driver') {
+        query = query.eq('assigned_driver_id', session.userId);
+      } else if (session.role === 'client') {
+        query = query.eq('client_id', session.userId);
+      }
 
-    query = query.order('created_at', { ascending: false });
+      if (status === 'open') {
+        query = supabaseAdmin.from('express_jobs').select('*').eq('status', 'open');
+      } else if (status) {
+        query = query.eq('status', status);
+      }
+
+      query = query.order('created_at', { ascending: false });
+    }
 
     const { data, error } = await query;
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
