@@ -126,6 +126,7 @@ DO $$ BEGIN
   ALTER TABLE express_users ADD COLUMN IF NOT EXISTS verification_code_expires TIMESTAMPTZ;
   ALTER TABLE express_users ADD COLUMN IF NOT EXISTS reset_code VARCHAR(10);
   ALTER TABLE express_users ADD COLUMN IF NOT EXISTS reset_code_expires TIMESTAMPTZ;
+  ALTER TABLE express_users ADD COLUMN IF NOT EXISTS expo_push_token TEXT;
   ALTER TABLE express_users ADD COLUMN IF NOT EXISTS reset_attempts INTEGER DEFAULT 0;
   ALTER TABLE express_users ADD COLUMN IF NOT EXISTS driver_type TEXT;
   ALTER TABLE express_users ADD COLUMN IF NOT EXISTS nric_number TEXT;

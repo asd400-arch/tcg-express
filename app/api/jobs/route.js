@@ -4,6 +4,7 @@ import { getSession, requireAuth } from '../../../lib/auth';
 import { VALID_VEHICLE_KEYS, getVehicleModeIndex, normalizeVehicleKey } from '../../../lib/fares';
 import { findMatchingZones, calculateZoneSurcharge, isInRestrictedZone } from '../../../lib/geo';
 import { sendPushToUser } from '../../../lib/web-push';
+import { sendExpoPush } from '../../../lib/expo-push';
 
 function getAreaFromAddress(addr) {
   if (!addr) return '';
@@ -22,6 +23,11 @@ export async function GET(request) {
     const statuses = searchParams.getAll('status');
     const status = searchParams.get('status');
     const role = searchParams.get('role');
+    const clientIdParam = searchParams.get('client_id');
+    const limit = parseInt(searchParams.get('limit') || '0', 10);
+
+    const ACTIVE_STATUSES = ['open', 'bidding', 'assigned', 'pickup_confirmed', 'in_transit', 'delivered'];
+    const COMPLETED_STATUSES = ['confirmed', 'completed'];
 
     let query = supabaseAdmin.from('express_jobs').select('*');
 
@@ -37,16 +43,33 @@ export async function GET(request) {
         .in('status', browseStatuses);
       query = query.order('pickup_by', { ascending: true, nullsFirst: false });
     } else {
+      const isClientUser = session.role === 'client' || clientIdParam === 'me';
+      const selectFields = isClientUser
+        ? '*, driver:assigned_driver_id(contact_name, phone, driver_rating, vehicle_type, vehicle_plate)'
+        : '*';
+
+      query = supabaseAdmin.from('express_jobs').select(selectFields);
+
       if (role === 'driver' || session.role === 'driver') {
         query = query.eq('assigned_driver_id', session.userId);
+      } else if (isClientUser) {
+        query = query.eq('client_id', session.userId);
       } else if (session.role === 'client') {
         query = query.eq('client_id', session.userId);
       }
 
-      if (status === 'open') {
-        query = supabaseAdmin.from('express_jobs').select('*').eq('status', 'open');
+      if (status === 'active') {
+        query = query.in('status', ACTIVE_STATUSES);
+      } else if (status === 'completed') {
+        query = query.in('status', COMPLETED_STATUSES);
+      } else if (status === 'open') {
+        query = query.eq('status', 'open');
       } else if (status) {
         query = query.eq('status', status);
+      }
+
+      if (limit > 0) {
+        query = query.limit(limit);
       }
 
       query = query.order('created_at', { ascending: false });
@@ -290,6 +313,37 @@ export async function POST(request) {
     }
 
     // Push notifications FIRST (time-critical — must run before anything that could timeout)
+    const pickupArea = getAreaFromAddress(jobData.pickup_address);
+    const deliveryArea = getAreaFromAddress(jobData.delivery_address);
+    const pushBody = `${data.job_number} | $${jobData.budget_min || 0}-$${jobData.budget_max || 0} | ${pickupArea} → ${deliveryArea}`;
+
+    // Expo mobile push — active drivers with expo_push_token
+    try {
+      const { data: mobileDrivers } = await supabaseAdmin
+        .from('express_users')
+        .select('id, expo_push_token')
+        .eq('role', 'driver')
+        .eq('is_active', true)
+        .not('expo_push_token', 'is', null);
+
+      const expoMessages = (mobileDrivers || [])
+        .filter((d) => d.expo_push_token)
+        .map((d) => ({
+          token: d.expo_push_token,
+          title: '🚚 New Job Available!',
+          body: pushBody,
+          data: { jobId: data.id, type: 'new_job' },
+        }));
+
+      if (expoMessages.length > 0) {
+        console.log(`[JOB-PUSH] Expo push to ${expoMessages.length} drivers`);
+        await sendExpoPush(expoMessages);
+      }
+    } catch (expoPushError) {
+      console.error('[JOB-PUSH] Expo error:', expoPushError?.message);
+    }
+
+    // Web push (PWA subscriptions)
     try {
       const { data: subs } = await supabaseAdmin
         .from('express_push_subscriptions')
@@ -297,11 +351,7 @@ export async function POST(request) {
 
       if (subs && subs.length > 0) {
         const uniqueUserIds = [...new Set(subs.map(s => s.user_id))];
-        const pickupArea = getAreaFromAddress(jobData.pickup_address);
-        const deliveryArea = getAreaFromAddress(jobData.delivery_address);
-        const pushBody = `${data.job_number} | $${jobData.budget_min || 0}-$${jobData.budget_max || 0} | ${pickupArea} → ${deliveryArea}`;
-
-        console.log(`[JOB-PUSH] Sending to ${uniqueUserIds.length} subscribed users: "${pushBody}"`);
+        console.log(`[JOB-PUSH] Web push to ${uniqueUserIds.length} subscribed users`);
 
         const results = await Promise.allSettled(
           uniqueUserIds.map(userId =>
@@ -314,12 +364,10 @@ export async function POST(request) {
         );
         const sent = results.filter(r => r.status === 'fulfilled').length;
         const failed = results.filter(r => r.status === 'rejected').length;
-        console.log(`[JOB-PUSH] Push results: ${sent} sent, ${failed} failed`);
-      } else {
-        console.warn('[JOB-PUSH] No push subscriptions found — no push sent');
+        console.log(`[JOB-PUSH] Web push results: ${sent} sent, ${failed} failed`);
       }
     } catch (pushError) {
-      console.error('[JOB-PUSH] Error:', pushError?.message);
+      console.error('[JOB-PUSH] Web push error:', pushError?.message);
     }
 
     // In-app notifications for all drivers

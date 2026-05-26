@@ -3,7 +3,7 @@ import { supabaseAdmin } from '../../../../lib/supabase-server';
 import { getSession } from '../../../../lib/auth';
 
 const ALLOWED_FIELDS = {
-  client: ['contact_name', 'phone', 'company_name', 'notification_preferences'],
+  client: ['contact_name', 'phone', 'company_name', 'billing_address', 'notification_preferences'],
   driver: ['contact_name', 'phone', 'vehicle_type', 'vehicle_plate', 'license_number', 'driver_type', 'nric_number', 'business_reg_number', 'nric_front_url', 'nric_back_url', 'license_photo_url', 'business_reg_cert_url', 'vehicle_insurance_url', 'notification_preferences', 'is_ev_vehicle', 'preferred_nav_app', 'auto_navigate', 'nearby_job_alerts'],
   admin: ['contact_name', 'phone', 'notification_preferences'],
 };
@@ -89,5 +89,9 @@ export async function POST(request) {
 }
 
 export async function PUT(request) {
+  return handleProfileUpdate(request);
+}
+
+export async function PATCH(request) {
   return handleProfileUpdate(request);
 }

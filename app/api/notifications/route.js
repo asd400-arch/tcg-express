@@ -1,8 +1,56 @@
 import { NextResponse } from 'next/server';
 import { createNotification } from '../../../lib/notifications';
 import { getSession } from '../../../lib/auth';
+import { supabaseAdmin } from '../../../lib/supabase-server';
 import { rateLimiters, applyRateLimit } from '../../../lib/rate-limiters';
 import { requireString, cleanString } from '../../../lib/validate';
+
+export async function GET(request) {
+  try {
+    const session = getSession(request);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const unreadOnly = searchParams.get('unread') === 'true';
+
+    let query = supabaseAdmin
+      .from('express_notifications')
+      .select('*')
+      .eq('user_id', session.userId)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (unreadOnly) {
+      query = query.eq('is_read', false);
+    }
+
+    const { count: unreadCount, error: countError } = await supabaseAdmin
+      .from('express_notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', session.userId)
+      .eq('is_read', false);
+
+    if (countError) {
+      return NextResponse.json({ error: countError.message }, { status: 500 });
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    const items = data || [];
+    return NextResponse.json({
+      data: items,
+      unread_count: unreadCount ?? items.filter((n) => !n.is_read).length,
+    });
+  } catch (err) {
+    console.error('GET /api/notifications error:', err);
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+  }
+}
 
 export async function POST(request) {
   try {
