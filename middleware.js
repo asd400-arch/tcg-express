@@ -53,12 +53,19 @@ const ALLOWED_ORIGINS = [
   'https://tcg-express.vercel.app',
   'https://app.techchainglobal.com',
   'https://express.techchainglobal.com',
+  'http://localhost:8081',
+  'exp://localhost:8081',
+  'exp://192.168.0.0/8081',
 ].filter(Boolean);
+
+const EXPO_GO_ORIGIN_REGEX = /^exp:\/\/(localhost|(\d{1,3}\.){3}\d{1,3})(:\d+)?/i;
 
 function isAllowedOrigin(url) {
   if (!url) return false;
   // Exact match or startsWith for configured origins
   if (ALLOWED_ORIGINS.some(ao => url.startsWith(ao))) return true;
+  // Allow Expo Go scheme for local development
+  if (EXPO_GO_ORIGIN_REGEX.test(url)) return true;
   // Allow any *.vercel.app preview/deployment URL
   if (/^https:\/\/[a-z0-9-]+\.vercel\.app/i.test(url)) return true;
   // Allow localhost / 127.0.0.1 (any port) in development
