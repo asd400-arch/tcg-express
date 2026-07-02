@@ -101,19 +101,21 @@ export async function POST(request, { params }) {
       .single();
 
     try {
-      await notify({
-        userId: bid.driver_id,
+      await notify(bid.driver_id, {
         type: 'job',
+        category: 'bid_activity',
         title: `Job ${job.job_number} assigned to you!`,
         message: 'Check My Jobs for pickup details.',
         referenceId: job.id,
+        url: '/driver/my-jobs',
       });
-      await notify({
-        userId: session.userId,
+      await notify(session.userId, {
         type: 'job',
+        category: 'job_updates',
         title: `Driver assigned for ${job.job_number}`,
         message: `${driver?.contact_name || 'A driver'} has been assigned ($${parseFloat(bid.amount).toFixed(2)}).`,
         referenceId: job.id,
+        url: `/client/jobs/${job.id}`,
       });
     } catch {}
 
