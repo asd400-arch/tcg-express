@@ -70,6 +70,16 @@ export async function POST(request, { params }) {
     // Normalize status alias
     const normalizedStatus = STATUS_ALIASES[status] || status;
 
+    // Validate required proof photos
+    if (normalizedStatus === 'pickup_confirmed') {
+      if (!photoUrl) return NextResponse.json({ error: 'Pickup photo is required' }, { status: 400 });
+    }
+    if (status === 'delivered') {
+      if (!signatureUrl || !photoUrl) {
+        return NextResponse.json({ error: 'Signature and delivery photo are required' }, { status: 400 });
+      }
+    }
+
     const updates = { status: normalizedStatus };
     // Save photo to the correct field based on transition
     if (photoUrl) {
