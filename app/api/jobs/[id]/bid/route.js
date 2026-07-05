@@ -65,9 +65,10 @@ export async function POST(request, { params }) {
 
       const fit = checkVehicleFit(driver?.vehicle_type, job.vehicle_required);
       if (!fit.ok) {
-        return NextResponse.json({
-          error: `Your vehicle is too small for this job. Required: ${fit.required}`,
-        }, { status: 400 });
+        const msg = fit.reason === 'exclusive'
+          ? `This job is for small vehicles only. Required: ${fit.required}`
+          : `Your vehicle (${fit.driverVehicle}) is too small. Required: ${fit.required}`;
+        return NextResponse.json({ error: msg }, { status: 403 });
       }
     }
 
