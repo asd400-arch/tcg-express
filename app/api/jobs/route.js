@@ -302,6 +302,7 @@ export async function POST(request) {
       save_mode_window: body.save_mode_window != null ? parseInt(body.save_mode_window) : null,
       save_mode_deadline: body.save_mode_deadline || null,
       schedule_id: body.schedule_id || null,
+      item_photos: Array.isArray(body.item_photos) ? body.item_photos : [],
     };
 
     // Apply validated voucher discount
