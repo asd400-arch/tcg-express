@@ -54,8 +54,14 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Missing file' }, { status: 400 });
     }
 
-    // Detect and validate content type
-    const contentType = file.type || 'application/octet-stream';
+    // Detect and validate content type — fallback to extension if type missing
+    const EXT_MIME = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif', pdf: 'application/pdf' };
+    let contentType = file.type;
+    if (!contentType || contentType === 'application/octet-stream') {
+      const pathExt = (uploadPath || file.name || '').split('.').pop()?.toLowerCase();
+      contentType = EXT_MIME[pathExt] || 'application/octet-stream';
+    }
+    console.log(`[upload] path=${uploadPath} file.type="${file.type}" resolved contentType="${contentType}"`);
 
     // Validate file type (images for most uploads, PDFs for rfq/kyc)
     const isDocPath = uploadPath && (uploadPath.startsWith('rfq/') || uploadPath.startsWith('kyc/'));
