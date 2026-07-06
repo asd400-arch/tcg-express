@@ -403,8 +403,8 @@ export async function POST(request) {
           data: { jobId: data.id, type: 'new_job' },
         }));
 
+      console.log(`[JOB-PUSH] active drivers w/ expo_push_token: ${expoMessages.length} (total active drivers: ${mobileDrivers?.length ?? 0})`);
       if (expoMessages.length > 0) {
-        console.log(`[JOB-PUSH] Expo push to ${expoMessages.length} drivers`);
         await sendExpoPush(expoMessages);
       }
     } catch (expoPushError) {

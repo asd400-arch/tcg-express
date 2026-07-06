@@ -113,7 +113,9 @@ export async function POST(request, { params }) {
           message: `New bid $${parseFloat(amount).toFixed(2)} from ${driverName} on job ${job.job_number || ''}`,
           url: `/client/jobs/${job_id}`,
         });
-      } catch {}
+      } catch (notifyErr) {
+        console.error('[notify-dispatch] bid (rebid) failed:', notifyErr?.message);
+      }
 
       return NextResponse.json({ data, message: 'Bid placed successfully!' });
     }
@@ -149,7 +151,9 @@ export async function POST(request, { params }) {
         message: `New bid $${parseFloat(amount).toFixed(2)} from ${driverName} on job ${job.job_number || ''}`,
         url: `/client/jobs/${job_id}`,
       });
-    } catch {}
+    } catch (notifyErr) {
+      console.error('[notify-dispatch] bid (new) failed:', notifyErr?.message);
+    }
 
     return NextResponse.json({ data, message: 'Bid placed successfully!' });
   } catch (err) {

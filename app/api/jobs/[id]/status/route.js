@@ -142,7 +142,9 @@ export async function POST(request, { params }) {
           url: `/client/jobs/${id}`,
         });
       }
-    } catch {}
+    } catch (notifyErr) {
+      console.error('[notify-dispatch] status update failed:', notifyErr?.message);
+    }
 
     // Auto-release escrow payment when job is confirmed/completed (wallet-only settlement)
     let releaseResult = null;

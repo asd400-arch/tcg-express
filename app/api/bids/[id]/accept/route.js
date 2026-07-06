@@ -133,7 +133,9 @@ export async function POST(request, { params }) {
           url: `/client/jobs/${bid.job_id}`,
         }),
       ]);
-    } catch {}
+    } catch (notifyErr) {
+      console.error('[notify-dispatch] bid accept failed:', notifyErr?.message);
+    }
 
     return NextResponse.json({
       success: true,
