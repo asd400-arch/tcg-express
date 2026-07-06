@@ -6,11 +6,13 @@ import {
   getSizeTierFromVolume,
   getHigherSizeTier,
   autoSelectVehicle,
+  SAVE_MODE_WINDOWS,
+  BASIC_EQUIPMENT,
 } from '../../../../lib/fares';
 
 const VEHICLE_ALIASES = {
   van: 'van_1_7m',
-  lorry: 'lorry_10ft',
+  lorry: 'lorry_14ft',
 };
 
 function resolveVehicle(vehicle) {
@@ -31,8 +33,25 @@ export async function POST(request) {
     const length = parseFloat(body.length) || 0;
     const width = parseFloat(body.width) || 0;
     const height = parseFloat(body.height) || 0;
-    const urgency = body.urgency === 'express' ? 'express' : 'standard';
+    const urgency = ['express', 'urgent'].includes(body.urgency) ? body.urgency : 'standard';
     const isEvSelected = !!body.is_ev_selected || !!body.isEvSelected;
+
+    // Save mode discount
+    const saveModeWindowHours = parseInt(body.save_mode_window) || 0;
+    let saveModeDiscount = 0;
+    if (saveModeWindowHours > 0) {
+      const win = SAVE_MODE_WINDOWS.find(w => w.hours === saveModeWindowHours);
+      saveModeDiscount = win?.discount || 0;
+    }
+
+    // Basic equipment (filter to known keys)
+    const validEquipKeys = new Set(BASIC_EQUIPMENT.map(e => e.key));
+    const rawEquipment = Array.isArray(body.basic_equipment) ? body.basic_equipment : [];
+    const basicEquipmentKeys = rawEquipment.filter(k => validEquipKeys.has(k));
+
+    // Extra manpower addon (count above 1 base)
+    const manpowerCount = parseInt(body.manpower_count) || 1;
+    const addons = manpowerCount > 1 ? { extra_manpower: manpowerCount - 1 } : {};
 
     let vehicleMode = resolveVehicle(body.vehicle || body.vehicle_required);
     if (!vehicleMode && (weight > 0 || (length && width && height))) {
@@ -48,6 +67,9 @@ export async function POST(request) {
       vehicleMode: vehicleMode || undefined,
       urgency,
       isEvSelected,
+      saveModeDiscount,
+      basicEquipment: basicEquipmentKeys,
+      addons,
     });
 
     if (!fare) {
@@ -61,7 +83,9 @@ export async function POST(request) {
         base_fare: fare.baseFare,
         urgency_multiplier: fare.multiplier,
         subtotal: fare.baseWithUrgency,
+        addon_total: fare.addonTotal,
         ev_discount: fare.evDiscount,
+        save_mode_discount: fare.saveModeDiscount,
         total: fare.total,
         budget_min: fare.budgetMin,
         budget_max: fare.budgetMax,

@@ -1,10 +1,27 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../lib/supabase-server';
 import { getSession, requireAuth } from '../../../lib/auth';
-import { VALID_VEHICLE_KEYS, getVehicleModeIndex, normalizeVehicleKey } from '../../../lib/fares';
+import {
+  VALID_VEHICLE_KEYS,
+  getVehicleModeIndex,
+  normalizeVehicleKey,
+  calculateFare,
+  getSizeTierFromWeight,
+  getSizeTierFromVolume,
+  getHigherSizeTier,
+  SAVE_MODE_WINDOWS,
+  BASIC_EQUIPMENT,
+} from '../../../lib/fares';
 import { findMatchingZones, calculateZoneSurcharge, isInRestrictedZone } from '../../../lib/geo';
 import { sendPushToUser } from '../../../lib/web-push';
 import { sendExpoPush } from '../../../lib/expo-push';
+
+function parseDimensions(dimStr) {
+  if (!dimStr) return { l: 0, w: 0, h: 0 };
+  const nums = String(dimStr).match(/[\d.]+/g);
+  if (!nums || nums.length < 3) return { l: 0, w: 0, h: 0 };
+  return { l: parseFloat(nums[0]), w: parseFloat(nums[1]), h: parseFloat(nums[2]) };
+}
 
 function getAreaFromAddress(addr) {
   if (!addr) return '';
@@ -151,8 +168,59 @@ export async function POST(request) {
       // If validation fails silently, job still creates without discount
     }
 
+    // Server-side fare validation — recalculate and compare with client estimate
+    let correctedBudgetMin = null;
+    let correctedBudgetMax = null;
+    try {
+      const fareWeight = parseFloat(body.item_weight) || 0;
+      const dims = parseDimensions(body.item_dimensions);
+      const fareVehicle = normalizeVehicleKey(body.vehicle_required);
+      const fareUrgency = ['express', 'urgent'].includes(body.urgency) ? body.urgency : 'standard';
+      const fareIsEv = !!body.is_ev_selected;
+      const saveModeWindowHours = parseInt(body.save_mode_window) || 0;
+      let saveModeDiscount = 0;
+      if (saveModeWindowHours > 0) {
+        const win = SAVE_MODE_WINDOWS.find(w => w.hours === saveModeWindowHours);
+        saveModeDiscount = win?.discount || 0;
+      }
+      const validEquipKeys = new Set(BASIC_EQUIPMENT.map(e => e.key));
+      const basicEquipmentKeys = (body.equipment_needed || []).filter(k => validEquipKeys.has(k));
+      const fareManpower = parseInt(body.manpower_count) || 1;
+      const fareAddons = fareManpower > 1 ? { extra_manpower: fareManpower - 1 } : {};
+
+      const sizeFromWeight = getSizeTierFromWeight(fareWeight);
+      const sizeFromVolume = getSizeTierFromVolume(dims.l, dims.w, dims.h);
+      const sizeTier = getHigherSizeTier(sizeFromWeight, sizeFromVolume) || 'small';
+
+      const serverFare = calculateFare({
+        sizeTier,
+        vehicleMode: fareVehicle || undefined,
+        urgency: fareUrgency,
+        isEvSelected: fareIsEv,
+        saveModeDiscount,
+        basicEquipment: basicEquipmentKeys,
+        addons: fareAddons,
+      });
+
+      if (serverFare) {
+        const clientEstimated = parseFloat(body.estimated_fare) || 0;
+        if (clientEstimated > 0) {
+          const diff = Math.abs(serverFare.total - clientEstimated);
+          if (diff > 0.50) {
+            console.warn(
+              `[FARE-MISMATCH] user=${session.userId} client=$${clientEstimated.toFixed(2)} server=$${serverFare.total.toFixed(2)} diff=$${diff.toFixed(2)}`
+            );
+            correctedBudgetMin = Math.max(0, parseFloat((serverFare.total - couponDiscount).toFixed(2)));
+            correctedBudgetMax = Math.round(serverFare.total * 1.5);
+          }
+        }
+      }
+    } catch (fareErr) {
+      console.error('[FARE-VALIDATE] Error:', fareErr?.message);
+    }
+
     // Check wallet balance before allowing job creation
-    const minBudget = parseFloat(body.budget_min) || parseFloat(body.budget) || parseFloat(body.estimated_fare) || 0;
+    const minBudget = correctedBudgetMin ?? (parseFloat(body.budget_min) || parseFloat(body.budget) || parseFloat(body.estimated_fare) || 0);
     if (minBudget > 0) {
       const { data: wallet } = await supabaseAdmin
         .from('wallets')
@@ -220,8 +288,8 @@ export async function POST(request) {
       special_requirements: specialReqs || null,
       equipment_needed: body.equipment_needed || [],
       urgency: body.urgency || 'standard',
-      budget_min: body.budget != null ? parseFloat(body.budget) : (body.budget_min != null ? parseFloat(body.budget_min) : null),
-      budget_max: body.budget != null ? parseFloat(body.budget) : (body.budget_max != null ? parseFloat(body.budget_max) : null),
+      budget_min: correctedBudgetMin ?? (body.budget != null ? parseFloat(body.budget) : (body.budget_min != null ? parseFloat(body.budget_min) : null)),
+      budget_max: correctedBudgetMax ?? (body.budget != null ? parseFloat(body.budget) : (body.budget_max != null ? parseFloat(body.budget_max) : null)),
       pickup_by: body.pickup_date || body.pickup_by || null,
       deliver_by: body.deliver_by || null,
       manpower_count: body.manpower_count || 1,
@@ -343,15 +411,23 @@ export async function POST(request) {
       console.error('[JOB-PUSH] Expo error:', expoPushError?.message);
     }
 
-    // Web push (PWA subscriptions)
+    // Web push (PWA subscriptions) — drivers only
     try {
+      const { data: driverUsers } = await supabaseAdmin
+        .from('express_users')
+        .select('id')
+        .eq('role', 'driver')
+        .eq('is_active', true);
+
+      const driverIdSet = new Set((driverUsers || []).map(u => u.id));
+
       const { data: subs } = await supabaseAdmin
         .from('express_push_subscriptions')
         .select('user_id');
 
       if (subs && subs.length > 0) {
-        const uniqueUserIds = [...new Set(subs.map(s => s.user_id))];
-        console.log(`[JOB-PUSH] Web push to ${uniqueUserIds.length} subscribed users`);
+        const uniqueUserIds = [...new Set(subs.map(s => s.user_id))].filter(id => driverIdSet.has(id));
+        console.log(`[JOB-PUSH] Web push to ${uniqueUserIds.length} subscribed drivers`);
 
         const results = await Promise.allSettled(
           uniqueUserIds.map(userId =>
