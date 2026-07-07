@@ -432,3 +432,65 @@ export async function PUT(request, { params }) {
     walletAdjustment,
   });
 }
+
+// ─── PATCH /api/jobs/[id] ─────────────────────────────────────────────────────
+// Driver-only: update pickup_photo and/or delivery_photo on their assigned job.
+// Called by the mobile app after uploading a photo to storage.
+const DRIVER_PATCH_FIELDS = ['pickup_photo', 'delivery_photo'];
+
+export async function PATCH(request, { params }) {
+  try {
+    const session = getSession(request);
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (session.role !== 'driver') {
+      return NextResponse.json({ error: 'Only drivers can use this endpoint' }, { status: 403 });
+    }
+
+    const { id } = await params;
+    let body;
+    try { body = await request.json(); } catch {
+      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+    }
+
+    // Verify job exists and this driver is assigned
+    const { data: job, error: jobErr } = await supabaseAdmin
+      .from('express_jobs')
+      .select('id, assigned_driver_id, status')
+      .eq('id', id)
+      .single();
+
+    if (jobErr || !job) return NextResponse.json({ error: 'Job not found' }, { status: 404 });
+    if (job.assigned_driver_id !== session.userId) {
+      return NextResponse.json({ error: 'Not your job' }, { status: 403 });
+    }
+
+    // Only allow photo fields
+    const updates = {};
+    for (const field of DRIVER_PATCH_FIELDS) {
+      if (field in body && typeof body[field] === 'string') {
+        updates[field] = body[field];
+      }
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: 'No valid fields provided' }, { status: 400 });
+    }
+
+    const { data, error: updateErr } = await supabaseAdmin
+      .from('express_jobs')
+      .update(updates)
+      .eq('id', id)
+      .select('id, pickup_photo, delivery_photo')
+      .single();
+
+    if (updateErr) {
+      console.error('PATCH /api/jobs/[id] error:', updateErr);
+      return NextResponse.json({ error: 'Failed to update job' }, { status: 500 });
+    }
+
+    return NextResponse.json({ data });
+  } catch (err) {
+    console.error('PATCH /api/jobs/[id] unexpected error:', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}

@@ -19,7 +19,47 @@ import type {
   PromoCode,
   PaymentMethodType,
   WithdrawalMethod,
+  FareBreakdown,
 } from '@/types/wallet';
+
+// ============================================================
+// 0. attachFareBreakdown — enrich payment transactions with fare data
+// ============================================================
+
+async function attachFareBreakdown(transactions: WalletTransaction[]): Promise<void> {
+  const paymentTxIds = transactions
+    .filter(tx => tx.type === 'payment')
+    .map(tx => tx.id);
+  if (paymentTxIds.length === 0) return;
+
+  const { data: payments } = await supabaseAdmin
+    .from('payments')
+    .select('customer_wallet_tx_id, base_fare, distance_surcharge, urgency_surcharge, helper_fee, special_handling_fee, save_mode_discount, ev_discount, promo_discount, total_amount')
+    .in('customer_wallet_tx_id', paymentTxIds);
+
+  if (!payments?.length) return;
+
+  const paymentMap = new Map<string, FareBreakdown>(
+    payments.map(p => [p.customer_wallet_tx_id as string, {
+      base_fare:            Number(p.base_fare),
+      distance_surcharge:   Number(p.distance_surcharge),
+      urgency_surcharge:    Number(p.urgency_surcharge),
+      helper_fee:           Number(p.helper_fee),
+      special_handling_fee: Number(p.special_handling_fee),
+      save_mode_discount:   Number(p.save_mode_discount),
+      ev_discount:          Number(p.ev_discount),
+      promo_discount:       Number(p.promo_discount),
+      total_amount:         Number(p.total_amount),
+    }])
+  );
+
+  for (const tx of transactions) {
+    if (tx.type === 'payment') {
+      const breakdown = paymentMap.get(tx.id);
+      if (breakdown) tx.fare_breakdown = breakdown;
+    }
+  }
+}
 
 // --- Top-up Bonus Tiers (non-withdrawable credits) ---
 const TOPUP_BONUSES: Record<number, number> = {
@@ -117,9 +157,12 @@ export async function getWalletOverview(userId: string): Promise<WalletOverview>
     }
   }
 
+  const recentTransactions = (txResult.data || []) as WalletTransaction[];
+  await attachFareBreakdown(recentTransactions);
+
   return {
     wallet,
-    recent_transactions: (txResult.data || []) as WalletTransaction[],
+    recent_transactions: recentTransactions,
     pending_withdrawals: (withdrawalResult.data || []) as WalletWithdrawal[],
     monthly_earned: Math.round(monthly_earned * 100) / 100,
     monthly_spent: Math.round(monthly_spent * 100) / 100,
@@ -154,10 +197,10 @@ export async function getTransactionHistory(
 
   if (error) throw new Error(`Failed to fetch transactions: ${error.message}`);
 
-  return {
-    transactions: (data || []) as WalletTransaction[],
-    total: count ?? 0,
-  };
+  const transactions = (data || []) as WalletTransaction[];
+  await attachFareBreakdown(transactions);
+
+  return { transactions, total: count ?? 0 };
 }
 
 // ============================================================

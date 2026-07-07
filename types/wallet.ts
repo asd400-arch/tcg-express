@@ -77,6 +77,18 @@ export interface Wallet {
   updated_at: string;
 }
 
+export interface FareBreakdown {
+  base_fare: number;
+  distance_surcharge: number;
+  urgency_surcharge: number;
+  helper_fee: number;
+  special_handling_fee: number;
+  save_mode_discount: number;
+  ev_discount: number;
+  promo_discount: number;
+  total_amount: number;
+}
+
 export interface WalletTransaction {
   id: string;
   wallet_id: string;
@@ -95,6 +107,7 @@ export interface WalletTransaction {
   status: TransactionStatus;
   created_at: string;
   completed_at: string | null;
+  fare_breakdown?: FareBreakdown;
 }
 
 export interface WalletTopup {

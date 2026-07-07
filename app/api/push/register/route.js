@@ -15,7 +15,7 @@ export async function POST(request) {
     }
 
     if (type === 'expo') {
-      // Upsert Expo push token
+      // Upsert Expo push token into express_push_subscriptions (used by notify() → sendPushToUser())
       const { data: existing } = await supabaseAdmin
         .from('express_push_subscriptions')
         .select('id')
@@ -39,6 +39,12 @@ export async function POST(request) {
             endpoint: `expo:${token}`,
           }]);
       }
+
+      // Also write to express_users.expo_push_token (used by job-creation direct push)
+      await supabaseAdmin
+        .from('express_users')
+        .update({ expo_push_token: token, updated_at: new Date().toISOString() })
+        .eq('id', session.userId);
 
       return NextResponse.json({ success: true });
     }
