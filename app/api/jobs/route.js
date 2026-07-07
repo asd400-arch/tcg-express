@@ -171,6 +171,7 @@ export async function POST(request) {
     // Server-side fare validation — recalculate and compare with client estimate
     let correctedBudgetMin = null;
     let correctedBudgetMax = null;
+    let savedFare = null; // captured for fare_breakdown persistence
     try {
       const fareWeight = parseFloat(body.item_weight) || 0;
       const dims = parseDimensions(body.item_dimensions);
@@ -192,7 +193,7 @@ export async function POST(request) {
       const sizeFromVolume = getSizeTierFromVolume(dims.l, dims.w, dims.h);
       const sizeTier = getHigherSizeTier(sizeFromWeight, sizeFromVolume) || 'small';
 
-      const serverFare = calculateFare({
+      const serverFare = savedFare = calculateFare({
         sizeTier,
         vehicleMode: fareVehicle || undefined,
         urgency: fareUrgency,
@@ -356,6 +357,21 @@ export async function POST(request) {
       if (!legacyKeys.includes(jobData.vehicle_required)) {
         return NextResponse.json({ error: 'Invalid vehicle type' }, { status: 400 });
       }
+    }
+
+    // Persist fare breakdown so bid-acceptance can populate payments table
+    if (savedFare) {
+      const _r2 = v => Math.round((Number(v) || 0) * 100) / 100;
+      jobData.fare_breakdown = {
+        base_fare:          _r2(savedFare.baseFare),
+        urgency_surcharge:  _r2((savedFare.baseWithUrgency || 0) - (savedFare.baseFare || 0)),
+        distance_surcharge: _r2((jobData.zone_surcharge || 0) + (savedFare.distSurcharge || 0)),
+        addon_total:        _r2(savedFare.addonTotal),
+        save_mode_discount: _r2(savedFare.saveModeDiscount),
+        ev_discount:        _r2(savedFare.evDiscount),
+        promo_discount:     _r2(couponDiscount),
+        total:              _r2(savedFare.total),
+      };
     }
 
     const { data, error } = await supabaseAdmin

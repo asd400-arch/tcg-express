@@ -15,7 +15,7 @@ export async function POST(request, { params }) {
     // Fetch the bid
     const { data: bid, error: bidErr } = await supabaseAdmin
       .from('express_bids')
-      .select('id, job_id, driver_id, amount, status')
+      .select('id, job_id, driver_id, amount, status, equipment_charges')
       .eq('id', id)
       .single();
 
@@ -31,7 +31,7 @@ export async function POST(request, { params }) {
     // Verify job belongs to this client
     const { data: job, error: jobErr } = await supabaseAdmin
       .from('express_jobs')
-      .select('id, client_id, job_number, status')
+      .select('id, client_id, job_number, status, fare_breakdown, coupon_discount')
       .eq('id', bid.job_id)
       .single();
 
@@ -106,6 +106,48 @@ export async function POST(request, { params }) {
     // Handle idempotent re-request
     if (result?.already_processed) {
       return NextResponse.json({ success: true, data: { job_id: bid.job_id, amount: bid.amount, note: 'Already processed' } });
+    }
+
+    // Create payments record with fare breakdown (non-fatal — response already succeeded)
+    try {
+      const { data: customerTx } = await supabaseAdmin
+        .from('wallet_transactions')
+        .select('id')
+        .eq('user_id', session.userId)
+        .eq('reference_type', 'job')
+        .eq('reference_id', job.id)
+        .eq('type', 'payment')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      const bd = job.fare_breakdown || {};
+      const _r2 = v => Math.round((Number(v) || 0) * 100) / 100;
+
+      await supabaseAdmin.from('payments').insert({
+        job_id:               job.id,
+        customer_id:          session.userId,
+        driver_id:            bid.driver_id,
+        total_amount:         bid.amount,
+        platform_commission:  result.commission,
+        driver_earning:       result.payout,
+        commission_rate:      rate,
+        base_fare:            _r2(bd.base_fare),
+        urgency_surcharge:    _r2(bd.urgency_surcharge),
+        distance_surcharge:   _r2(bd.distance_surcharge),
+        helper_fee:           _r2(bd.addon_total),
+        special_handling_fee: 0,
+        save_mode_discount:   _r2(bd.save_mode_discount),
+        ev_discount:          _r2(bd.ev_discount),
+        promo_discount:       _r2(job.coupon_discount || bd.promo_discount),
+        payment_method:       'wallet',
+        payment_status:       'paid',
+        customer_wallet_tx_id: customerTx?.id || null,
+        paid_at:              new Date().toISOString(),
+        breakdown_meta:       (bid.equipment_charges?.length > 0) ? { equipment_charges: bid.equipment_charges } : null,
+      });
+    } catch (pmtErr) {
+      console.error('[bid/accept] payments insert failed (non-fatal):', pmtErr?.message);
     }
 
     // Notifications (non-critical)

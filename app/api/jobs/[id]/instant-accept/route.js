@@ -31,7 +31,7 @@ export async function POST(request, { params }) {
     // Fetch job to get budget and client_id
     const { data: job, error: jobErr } = await supabaseAdmin
       .from('express_jobs')
-      .select('id, client_id, status, job_number, budget_max, budget_min, vehicle_required')
+      .select('id, client_id, status, job_number, budget_max, budget_min, vehicle_required, fare_breakdown, coupon_discount')
       .eq('id', jobId)
       .single();
 
@@ -172,6 +172,47 @@ export async function POST(request, { params }) {
     // Handle idempotent re-request
     if (result?.already_processed) {
       return NextResponse.json({ success: true, payout: '0.00', note: 'Already processed' });
+    }
+
+    // Create payments record with fare breakdown (non-fatal)
+    try {
+      const { data: clientTx } = await supabaseAdmin
+        .from('wallet_transactions')
+        .select('id')
+        .eq('user_id', job.client_id)
+        .eq('reference_type', 'job')
+        .eq('reference_id', jobId)
+        .eq('type', 'payment')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      const bd = job.fare_breakdown || {};
+      const _r2 = v => Math.round((Number(v) || 0) * 100) / 100;
+
+      await supabaseAdmin.from('payments').insert({
+        job_id:               jobId,
+        customer_id:          job.client_id,
+        driver_id:            session.userId,
+        total_amount:         bidAmount,
+        platform_commission:  result.commission,
+        driver_earning:       result.payout,
+        commission_rate:      rate,
+        base_fare:            _r2(bd.base_fare),
+        urgency_surcharge:    _r2(bd.urgency_surcharge),
+        distance_surcharge:   _r2(bd.distance_surcharge),
+        helper_fee:           _r2(bd.addon_total),
+        special_handling_fee: 0,
+        save_mode_discount:   _r2(bd.save_mode_discount),
+        ev_discount:          _r2(bd.ev_discount),
+        promo_discount:       _r2(job.coupon_discount || bd.promo_discount),
+        payment_method:       'wallet',
+        payment_status:       'paid',
+        customer_wallet_tx_id: clientTx?.id || null,
+        paid_at:              new Date().toISOString(),
+      });
+    } catch (pmtErr) {
+      console.error('[instant-accept] payments insert failed (non-fatal):', pmtErr?.message);
     }
 
     // Notify client (non-critical)
