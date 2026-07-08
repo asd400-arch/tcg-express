@@ -32,7 +32,7 @@ export async function POST(request, { params }) {
 
     const { data: job, error: jobErr } = await supabaseAdmin
       .from('express_jobs')
-      .select('id, client_id, job_number, status')
+      .select('id, client_id, job_number, status, fare_breakdown, coupon_discount')
       .eq('id', jobId)
       .single();
 
@@ -92,6 +92,60 @@ export async function POST(request, { params }) {
         }, { status: 400 });
       }
       return NextResponse.json({ error: msg || 'Failed to accept bid' }, { status: 400 });
+    }
+
+    // payments INSERT — mirrors bids/[id]/accept pattern
+    // wallet_tx: RPC writes type='payment', reference_type='job', reference_id=job_id, user_id=payer_id
+    try {
+      const { data: customerTx, error: txLookupErr } = await supabaseAdmin
+        .from('wallet_transactions')
+        .select('id')
+        .eq('user_id', session.userId)
+        .eq('reference_type', 'job')
+        .eq('reference_id', job.id)
+        .eq('type', 'payment')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (txLookupErr) {
+        console.error('[PAYMENTS][assign] wallet_tx lookup error:', txLookupErr.message, { job_id: job.id });
+      }
+      console.log('[PAYMENTS][assign] customer_wallet_tx_id:', customerTx?.id ?? null, { job_id: job.id });
+
+      const bd = job.fare_breakdown || {};
+      const _r2 = v => Math.round((Number(v) || 0) * 100) / 100;
+
+      const { error: pmtErr } = await supabaseAdmin.from('payments').insert({
+        job_id:               job.id,
+        customer_id:          session.userId,
+        driver_id:            bid.driver_id,
+        total_amount:         bid.amount,
+        platform_commission:  result.commission,
+        driver_earning:       result.payout,
+        commission_rate:      rate,
+        base_fare:            _r2(bd.base_fare),
+        urgency_surcharge:    _r2(bd.urgency_surcharge),
+        distance_surcharge:   _r2(bd.distance_surcharge),
+        helper_fee:           _r2(bd.addon_total),
+        special_handling_fee: 0,
+        save_mode_discount:   _r2(bd.save_mode_discount),
+        ev_discount:          _r2(bd.ev_discount),
+        promo_discount:       _r2(job.coupon_discount || bd.promo_discount),
+        payment_method:       'wallet',
+        payment_status:       'paid',
+        customer_wallet_tx_id: customerTx?.id ?? null,
+        paid_at:              new Date().toISOString(),
+        breakdown_meta:       null,
+      });
+
+      if (pmtErr) {
+        console.error('[PAYMENTS][assign] INSERT failed:', pmtErr.message, { job_id: job.id, bid_amount: bid.amount });
+      } else {
+        console.log('[PAYMENTS][assign] INSERT ok', { job_id: job.id });
+      }
+    } catch (pmtErr) {
+      console.error('[PAYMENTS][assign] unexpected error:', pmtErr?.message, { job_id: job.id });
     }
 
     const { data: driver } = await supabaseAdmin
