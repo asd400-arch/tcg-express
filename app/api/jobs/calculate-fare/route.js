@@ -8,6 +8,7 @@ import {
   autoSelectVehicle,
   SAVE_MODE_WINDOWS,
   BASIC_EQUIPMENT,
+  SPECIAL_EQUIPMENT,
 } from '../../../../lib/fares';
 
 const VEHICLE_ALIASES = {
@@ -49,6 +50,11 @@ export async function POST(request) {
     const rawEquipment = Array.isArray(body.basic_equipment) ? body.basic_equipment : [];
     const basicEquipmentKeys = rawEquipment.filter(k => validEquipKeys.has(k));
 
+    // Special equipment (filter to known priced keys)
+    const validSpecialKeys = new Set(SPECIAL_EQUIPMENT.filter(e => e.price > 0).map(e => e.key));
+    const rawSpecialEquipment = Array.isArray(body.special_equipment) ? body.special_equipment : [];
+    const specialEquipmentKeys = rawSpecialEquipment.filter(k => validSpecialKeys.has(k));
+
     // Extra manpower addon (count above 1 base)
     const manpowerCount = parseInt(body.manpower_count) || 1;
     const addons = manpowerCount > 1 ? { extra_manpower: manpowerCount - 1 } : {};
@@ -69,6 +75,7 @@ export async function POST(request) {
       isEvSelected,
       saveModeDiscount,
       basicEquipment: basicEquipmentKeys,
+      specialEquipment: specialEquipmentKeys,
       addons,
     });
 
