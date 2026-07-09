@@ -15,6 +15,13 @@ export async function POST(request) {
     }
 
     if (type === 'expo') {
+      // Remove stale rows for this token registered to other users (device re-login)
+      await supabaseAdmin
+        .from('express_push_subscriptions')
+        .delete()
+        .eq('expo_token', token)
+        .neq('user_id', session.userId);
+
       // Upsert Expo push token into express_push_subscriptions (used by notify() → sendPushToUser())
       const { data: existing } = await supabaseAdmin
         .from('express_push_subscriptions')
