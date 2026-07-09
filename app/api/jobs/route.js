@@ -11,6 +11,7 @@ import {
   getHigherSizeTier,
   SAVE_MODE_WINDOWS,
   BASIC_EQUIPMENT,
+  SPECIAL_EQUIPMENT,
 } from '../../../lib/fares';
 import { findMatchingZones, calculateZoneSurcharge, isInRestrictedZone } from '../../../lib/geo';
 import { sendPushToUser } from '../../../lib/web-push';
@@ -186,6 +187,8 @@ export async function POST(request) {
       }
       const validEquipKeys = new Set(BASIC_EQUIPMENT.map(e => e.key));
       const basicEquipmentKeys = (body.equipment_needed || []).filter(k => validEquipKeys.has(k));
+      const validSpecialKeys = new Set(SPECIAL_EQUIPMENT.filter(e => e.price > 0).map(e => e.key));
+      const specialEquipmentKeys = (body.equipment_needed || []).filter(k => validSpecialKeys.has(k));
       const fareManpower = parseInt(body.manpower_count) || 1;
       const fareAddons = fareManpower > 1 ? { extra_manpower: fareManpower - 1 } : {};
 
@@ -200,6 +203,7 @@ export async function POST(request) {
         isEvSelected: fareIsEv,
         saveModeDiscount,
         basicEquipment: basicEquipmentKeys,
+        specialEquipment: specialEquipmentKeys,
         addons: fareAddons,
       });
 
@@ -215,6 +219,11 @@ export async function POST(request) {
             correctedBudgetMax = Math.round(serverFare.total * 1.5);
           }
         }
+      } else {
+        console.error('[FARE-VALIDATE] calculateFare returned null', {
+          sizeTier, vehicleMode: fareVehicle || null,
+          urgency: fareUrgency, user_id: session.userId,
+        });
       }
     } catch (fareErr) {
       console.error('[FARE-VALIDATE] Error:', fareErr?.message);
@@ -360,8 +369,8 @@ export async function POST(request) {
     }
 
     // Persist fare breakdown so bid-acceptance can populate payments table
+    const _r2 = v => Math.round((Number(v) || 0) * 100) / 100;
     if (savedFare) {
-      const _r2 = v => Math.round((Number(v) || 0) * 100) / 100;
       jobData.fare_breakdown = {
         base_fare:          _r2(savedFare.baseFare),
         urgency_surcharge:  _r2((savedFare.baseWithUrgency || 0) - (savedFare.baseFare || 0)),
@@ -371,7 +380,23 @@ export async function POST(request) {
         ev_discount:        _r2(savedFare.evDiscount),
         promo_discount:     _r2(couponDiscount),
         total:              _r2(savedFare.total),
+        source:             'server',
       };
+    } else {
+      const clientTotal = parseFloat(body.estimated_fare) || parseFloat(body.budget_min) || 0;
+      if (clientTotal > 0) {
+        jobData.fare_breakdown = {
+          base_fare:          0,
+          urgency_surcharge:  0,
+          distance_surcharge: 0,
+          addon_total:        0,
+          save_mode_discount: 0,
+          ev_discount:        0,
+          promo_discount:     _r2(couponDiscount),
+          total:              _r2(Math.max(0, clientTotal - couponDiscount)),
+          source:             'client_estimate',
+        };
+      }
     }
 
     const { data, error } = await supabaseAdmin
