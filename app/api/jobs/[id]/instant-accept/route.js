@@ -32,7 +32,7 @@ export async function POST(request, { params }) {
     // Fetch job to get budget and client_id
     const { data: job, error: jobErr } = await supabaseAdmin
       .from('express_jobs')
-      .select('id, client_id, status, job_number, budget_max, budget_min, vehicle_required, fare_breakdown, coupon_discount')
+      .select('id, client_id, status, job_number, budget_max, budget_min, vehicle_required, fare_breakdown, coupon_discount, equipment_needed')
       .eq('id', jobId)
       .single();
 
@@ -51,6 +51,18 @@ export async function POST(request, { params }) {
     if (!['open', 'bidding'].includes(job.status)) {
       console.warn(`[instant-accept] Job ${job.job_number} status is ${job.status} — not accepting bids`);
       return NextResponse.json({ error: `Job is no longer accepting bids (status: ${job.status})` }, { status: 400 });
+    }
+
+    // Block instant-accept for jobs requiring driver-quoted dismantling/assembly
+    const QUOTED_KEYS = ['dismantlement', 'installation'];
+    const requiresQuote = Array.isArray(job.equipment_needed) &&
+      job.equipment_needed.some(k => QUOTED_KEYS.includes(k));
+    if (requiresQuote) {
+      console.warn(`[instant-accept] Job ${job.job_number} requires quoted bid (dismantling/assembly)`);
+      return NextResponse.json(
+        { error: 'This job requires a quoted bid for dismantling/assembly services' },
+        { status: 400 }
+      );
     }
 
     // Vehicle size validation: driver's vehicle must be big enough
