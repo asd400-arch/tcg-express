@@ -3,6 +3,7 @@ import { supabaseAdmin } from '../../../../../lib/supabase-server';
 import { getSession } from '../../../../../lib/auth';
 import { notify } from '../../../../../lib/notify';
 import { checkVehicleFit } from '../../../../../lib/fares';
+import { buildPaymentsBreakdown } from '../../../../../lib/bid-breakdown';
 
 // POST: Driver instantly accepts job at customer's max budget
 // Uses atomic process_bid_acceptance RPC — all-or-nothing
@@ -187,8 +188,8 @@ export async function POST(request, { params }) {
         .limit(1)
         .single();
 
-      const bd = job.fare_breakdown || {};
-      const _r2 = v => Math.round((Number(v) || 0) * 100) / 100;
+      // instant-accept: no driver breakdown (bid auto-created at budget price)
+      const breakdown = buildPaymentsBreakdown(null, job.fare_breakdown, job.coupon_discount);
 
       await supabaseAdmin.from('payments').insert({
         job_id:               jobId,
@@ -198,14 +199,7 @@ export async function POST(request, { params }) {
         platform_commission:  result.commission,
         driver_earning:       result.payout,
         commission_rate:      rate,
-        base_fare:            _r2(bd.base_fare),
-        urgency_surcharge:    _r2(bd.urgency_surcharge),
-        distance_surcharge:   _r2(bd.distance_surcharge),
-        helper_fee:           _r2(bd.addon_total),
-        special_handling_fee: 0,
-        save_mode_discount:   _r2(bd.save_mode_discount),
-        ev_discount:          _r2(bd.ev_discount),
-        promo_discount:       _r2(job.coupon_discount || bd.promo_discount),
+        ...breakdown,
         payment_method:       'wallet',
         payment_status:       'paid',
         customer_wallet_tx_id: clientTx?.id || null,

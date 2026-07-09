@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../../../lib/supabase-server';
 import { getSession } from '../../../../../lib/auth';
 import { notify } from '../../../../../lib/notify';
+import { buildPaymentsBreakdown } from '../../../../../lib/bid-breakdown';
 
 // POST: Client accepts a driver's bid — uses atomic process_bid_acceptance RPC
 export async function POST(request, { params }) {
@@ -121,8 +122,11 @@ export async function POST(request, { params }) {
         .limit(1)
         .single();
 
-      const bd = job.fare_breakdown || {};
-      const _r2 = v => Math.round((Number(v) || 0) * 100) / 100;
+      const breakdown = buildPaymentsBreakdown(
+        bid.equipment_charges,
+        job.fare_breakdown,
+        job.coupon_discount,
+      );
 
       await supabaseAdmin.from('payments').insert({
         job_id:               job.id,
@@ -132,19 +136,11 @@ export async function POST(request, { params }) {
         platform_commission:  result.commission,
         driver_earning:       result.payout,
         commission_rate:      rate,
-        base_fare:            _r2(bd.base_fare),
-        urgency_surcharge:    _r2(bd.urgency_surcharge),
-        distance_surcharge:   _r2(bd.distance_surcharge),
-        helper_fee:           _r2(bd.addon_total),
-        special_handling_fee: 0,
-        save_mode_discount:   _r2(bd.save_mode_discount),
-        ev_discount:          _r2(bd.ev_discount),
-        promo_discount:       _r2(job.coupon_discount || bd.promo_discount),
+        ...breakdown,
         payment_method:       'wallet',
         payment_status:       'paid',
         customer_wallet_tx_id: customerTx?.id || null,
         paid_at:              new Date().toISOString(),
-        breakdown_meta:       (bid.equipment_charges?.length > 0) ? { equipment_charges: bid.equipment_charges } : null,
       });
     } catch (pmtErr) {
       console.error('[bid/accept] payments insert failed (non-fatal):', pmtErr?.message);

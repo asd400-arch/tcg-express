@@ -6,6 +6,52 @@ import { rateLimiters, applyRateLimit } from '../../../../../lib/rate-limiters';
 import { requirePositiveNumber, cleanString } from '../../../../../lib/validate';
 import { checkVehicleFit } from '../../../../../lib/fares';
 
+const DISMANTLE_KEYS = new Set(['dismantlement', 'installation']);
+
+/**
+ * Validates and normalizes P6 new-structure equipment_charges.
+ * Returns { error } on failure or { normalized } on success.
+ * Legacy arrays and null are passed through unchanged.
+ */
+function validateAndNormalizeEC(ec, claimedAmount) {
+  if (ec == null || Array.isArray(ec)) return { normalized: ec };
+  if (typeof ec !== 'object') return { error: 'Invalid equipment_charges format' };
+
+  const base        = parseFloat(ec.base)        || 0;
+  const dismantling = parseFloat(ec.dismantling)  || 0;
+  const assembly    = parseFloat(ec.assembly)     || 0;
+
+  if (base < 0 || dismantling < 0 || assembly < 0) {
+    return { error: 'equipment_charges values cannot be negative' };
+  }
+
+  let equipTotal = 0;
+  const normalizedEquipment = [];
+  for (const eq of (ec.equipment || [])) {
+    // offered_price missing → fall back to base_price
+    const offered = parseFloat(eq.offered_price ?? eq.base_price ?? 0);
+    if (offered < 0) return { error: 'Equipment offered_price cannot be negative' };
+    equipTotal += offered;
+    normalizedEquipment.push({
+      key:           String(eq.key || '').slice(0, 50),
+      base_price:    parseFloat(eq.base_price) || 0,
+      offered_price: offered,
+    });
+  }
+
+  const breakdownTotal = base + dismantling + assembly + equipTotal;
+  const diff = Math.abs(breakdownTotal - parseFloat(claimedAmount));
+  if (diff > 0.10) {
+    return {
+      error: `Bid amount ($${parseFloat(claimedAmount).toFixed(2)}) does not match breakdown total ($${breakdownTotal.toFixed(2)})`,
+    };
+  }
+
+  return {
+    normalized: { base, dismantling, assembly, equipment: normalizedEquipment },
+  };
+}
+
 export async function POST(request, { params }) {
   try {
     const session = getSession(request);
@@ -38,7 +84,7 @@ export async function POST(request, { params }) {
 
     const { data: job } = await supabaseAdmin
       .from('express_jobs')
-      .select('id, client_id, status, job_number, vehicle_required, budget_min, budget_max')
+      .select('id, client_id, status, job_number, vehicle_required, budget_min, budget_max, equipment_needed')
       .eq('id', job_id)
       .single();
 
@@ -49,10 +95,15 @@ export async function POST(request, { params }) {
 
     const min = parseFloat(job.budget_min) || 0;
     const max = parseFloat(job.budget_max) || 0;
+
     if (min > 0 && amount < min) {
       return NextResponse.json({ error: `Bid must be at least $${min.toFixed(2)}` }, { status: 400 });
     }
-    if (max > 0 && amount > max) {
+
+    // Skip upper bound check for jobs with dismantlement/assembly (driver-quoted pricing)
+    const hasDismantleEquip = Array.isArray(job.equipment_needed) &&
+      job.equipment_needed.some(k => DISMANTLE_KEYS.has(k));
+    if (!hasDismantleEquip && max > 0 && amount > max) {
       return NextResponse.json({ error: `Bid must not exceed $${max.toFixed(2)}` }, { status: 400 });
     }
 
@@ -71,6 +122,13 @@ export async function POST(request, { params }) {
         return NextResponse.json({ error: msg }, { status: 403 });
       }
     }
+
+    // Validate and normalize equipment_charges (P6 new structure)
+    const ecResult = validateAndNormalizeEC(body.equipment_charges, amount);
+    if (ecResult.error) {
+      return NextResponse.json({ error: ecResult.error }, { status: 400 });
+    }
+    const equipment_charges = ecResult.normalized ?? null;
 
     const { data: existing } = await supabaseAdmin
       .from('express_bids')
@@ -92,6 +150,7 @@ export async function POST(request, { params }) {
         .update({
           amount: parseFloat(amount),
           message: message || null,
+          equipment_charges: equipment_charges || [],
           status: 'pending',
           created_at: new Date().toISOString(),
         })
@@ -127,6 +186,7 @@ export async function POST(request, { params }) {
         driver_id: session.userId,
         amount: parseFloat(amount),
         message: message || null,
+        equipment_charges: equipment_charges || [],
         status: 'pending',
       }])
       .select()
