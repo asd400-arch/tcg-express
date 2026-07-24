@@ -58,7 +58,7 @@ export async function POST(request) {
     // Send notifications for driver status changes
     if (safeUpdates.driver_status) {
       if (safeUpdates.driver_status === 'approved') {
-        notify(userId, {
+        await notify(userId, {
           type: 'account', category: 'account_alerts',
           title: 'Account approved!',
           message: 'Your driver account has been approved. You can now accept jobs.',
@@ -66,7 +66,7 @@ export async function POST(request) {
           url: '/driver/jobs',
         }).catch(() => {});
       } else if (safeUpdates.driver_status === 'rejected') {
-        notify(userId, {
+        await notify(userId, {
           type: 'account', category: 'account_alerts',
           title: 'Application update',
           message: 'Your driver application has been declined.',
