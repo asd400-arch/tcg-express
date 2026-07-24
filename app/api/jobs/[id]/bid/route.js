@@ -171,6 +171,7 @@ export async function POST(request, { params }) {
           title: 'New bid received',
           message: `New bid $${parseFloat(amount).toFixed(2)} from ${driverName} on job ${job.job_number || ''}`,
           url: `/client/jobs/${job_id}`,
+          data: { job_id, role: 'client' },
         });
       } catch (notifyErr) {
         console.error('[notify-dispatch] bid (rebid) failed:', notifyErr?.message);

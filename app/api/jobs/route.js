@@ -442,7 +442,7 @@ export async function POST(request) {
           token: d.expo_push_token,
           title: '🚚 New Job Available!',
           body: pushBody,
-          data: { jobId: data.id, type: 'new_job' },
+          data: { jobId: data.id, job_id: data.id, type: 'new_job', role: 'driver' },
         }));
 
       console.log(`[JOB-PUSH] active drivers w/ expo_push_token: ${expoMessages.length} (total active drivers: ${mobileDrivers?.length ?? 0})`);
@@ -477,6 +477,7 @@ export async function POST(request) {
               title: '🚚 New Job Available',
               body: pushBody,
               url: '/driver/jobs',
+              data: { job_id: data.id, type: 'new_job', role: 'driver' },
             })
           )
         );

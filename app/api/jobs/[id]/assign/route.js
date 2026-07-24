@@ -158,6 +158,7 @@ export async function POST(request, { params }) {
         message: 'Check My Jobs for pickup details.',
         referenceId: job.id,
         url: '/driver/my-jobs',
+        data: { job_id: job.id, role: 'driver' },
       });
       await notify(session.userId, {
         type: 'job',
@@ -166,6 +167,7 @@ export async function POST(request, { params }) {
         message: `${driver?.contact_name || 'A driver'} has been assigned ($${parseFloat(bid.amount).toFixed(2)}).`,
         referenceId: job.id,
         url: `/client/jobs/${job.id}`,
+        data: { job_id: job.id, role: 'client' },
       });
     } catch {}
 

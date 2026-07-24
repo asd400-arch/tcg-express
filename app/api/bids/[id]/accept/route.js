@@ -162,6 +162,7 @@ export async function POST(request, { params }) {
           message: `Your bid of $${parseFloat(bid.amount).toFixed(2)} has been accepted.${client ? `\nClient: ${client.contact_name}${client.phone ? ` (${client.phone})` : ''}` : ''}`,
           referenceId: bid.job_id,
           url: '/driver/my-jobs',
+          data: { job_id: bid.job_id, role: 'driver' },
         }),
         notify(session.userId, {
           type: 'job', category: 'job_updates',
@@ -169,6 +170,7 @@ export async function POST(request, { params }) {
           message: `${driver?.contact_name || 'A driver'} has been assigned ($${parseFloat(bid.amount).toFixed(2)}).`,
           referenceId: bid.job_id,
           url: `/client/jobs/${bid.job_id}`,
+          data: { job_id: bid.job_id, role: 'client' },
         }),
       ]);
     } catch (notifyErr) {

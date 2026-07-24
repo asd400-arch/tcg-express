@@ -171,6 +171,7 @@ export async function POST(request, { params }) {
             title: 'Insufficient wallet balance',
             message: `A driver tried to accept ${job.job_number} but your wallet balance is too low. Please top up your wallet.`,
             referenceId: jobId,
+            data: { job_id: jobId, role: 'client' },
           });
         } catch {}
         return NextResponse.json({ error: 'This job cannot be accepted right now. Please try another job.' }, { status: 400 });
@@ -234,6 +235,7 @@ export async function POST(request, { params }) {
         title: `Driver accepted ${job.job_number} instantly!`,
         message: `${driver?.contact_name || 'A driver'} accepted your job at $${bidAmount.toFixed(2)}. Payment processed from wallet.`,
         referenceId: jobId,
+        data: { job_id: jobId, role: 'client' },
       });
     } catch {}
 

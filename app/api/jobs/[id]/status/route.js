@@ -120,6 +120,7 @@ export async function POST(request, { params }) {
     // Notify the other party with detailed status messages
     try {
       const notifyTarget = session.role === 'driver' ? job.client_id : job.assigned_driver_id;
+      const targetRole = session.role === 'driver' ? 'client' : 'driver';
       if (notifyTarget) {
         const statusMessages = {
           pickup_confirmed: { title: `Pickup confirmed - ${job.job_number}`, message: 'Driver has picked up your item and is heading to the delivery address.' },
@@ -140,6 +141,7 @@ export async function POST(request, { params }) {
           message: msg.message,
           referenceId: id,
           url: `/client/jobs/${id}`,
+          data: { job_id: id, role: targetRole },
         });
       }
     } catch (notifyErr) {
