@@ -2,6 +2,7 @@ export const runtime = 'nodejs';
 
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../../lib/supabase-server';
+import { calculateFare, getSizeTierFromWeight } from '../../../../lib/fares';
 
 // ── API Key 검증 ──
 async function validateApiKey(request) {
@@ -175,6 +176,52 @@ export async function POST(request) {
       return NextResponse.json({ error: 'API key not linked to a client account. Contact TCG admin.' }, { status: 400 });
     }
 
+    // Fare breakdown 계산 (bid-acceptance payments 테이블 populate 용)
+    const _r2 = v => Math.round((Number(v) || 0) * 100) / 100;
+    let fareBreakdown = null;
+    try {
+      const fareWeight  = parseFloat(normalized.item_weight) || 0;
+      const fareUrgency = ['express', 'urgent'].includes(normalized.urgency) ? normalized.urgency : 'standard';
+      const fareVehicle = normalized.vehicle_required || 'any';
+      const sizeTier    = getSizeTierFromWeight(fareWeight) || 'small';
+      const serverFare  = calculateFare({
+        sizeTier,
+        vehicleMode:       fareVehicle !== 'any' ? fareVehicle : undefined,
+        urgency:           fareUrgency,
+        isEvSelected:      false,
+        saveModeDiscount:  0,
+        basicEquipment:    [],
+        specialEquipment:  [],
+        addons:            {},
+      });
+      if (serverFare) {
+        fareBreakdown = {
+          base_fare:          _r2(serverFare.baseFare),
+          urgency_surcharge:  _r2((serverFare.baseWithUrgency || 0) - (serverFare.baseFare || 0)),
+          distance_surcharge: 0,
+          addon_total:        _r2(serverFare.addonTotal),
+          save_mode_discount: 0,
+          ev_discount:        0,
+          promo_discount:     0,
+          total:              _r2(serverFare.total),
+          source:             'server',
+        };
+      }
+    } catch (fareErr) {
+      console.error('[EXTERNAL-ORDERS] fare calc:', fareErr?.message);
+    }
+    if (!fareBreakdown) {
+      const budget = parseFloat(normalized.budget_min) || 0;
+      if (budget > 0) {
+        fareBreakdown = {
+          base_fare: 0, urgency_surcharge: 0, distance_surcharge: 0,
+          addon_total: 0, save_mode_discount: 0, ev_discount: 0, promo_discount: 0,
+          total: _r2(budget),
+          source: 'external_estimate',
+        };
+      }
+    }
+
     // Job 생성
     const jobData = {
       client_id: clientId,
@@ -188,6 +235,7 @@ export async function POST(request) {
       external_api_key_id: keyRecord.id,
       vehicle_required: normalized.vehicle_required || 'any',
       urgency: normalized.urgency || 'standard',
+      ...(fareBreakdown ? { fare_breakdown: fareBreakdown } : {}),
     };
 
     const { data: job, error } = await supabaseAdmin

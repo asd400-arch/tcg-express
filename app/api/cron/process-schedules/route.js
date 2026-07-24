@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../../../../lib/supabase-server';
 import { NextResponse } from 'next/server';
 import { notify } from '../../../../lib/notify';
+import { calculateFare, getSizeTierFromWeight, getSizeTierFromVolume, getHigherSizeTier } from '../../../../lib/fares';
 
 export async function GET(req) {
   try {
@@ -40,6 +41,56 @@ export async function GET(req) {
           continue;
         }
 
+        // Fare breakdown 계산
+        const _r2 = v => Math.round((Number(v) || 0) * 100) / 100;
+        let fareBreakdown = null;
+        try {
+          const fareWeight  = parseFloat(schedule.item_weight) || 0;
+          const dims        = schedule.item_dimensions || {};
+          const fareUrgency = ['express', 'urgent'].includes(schedule.urgency) ? schedule.urgency : 'standard';
+          const fareVehicle = schedule.vehicle_required || 'any';
+          const fareManpower = parseInt(schedule.manpower_count) || 1;
+          const fareAddons  = fareManpower > 1 ? { extra_manpower: fareManpower - 1 } : {};
+          const sizeTier    = getHigherSizeTier(
+            getSizeTierFromWeight(fareWeight),
+            getSizeTierFromVolume(dims.l || 0, dims.w || 0, dims.h || 0),
+          ) || 'small';
+          const serverFare  = calculateFare({
+            sizeTier,
+            vehicleMode:      fareVehicle !== 'any' ? fareVehicle : undefined,
+            urgency:          fareUrgency,
+            isEvSelected:     false,
+            saveModeDiscount: 0,
+            basicEquipment:   [],
+            specialEquipment: [],
+            addons:           fareAddons,
+          });
+          if (serverFare) {
+            fareBreakdown = {
+              base_fare:          _r2(serverFare.baseFare),
+              urgency_surcharge:  _r2((serverFare.baseWithUrgency || 0) - (serverFare.baseFare || 0)),
+              distance_surcharge: 0,
+              addon_total:        _r2(serverFare.addonTotal),
+              save_mode_discount: 0,
+              ev_discount:        0,
+              promo_discount:     0,
+              total:              _r2(serverFare.total),
+              source:             'server',
+            };
+          }
+        } catch {}
+        if (!fareBreakdown) {
+          const budget = parseFloat(schedule.budget_min) || 0;
+          if (budget > 0) {
+            fareBreakdown = {
+              base_fare: 0, urgency_surcharge: 0, distance_surcharge: 0,
+              addon_total: 0, save_mode_discount: 0, ev_discount: 0, promo_discount: 0,
+              total: _r2(budget),
+              source: 'client_estimate',
+            };
+          }
+        }
+
         // Insert a new job from the template
         const { data: job, error: jobErr } = await supabaseAdmin
           .from('express_jobs')
@@ -65,6 +116,7 @@ export async function GET(req) {
             equipment_needed: schedule.equipment_needed || [],
             manpower_count: schedule.manpower_count || 1,
             status: 'open',
+            ...(fareBreakdown ? { fare_breakdown: fareBreakdown } : {}),
           }])
           .select()
           .single();
