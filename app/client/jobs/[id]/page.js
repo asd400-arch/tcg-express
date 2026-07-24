@@ -534,19 +534,73 @@ export default function ClientJobDetail({ params }) {
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      {bid.equipment_charges && bid.equipment_charges.length > 0 ? (
-                        <div>
-                          <div style={{ fontSize: '13px', color: '#64748b' }}>Bid: ${parseFloat(bid.amount).toFixed(2)}</div>
-                          {bid.equipment_charges.map((eq, i) => (
-                            <div key={i} style={{ fontSize: '12px', color: '#64748b' }}>+ {eq.name}: ${parseFloat(eq.amount).toFixed(2)}</div>
-                          ))}
-                          <div style={{ borderTop: '1px solid #e2e8f0', marginTop: '4px', paddingTop: '4px', fontSize: '20px', fontWeight: '800', color: '#059669' }}>
-                            ${(parseFloat(bid.amount) + bid.equipment_charges.reduce((s, e) => s + parseFloat(e.amount), 0)).toFixed(2)}
-                          </div>
-                        </div>
-                      ) : (
-                        <div style={{ fontSize: '20px', fontWeight: '800', color: '#059669' }}>${bid.amount}</div>
-                      )}
+                      {(() => {
+                        const ec = bid.equipment_charges;
+                        const isP6 = ec != null && !Array.isArray(ec) && typeof ec === 'object';
+                        const isLegacy = Array.isArray(ec) && ec.length > 0;
+                        const EQUIP_LABELS = {
+                          trolley: 'Trolley', wrapping: 'Wrapping', dismantlement: 'Dismantling',
+                          installation: 'Installation', pallet_jack: 'Pallet Jack',
+                          lift_truck: 'Lift Truck', crane: 'Crane', other_request: 'Other',
+                        };
+                        if (isP6) {
+                          return (
+                            <div style={{ textAlign: 'left', minWidth: '200px' }}>
+                              <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Quote Breakdown</div>
+                              <div style={{ background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', padding: '10px', fontSize: '13px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                  <span style={{ color: '#64748b', marginRight: '16px' }}>Base transport</span>
+                                  <span style={{ fontWeight: '600', color: '#1e293b' }}>${parseFloat(ec.base || 0).toFixed(2)}</span>
+                                </div>
+                                {ec.dismantling > 0 && (
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                    <span style={{ color: '#64748b', marginRight: '16px' }}>Dismantling</span>
+                                    <span style={{ fontWeight: '700', color: '#b45309' }}>${parseFloat(ec.dismantling).toFixed(2)}</span>
+                                  </div>
+                                )}
+                                {ec.assembly > 0 && (
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                    <span style={{ color: '#64748b', marginRight: '16px' }}>Assembly</span>
+                                    <span style={{ fontWeight: '700', color: '#b45309' }}>${parseFloat(ec.assembly).toFixed(2)}</span>
+                                  </div>
+                                )}
+                                {(ec.equipment || []).map((eq, i) => {
+                                  const differs = Math.abs((eq.offered_price || 0) - (eq.base_price || 0)) > 0.009;
+                                  return (
+                                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                      <span style={{ color: '#64748b', marginRight: '16px' }}>
+                                        {EQUIP_LABELS[eq.key] || eq.key}
+                                        {differs && <span style={{ color: '#94a3b8', fontSize: '11px' }}> (base: ${parseFloat(eq.base_price || 0).toFixed(2)})</span>}
+                                      </span>
+                                      <span style={{ fontWeight: differs ? '700' : '600', color: differs ? '#b45309' : '#1e293b' }}>
+                                        ${parseFloat(eq.offered_price || 0).toFixed(2)}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                                <div style={{ borderTop: '1px solid #e2e8f0', marginTop: '6px', paddingTop: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                                  <span style={{ fontWeight: '700', color: '#1e293b', fontSize: '13px', marginRight: '16px' }}>Total</span>
+                                  <span style={{ fontSize: '20px', fontWeight: '800', color: '#059669' }}>${parseFloat(bid.amount).toFixed(2)}</span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        }
+                        if (isLegacy) {
+                          return (
+                            <div>
+                              <div style={{ fontSize: '13px', color: '#64748b' }}>Bid: ${parseFloat(bid.amount).toFixed(2)}</div>
+                              {ec.map((eq, i) => (
+                                <div key={i} style={{ fontSize: '12px', color: '#64748b' }}>+ {eq.name}: ${parseFloat(eq.amount).toFixed(2)}</div>
+                              ))}
+                              <div style={{ borderTop: '1px solid #e2e8f0', marginTop: '4px', paddingTop: '4px', fontSize: '20px', fontWeight: '800', color: '#059669' }}>
+                                ${(parseFloat(bid.amount) + ec.reduce((s, e) => s + parseFloat(e.amount), 0)).toFixed(2)}
+                              </div>
+                            </div>
+                          );
+                        }
+                        return <div style={{ fontSize: '20px', fontWeight: '800', color: '#059669' }}>${parseFloat(bid.amount).toFixed(2)}</div>;
+                      })()}
                       {bid.estimated_time && <div style={{ fontSize: '12px', color: '#64748b' }}>⏱ {bid.estimated_time}</div>}
                     </div>
                   </div>
