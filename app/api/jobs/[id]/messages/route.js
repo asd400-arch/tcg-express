@@ -50,9 +50,16 @@ function broadcastMessage(jobId, message) {
       Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
     },
     body: JSON.stringify({
-      messages: [{ topic: `realtime:chat:${jobId}`, event: 'new_message', payload: message }],
+      messages: [{ topic: `chat:${jobId}`, event: 'new_message', payload: message }],
     }),
-  }).catch((e) => console.error('[chat] broadcast error:', e?.message));
+  })
+    .then((res) => {
+      console.log(`[CHAT-BROADCAST] status=${res.status} job=${jobId}`);
+      if (!res.ok) {
+        res.text().then((t) => console.error(`[CHAT-BROADCAST] error body: ${t}`)).catch(() => {});
+      }
+    })
+    .catch((e) => console.error(`[CHAT-BROADCAST] fetch error: ${e?.message}`));
 }
 
 // ---------------------------------------------------------------------------
