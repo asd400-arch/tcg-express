@@ -11,7 +11,7 @@ const CHAT_ACTIVE_STATUSES = new Set([
  * URL prefix for all files in our Supabase storage buckets.
  * image_urls must start with this to prevent third-party URL injection.
  */
-const STORAGE_PREFIX = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/`;
+const STORAGE_PREFIX = `${(process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim()}/storage/v1/object/public/`;
 
 /** Recipient is considered "active in chat" if they read within this window → suppress push */
 const PUSH_SUPPRESS_MS = 30_000;
@@ -42,7 +42,7 @@ async function getJobAndVerifyAccess(jobId, userId) {
  * updates without polling. Uses the REST broadcast API (serverless-safe).
  */
 function broadcastMessage(jobId, message) {
-  fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/realtime/v1/api/broadcast`, {
+  fetch(`${(process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim()}/realtime/v1/api/broadcast`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
