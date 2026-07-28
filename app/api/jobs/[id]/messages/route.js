@@ -198,7 +198,7 @@ export async function POST(request, { params }) {
   // Realtime broadcast (fire-and-forget — push notification is the fallback)
   broadcastMessage(jobId, message);
 
-  // Push suppression: skip push if recipient read the chat within the last 30 s
+  // Determine whether recipient is actively reading this chat (suppress in-app only)
   const { data: readRow } = await supabaseAdmin
     .from('job_chat_reads')
     .select('last_read_at')
@@ -210,22 +210,29 @@ export async function POST(request, { params }) {
     readRow?.last_read_at &&
     Date.now() - new Date(readRow.last_read_at).getTime() < PUSH_SUPPRESS_MS;
 
-  if (!recipientActive) {
-    const { notify } = await import('../../../../../lib/notify.js');
-    const senderLabel = isClient ? 'Customer' : 'Driver';
-    const pushBody =
-      type === 'text' ? storedContent.slice(0, 100) : '\uD83D\uDCF7 Photo';
+  const { notify } = await import('../../../../../lib/notify.js');
+  const senderLabel = isClient ? 'Customer' : 'Driver';
+  const pushBody =
+    type === 'text'
+      ? storedContent.slice(0, 100)
+      : storedImageUrls.length > 1
+        ? `📷 ${storedImageUrls.length} Photos`
+        : '📷 Photo';
+  const recipientUrl = recipientRole === 'client'
+    ? `/client/jobs/${jobId}`
+    : '/driver/my-jobs';
 
-    notify(recipientId, {
-      type: 'chat',
-      category: 'chat',
-      title: `${senderLabel} sent a message`,
-      message: pushBody,
-      referenceId: jobId,
-      url: `/jobs/${jobId}/chat`,
-      data: { type: 'chat', jobId, role: recipientRole },
-    }).catch((e) => console.error('[chat] notify error:', e?.message));
-  }
+  notify(recipientId, {
+    type: 'chat',
+    category: 'chat',
+    title: `${senderLabel} sent a message`,
+    message: pushBody,
+    referenceId: jobId,
+    url: recipientUrl,
+    data: { type: 'chat', jobId, role: recipientRole, threadType: 'job_chat' },
+    inApp: !recipientActive,
+    push: true,
+  }).catch((e) => console.error('[chat] notify error:', e));
 
   return NextResponse.json({ data: message }, { status: 201 });
 }
