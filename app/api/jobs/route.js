@@ -15,7 +15,6 @@ import {
 } from '../../../lib/fares';
 import { findMatchingZones, calculateZoneSurcharge, isInRestrictedZone } from '../../../lib/geo';
 import { sendPushToUser } from '../../../lib/web-push';
-import { sendExpoPush } from '../../../lib/expo-push';
 
 function parseDimensions(dimStr) {
   if (!dimStr) return { l: 0, w: 0, h: 0 };
@@ -427,33 +426,7 @@ export async function POST(request) {
     const deliveryArea = getAreaFromAddress(jobData.delivery_address);
     const pushBody = `${data.job_number} | $${jobData.budget_min || 0}-$${jobData.budget_max || 0} | ${pickupArea} → ${deliveryArea}`;
 
-    // Expo mobile push — active drivers with expo_push_token
-    try {
-      const { data: mobileDrivers } = await supabaseAdmin
-        .from('express_users')
-        .select('id, expo_push_token')
-        .eq('role', 'driver')
-        .eq('is_active', true)
-        .not('expo_push_token', 'is', null);
-
-      const expoMessages = (mobileDrivers || [])
-        .filter((d) => d.expo_push_token)
-        .map((d) => ({
-          token: d.expo_push_token,
-          title: '🚚 New Job Available!',
-          body: pushBody,
-          data: { jobId: data.id, job_id: data.id, type: 'new_job', role: 'driver' },
-        }));
-
-      console.log(`[JOB-PUSH] active drivers w/ expo_push_token: ${expoMessages.length} (total active drivers: ${mobileDrivers?.length ?? 0})`);
-      if (expoMessages.length > 0) {
-        await sendExpoPush(expoMessages);
-      }
-    } catch (expoPushError) {
-      console.error('[JOB-PUSH] Expo error:', expoPushError?.message);
-    }
-
-    // Web push (PWA subscriptions) — drivers only
+    // Push notifications (Expo + Web via sendPushToUser) — drivers only
     try {
       const { data: driverUsers } = await supabaseAdmin
         .from('express_users')
@@ -474,16 +447,21 @@ export async function POST(request) {
         const results = await Promise.allSettled(
           uniqueUserIds.map(userId =>
             sendPushToUser(userId, {
-              title: '🚚 New Job Available',
+              title: '🚚 New Job Available!',
               body: pushBody,
               url: '/driver/jobs',
-              data: { job_id: data.id, type: 'new_job', role: 'driver' },
+              data: { jobId: data.id, job_id: data.id, type: 'new_job', role: 'driver' },
             })
           )
         );
         const sent = results.filter(r => r.status === 'fulfilled').length;
         const failed = results.filter(r => r.status === 'rejected').length;
-        console.log(`[JOB-PUSH] Web push results: ${sent} sent, ${failed} failed`);
+        console.log(`[JOB-PUSH] push to ${uniqueUserIds.length} drivers: ${sent} sent, ${failed} failed`);
+        results.forEach((r, i) => {
+          if (r.status === 'rejected') {
+            console.error(`[JOB-PUSH] driver ${uniqueUserIds[i]} failed:`, r.reason?.message || r.reason);
+          }
+        });
       }
     } catch (pushError) {
       console.error('[JOB-PUSH] Web push error:', pushError?.message);
