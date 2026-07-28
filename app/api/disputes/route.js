@@ -125,6 +125,7 @@ export async function POST(req) {
           category: 'job_updates',
           title: `Dispute opened on ${job.job_number}`,
           message: `${user.contact_name} opened a dispute: ${reasonLabel}`,
+          referenceId: jobId,
           url: user.role === 'client' ? '/driver/my-jobs' : `/client/jobs/${jobId}`,
         });
       }

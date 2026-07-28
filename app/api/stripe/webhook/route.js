@@ -125,6 +125,7 @@ export async function POST(request) {
           type: 'job', category: 'bid_activity',
           title: 'Bid accepted!',
           message: `Your bid of $${parseFloat(result.bid_amount).toFixed(2)} for ${job?.job_number || 'a job'} has been accepted`,
+          referenceId: jobId,
           url: '/driver/my-jobs',
         });
       } catch {}

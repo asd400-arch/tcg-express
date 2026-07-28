@@ -142,6 +142,7 @@ export async function POST(req) {
         type: 'job', category: 'job_updates',
         title: `Job ${job.job_number} cancelled`,
         message: `Cancelled by ${cancelledBy}. Escrow of $${refundAmount} has been refunded.`,
+        referenceId: jobId,
         emailTemplate: 'job_cancelled', emailData,
         url: '/driver/my-jobs',
       });
@@ -152,6 +153,7 @@ export async function POST(req) {
           type: 'job', category: 'job_updates',
           title: `Job ${job.job_number} cancelled by admin`,
           message: `Escrow of $${refundAmount} has been refunded.`,
+          referenceId: jobId,
           emailTemplate: 'job_cancelled', emailData,
           url: `/client/jobs/${jobId}`,
         });
@@ -161,6 +163,7 @@ export async function POST(req) {
           type: 'job', category: 'job_updates',
           title: `Job ${job.job_number} cancelled by admin`,
           message: `Escrow of $${refundAmount} has been refunded.`,
+          referenceId: jobId,
           emailTemplate: 'job_cancelled', emailData,
           url: '/driver/my-jobs',
         });

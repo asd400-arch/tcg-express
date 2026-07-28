@@ -58,7 +58,7 @@ export async function GET(request) {
         .from('express_jobs')
         .select('*')
         .in('status', browseStatuses);
-      query = query.order('pickup_by', { ascending: true, nullsFirst: false });
+      query = query.order('created_at', { ascending: false });
     } else {
       const isClientUser = session.role === 'client' || clientIdParam === 'me';
       const selectFields = isClientUser

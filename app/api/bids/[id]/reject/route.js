@@ -49,6 +49,7 @@ export async function POST(request, { params }) {
         category: 'bid_activity',
         title: 'Bid rejected',
         message: `Your bid of $${parseFloat(bid.amount).toFixed(2)} on job ${job.job_number || ''} was rejected. You may submit a new bid with a different price.`,
+        referenceId: bid.job_id,
         url: '/driver/jobs',
       });
     } catch {}

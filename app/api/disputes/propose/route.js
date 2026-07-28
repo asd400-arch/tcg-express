@@ -82,6 +82,7 @@ export async function POST(req) {
           type: 'dispute', category: 'job_updates',
           title: `Settlement proposed — ${job.job_number}`,
           message: `${userRole === 'client' ? 'Customer' : 'Driver'} proposed: ${resLabel}. Review and accept or counter.`,
+          referenceId: job.id,
           url: userRole === 'client' ? '/driver/my-jobs' : `/client/jobs/${job.id}`,
         });
       } catch {}

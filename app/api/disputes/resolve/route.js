@@ -114,6 +114,7 @@ export async function POST(req) {
             type: 'dispute', category: 'job_updates',
             title: `Dispute resolved — ${job.job_number}`,
             message: `Resolved in your favor. Escrow of $${refundAmount} has been refunded.`,
+            referenceId: job.id,
             url: `/client/jobs/${job.id}`,
           });
         }
@@ -122,6 +123,7 @@ export async function POST(req) {
             type: 'dispute', category: 'job_updates',
             title: `Dispute resolved — ${job.job_number}`,
             message: `Resolved in favor of the client. Escrow has been refunded.`,
+            referenceId: job.id,
             url: '/driver/my-jobs',
           });
         }
@@ -179,6 +181,7 @@ export async function POST(req) {
             type: 'dispute', category: 'job_updates',
             title: `Dispute resolved — ${job.job_number}`,
             message: `Resolved in your favor. Payment of $${payoutAmount} has been released.`,
+            referenceId: job.id,
             url: '/driver/my-jobs',
           });
         }
@@ -187,6 +190,7 @@ export async function POST(req) {
             type: 'dispute', category: 'job_updates',
             title: `Dispute resolved — ${job.job_number}`,
             message: `Resolved in favor of the driver. Payment has been released.`,
+            referenceId: job.id,
             url: `/client/jobs/${job.id}`,
           });
         }

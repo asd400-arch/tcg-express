@@ -170,6 +170,7 @@ export async function POST(request, { params }) {
           category: 'bid_activity',
           title: 'New bid received',
           message: `New bid $${parseFloat(amount).toFixed(2)} from ${driverName} on job ${job.job_number || ''}`,
+          referenceId: job_id,
           url: `/client/jobs/${job_id}`,
           data: { job_id, role: 'client' },
         });
@@ -210,6 +211,7 @@ export async function POST(request, { params }) {
         category: 'bid_activity',
         title: 'New bid received',
         message: `New bid $${parseFloat(amount).toFixed(2)} from ${driverName} on job ${job.job_number || ''}`,
+        referenceId: job_id,
         url: `/client/jobs/${job_id}`,
       });
     } catch (notifyErr) {
