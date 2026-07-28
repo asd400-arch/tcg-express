@@ -232,6 +232,7 @@ export async function POST(request, { params }) {
     data: { type: 'chat', jobId, role: recipientRole, threadType: 'job_chat' },
     inApp: !recipientActive,
     push: true,
+    channelId: 'chat',
   }).catch((e) => console.error('[chat] notify error:', e));
 
   return NextResponse.json({ data: message }, { status: 201 });
