@@ -95,6 +95,14 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: msg || 'Failed to accept bid' }, { status: 400 });
     }
 
+    // Promote inquiry thread → job_chat (non-fatal)
+    try {
+      const { promoteInquiry } = await import('../../../../../lib/promote-inquiry.js');
+      await promoteInquiry(job.id, bid.driver_id);
+    } catch (e) {
+      console.error('[assign] promoteInquiry error:', e);
+    }
+
     // payments INSERT — mirrors bids/[id]/accept pattern
     // wallet_tx: RPC writes type='payment', reference_type='job', reference_id=job_id, user_id=payer_id
     try {

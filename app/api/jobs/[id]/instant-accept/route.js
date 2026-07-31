@@ -188,6 +188,14 @@ export async function POST(request, { params }) {
       return NextResponse.json({ success: true, payout: '0.00', note: 'Already processed' });
     }
 
+    // Promote inquiry thread → job_chat (non-fatal)
+    try {
+      const { promoteInquiry } = await import('../../../../../lib/promote-inquiry.js');
+      await promoteInquiry(jobId, session.userId);
+    } catch (e) {
+      console.error('[instant-accept] promoteInquiry error:', e);
+    }
+
     // Create payments record with fare breakdown (non-fatal)
     try {
       const { data: clientTx } = await supabaseAdmin

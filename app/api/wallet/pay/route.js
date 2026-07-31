@@ -118,6 +118,14 @@ export async function POST(request) {
       return NextResponse.json({ success: true, payment: { note: 'Already processed' } });
     }
 
+    // Promote inquiry thread → job_chat (non-fatal)
+    try {
+      const { promoteInquiry } = await import('../../../../lib/promote-inquiry.js');
+      await promoteInquiry(jobId, result.driver_id);
+    } catch (e) {
+      console.error('[wallet/pay] promoteInquiry error:', e);
+    }
+
     // Increment promo code usage (non-critical)
     if (couponId) {
       try {

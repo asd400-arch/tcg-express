@@ -112,6 +112,14 @@ export async function POST(request) {
         return NextResponse.json({ received: true, note: 'already processed' });
       }
 
+      // Promote inquiry thread → job_chat (non-fatal)
+      try {
+        const { promoteInquiry } = await import('../../../../lib/promote-inquiry.js');
+        await promoteInquiry(jobId, result.driver_id);
+      } catch (e) {
+        console.error('[stripe/webhook] promoteInquiry error:', e);
+      }
+
       // Notify driver (non-critical)
       try {
         const { data: job } = await supabaseAdmin

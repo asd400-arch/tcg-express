@@ -109,6 +109,14 @@ export async function POST(request, { params }) {
       return NextResponse.json({ success: true, data: { job_id: bid.job_id, amount: bid.amount, note: 'Already processed' } });
     }
 
+    // Promote inquiry thread → job_chat (non-fatal)
+    try {
+      const { promoteInquiry } = await import('../../../../../lib/promote-inquiry.js');
+      await promoteInquiry(bid.job_id, bid.driver_id);
+    } catch (e) {
+      console.error('[bid/accept] promoteInquiry error:', e);
+    }
+
     // Create payments record with fare breakdown (non-fatal — response already succeeded)
     try {
       const { data: customerTx } = await supabaseAdmin
