@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '../../../../../lib/auth';
 import { supabaseAdmin } from '../../../../../lib/supabase-server';
+import { chatTopic, legacyTopic } from '../../../../../lib/chat-topic';
 
 /** Job statuses where chat is writable (assigned → confirmed) */
 const CHAT_ACTIVE_STATUSES = new Set([
@@ -40,8 +41,20 @@ async function getJobAndVerifyAccess(jobId, userId) {
 /**
  * Fire-and-forget Supabase Realtime broadcast so the recipient's chat screen
  * updates without polling. Uses the REST broadcast API (serverless-safe).
+ *
+ * Dual-publish: sends to both the new HMAC topic and the legacy topic in a
+ * single HTTP call so old clients still receive messages during migration.
  */
 function broadcastMessage(jobId, message) {
+  const newTopic = chatTopic(jobId);
+  const oldTopic = legacyTopic(jobId);
+
+  // Build messages array — always include the new topic; add legacy only if different
+  const msgs = [{ topic: newTopic, event: 'new_message', payload: message }];
+  if (newTopic !== oldTopic) {
+    msgs.push({ topic: oldTopic, event: 'new_message', payload: message });
+  }
+
   fetch(`${(process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim()}/realtime/v1/api/broadcast`, {
     method: 'POST',
     headers: {
@@ -49,12 +62,10 @@ function broadcastMessage(jobId, message) {
       apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
       Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
     },
-    body: JSON.stringify({
-      messages: [{ topic: `chat:${jobId}`, event: 'new_message', payload: message }],
-    }),
+    body: JSON.stringify({ messages: msgs }),
   })
     .then((res) => {
-      console.log(`[CHAT-BROADCAST] status=${res.status} job=${jobId}`);
+      console.log(`[CHAT-BROADCAST] status=${res.status} job=${jobId} topics=${msgs.map((m) => m.topic).join(',')}`);
       if (!res.ok) {
         res.text().then((t) => console.error(`[CHAT-BROADCAST] error body: ${t}`)).catch(() => {});
       }
@@ -94,7 +105,7 @@ export async function GET(request, { params }) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   // Return in chronological order (oldest first) for the UI
-  return NextResponse.json({ data: messages.reverse(), job_status: job.status });
+  return NextResponse.json({ data: messages.reverse(), job_status: job.status, topic: chatTopic(jobId) });
 }
 
 // ---------------------------------------------------------------------------
