@@ -35,6 +35,7 @@ export async function GET(request, { params }) {
     .select('last_read_at')
     .eq('job_id', jobId)
     .eq('user_id', session.userId)
+    .is('driver_id', null)
     .maybeSingle();
 
   const lastReadAt = readRow?.last_read_at ?? null;

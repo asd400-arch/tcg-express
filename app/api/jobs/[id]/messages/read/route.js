@@ -30,8 +30,8 @@ export async function POST(request, { params }) {
   const { error } = await supabaseAdmin
     .from('job_chat_reads')
     .upsert(
-      { job_id: jobId, user_id: session.userId, last_read_at: new Date().toISOString() },
-      { onConflict: 'job_id,user_id' },
+      { job_id: jobId, user_id: session.userId, driver_id: null, last_read_at: new Date().toISOString() },
+      { onConflict: 'job_id,user_id,driver_id' },
     );
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
