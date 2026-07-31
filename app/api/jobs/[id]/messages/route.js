@@ -261,14 +261,17 @@ export async function POST(request, { params }) {
   // ── Broadcast (fire-and-forget) ─────────────────────────────────────────
   broadcastMessage(threadType, jobId, driverId, message);
 
-  // ── Push notification (job_chat only — inquiry push is D-4 scope) ──────
-  if (threadType === 'job_chat') {
+  // ── Push notification (job_chat + inquiry) ─────────────────────────────
+  {
     let recipientReadQ = supabaseAdmin
       .from('job_chat_reads')
       .select('last_read_at')
       .eq('job_id', jobId)
-      .eq('user_id', recipientId)
-      .is('driver_id', null);
+      .eq('user_id', recipientId);
+
+    recipientReadQ = threadType === 'inquiry'
+      ? recipientReadQ.eq('driver_id', driverId)
+      : recipientReadQ.is('driver_id', null);
 
     const { data: readRow } = await recipientReadQ.maybeSingle();
     const recipientActive =
@@ -276,7 +279,6 @@ export async function POST(request, { params }) {
       Date.now() - new Date(readRow.last_read_at).getTime() < PUSH_SUPPRESS_MS;
 
     const { notify } = await import('../../../../../lib/notify.js');
-    const senderLabel = isClient ? 'Customer' : 'Driver';
     const pushBody =
       type === 'text'
         ? storedContent.slice(0, 100)
@@ -287,14 +289,24 @@ export async function POST(request, { params }) {
       ? `/client/jobs/${jobId}`
       : '/driver/my-jobs';
 
+    const title = threadType === 'inquiry'
+      ? (isClient ? 'Reply to your inquiry' : 'New inquiry from driver')
+      : `${isClient ? 'Customer' : 'Driver'} sent a message`;
+
     notify(recipientId, {
       type: 'chat',
       category: 'chat',
-      title: `${senderLabel} sent a message`,
+      title,
       message: pushBody,
       referenceId: jobId,
       url: recipientUrl,
-      data: { type: 'chat', jobId, role: recipientRole, threadType: 'job_chat' },
+      data: {
+        type: 'chat',
+        jobId,
+        role: recipientRole,
+        threadType,
+        ...(threadType === 'inquiry' ? { driverId } : {}),
+      },
       inApp: !recipientActive,
       push: true,
       channelId: 'chat',
