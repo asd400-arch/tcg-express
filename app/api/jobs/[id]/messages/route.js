@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '../../../../../lib/auth';
 import { supabaseAdmin } from '../../../../../lib/supabase-server';
-import { chatTopic, inquiryChatTopic, legacyTopic } from '../../../../../lib/chat-topic';
+import { chatTopic, inquiryChatTopic } from '../../../../../lib/chat-topic';
 import { rateLimit } from '../../../../../lib/rate-limit';
 
 /** Job statuses where job_chat is writable (assigned → confirmed) */
@@ -39,18 +39,13 @@ async function fetchJob(jobId) {
 
 /**
  * Fire-and-forget Supabase Realtime broadcast (REST, serverless-safe).
- * job_chat: dual-publish (HMAC + legacy). inquiry: single topic.
+ * Single HMAC-keyed topic per thread.
  */
 function broadcastMessage(threadType, jobId, driverId, message) {
-  const msgs = [];
-  if (threadType === 'inquiry') {
-    msgs.push({ topic: inquiryChatTopic(jobId, driverId), event: 'new_message', payload: message });
-  } else {
-    const newTopic = chatTopic(jobId);
-    const oldTopic = legacyTopic(jobId);
-    msgs.push({ topic: newTopic, event: 'new_message', payload: message });
-    if (newTopic !== oldTopic) msgs.push({ topic: oldTopic, event: 'new_message', payload: message });
-  }
+  const topic = threadType === 'inquiry'
+    ? inquiryChatTopic(jobId, driverId)
+    : chatTopic(jobId);
+  const msgs = [{ topic, event: 'new_message', payload: message }];
 
   fetch(`${(process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim()}/realtime/v1/api/broadcast`, {
     method: 'POST',
