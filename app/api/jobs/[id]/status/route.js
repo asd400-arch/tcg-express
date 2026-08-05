@@ -417,6 +417,13 @@ async function processReferralReward(userId, triggerEvent) {
       p_description: `Referral reward — your referral completed their first ${triggerEvent === 'first_delivery' ? 'delivery' : 'order'}`,
       p_metadata: { referred_id: userId },
     });
+
+    // Make non-withdrawable for client referrers
+    const { data: referrerUser } = await supabaseAdmin.from('express_users').select('role').eq('id', reward.referrer_id).single();
+    if (referrerUser?.role === 'client') {
+      const { data: rw } = await supabaseAdmin.from('wallets').select('bonus_balance').eq('id', referrerWallet.id).single();
+      await supabaseAdmin.from('wallets').update({ bonus_balance: Number(rw?.bonus_balance || 0) + parseFloat(reward.referrer_amount) }).eq('id', referrerWallet.id);
+    }
   }
 
   // Credit referred ($10)
@@ -437,6 +444,12 @@ async function processReferralReward(userId, triggerEvent) {
       p_description: 'Referral welcome bonus — thanks for joining via referral!',
       p_metadata: { referrer_id: reward.referrer_id },
     });
+
+    // Make non-withdrawable for client referred users
+    if (triggerEvent === 'first_order') {
+      const { data: rw } = await supabaseAdmin.from('wallets').select('bonus_balance').eq('id', referredWallet.id).single();
+      await supabaseAdmin.from('wallets').update({ bonus_balance: Number(rw?.bonus_balance || 0) + parseFloat(reward.referred_amount) }).eq('id', referredWallet.id);
+    }
   }
 
   // Mark reward as completed

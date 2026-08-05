@@ -106,6 +106,50 @@ export async function POST(request: Request) {
         return NextResponse.json({ data: { success: true } });
       }
 
+      case 'grant_credit': {
+        const { userId, amount, note, withdrawable } = params;
+        if (!userId) {
+          return NextResponse.json({ error: 'userId is required' }, { status: 400 });
+        }
+        const creditAmount = parseFloat(amount);
+        if (!creditAmount || creditAmount <= 0 || creditAmount > 100) {
+          return NextResponse.json({ error: 'Amount must be between $0.01 and $100' }, { status: 400 });
+        }
+
+        // Find or create wallet
+        let { data: wallet } = await supabaseAdmin.from('wallets').select('id').eq('user_id', userId).single();
+        if (!wallet) {
+          const { data: nw } = await supabaseAdmin.from('wallets').insert([{ user_id: userId, balance: 0 }]).select().single();
+          wallet = nw;
+        }
+        if (!wallet) {
+          return NextResponse.json({ error: 'Could not find or create wallet' }, { status: 400 });
+        }
+
+        // Credit wallet
+        await supabaseAdmin.rpc('wallet_credit', {
+          p_wallet_id: wallet.id,
+          p_user_id: userId,
+          p_amount: creditAmount,
+          p_type: 'bonus',
+          p_reference_type: 'admin_grant',
+          p_reference_id: null,
+          p_payment_method: 'system',
+          p_description: note || `Admin credit by ${session.userId}`,
+          p_metadata: { granted_by: session.userId, withdrawable: withdrawable !== false },
+        });
+
+        // If non-withdrawable, increment bonus_balance
+        if (withdrawable === false) {
+          const { data: cw } = await supabaseAdmin.from('wallets').select('bonus_balance').eq('id', wallet.id).single();
+          await supabaseAdmin.from('wallets').update({
+            bonus_balance: Number(cw?.bonus_balance || 0) + creditAmount,
+          }).eq('id', wallet.id);
+        }
+
+        return NextResponse.json({ data: { success: true, userId, amount: creditAmount, withdrawable: withdrawable !== false } });
+      }
+
       default:
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
