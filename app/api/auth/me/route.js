@@ -25,6 +25,25 @@ export async function GET(request) {
 
     // Strip password_hash before returning
     const { password_hash, verification_code, verification_code_expires, reset_code, reset_code_expires, ...safeUser } = user;
+
+    // Enrich drivers with first_delivery_at for zero-commission banner
+    if (user.role === 'driver') {
+      try {
+        const { data: firstJob } = await supabaseAdmin
+          .from('express_jobs')
+          .select('completed_at')
+          .eq('assigned_driver_id', session.userId)
+          .in('status', ['completed', 'confirmed', 'delivered'])
+          .not('completed_at', 'is', null)
+          .order('completed_at', { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        safeUser.first_delivery_at = firstJob?.completed_at || null;
+      } catch {
+        safeUser.first_delivery_at = null;
+      }
+    }
+
     return NextResponse.json({ data: safeUser });
   } catch (err) {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });

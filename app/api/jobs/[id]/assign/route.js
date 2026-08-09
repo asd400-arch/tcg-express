@@ -3,6 +3,7 @@ import { supabaseAdmin } from '../../../../../lib/supabase-server';
 import { getSession } from '../../../../../lib/auth';
 import { notify } from '../../../../../lib/notify';
 import { buildPaymentsBreakdown } from '../../../../../lib/bid-breakdown';
+import { getCommissionRate } from '../../../../../lib/zero-commission';
 
 export async function POST(request, { params }) {
   try {
@@ -53,17 +54,8 @@ export async function POST(request, { params }) {
       if (settings?.value) rate = parseFloat(settings.value);
     } catch {}
 
-    try {
-      const { data: driver } = await supabaseAdmin
-        .from('express_users')
-        .select('created_at')
-        .eq('id', bid.driver_id)
-        .single();
-      if (driver?.created_at) {
-        const daysSinceCreation = (Date.now() - new Date(driver.created_at).getTime()) / 86400000;
-        if (daysSinceCreation < 30) rate = 0;
-      }
-    } catch {}
+    // Zero Commission: 0% for 30 days after driver's first completed delivery
+    rate = await getCommissionRate(supabaseAdmin, bid.driver_id, rate);
 
     const idempotencyKey = `accept_${job.id}_${bid.id}`;
     const { data: result, error: rpcErr } = await supabaseAdmin.rpc('process_bid_acceptance', {

@@ -4,6 +4,7 @@ import { getSession } from '../../../../../lib/auth';
 import { notify } from '../../../../../lib/notify';
 import { checkVehicleFit } from '../../../../../lib/fares';
 import { buildPaymentsBreakdown } from '../../../../../lib/bid-breakdown';
+import { getCommissionRate } from '../../../../../lib/zero-commission';
 
 // POST: Driver instantly accepts job at customer's max budget
 // Uses atomic process_bid_acceptance RPC — all-or-nothing
@@ -136,6 +137,9 @@ export async function POST(request, { params }) {
       const { data: settings } = await supabaseAdmin.from('express_settings').select('value').eq('key', 'commission_rate').single();
       if (settings?.value) rate = parseFloat(settings.value);
     } catch {}
+
+    // Zero Commission: 0% for 30 days after driver's first completed delivery
+    rate = await getCommissionRate(supabaseAdmin, session.userId, rate);
 
     // Idempotency key
     const idempotencyKey = `instant_${jobId}_${bid.id}`;
