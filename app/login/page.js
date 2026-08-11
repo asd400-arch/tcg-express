@@ -16,17 +16,23 @@ function LoginForm() {
     e.preventDefault();
     setError('');
     setLoading(true);
-    const result = await login(email, password);
-    if (result.error) { setError(result.error); setLoading(false); return; }
-    const user = result.data;
-    const redirect = searchParams.get('redirect');
-    if (!user.is_verified) {
-      router.push('/verify-email');
-    } else if (redirect && redirect.startsWith('/')) {
-      router.push(redirect);
-    } else if (user.role === 'admin') router.push('/admin/dashboard');
-    else if (user.role === 'driver') router.push('/driver/dashboard');
-    else router.push('/client/dashboard');
+    try {
+      const result = await login(email, password);
+      if (result.error) { setError(result.error); setLoading(false); return; }
+      const user = result.data;
+      if (!user) { setError('Login failed: no user data'); setLoading(false); return; }
+      const redirect = searchParams.get('redirect');
+      if (!user.is_verified) {
+        router.push('/verify-email');
+      } else if (redirect && redirect.startsWith('/')) {
+        router.push(redirect);
+      } else if (user.role === 'admin') router.push('/admin/dashboard');
+      else if (user.role === 'driver') router.push('/driver/dashboard');
+      else router.push('/client/dashboard');
+    } catch {
+      setError('Something went wrong. Please try again.');
+      setLoading(false);
+    }
   };
 
   const input = { width: '100%', padding: '12px 16px', borderRadius: '10px', fontSize: '14px', background: '#f8fafc', border: '1px solid #e2e8f0', color: '#1e293b', outline: 'none', fontFamily: "'Inter', sans-serif", boxSizing: 'border-box' };

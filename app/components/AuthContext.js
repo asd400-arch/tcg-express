@@ -30,8 +30,10 @@ export function AuthProvider({ children }) {
     });
     const result = await res.json();
     if (result.error) return { error: result.error };
-    setUser(result.data);
-    return { data: result.data };
+    const userData = result.user || result.data;
+    if (!userData) return { error: 'Login failed: unexpected server response' };
+    setUser(userData);
+    return { data: userData };
   };
 
   const signup = async (userData) => {
