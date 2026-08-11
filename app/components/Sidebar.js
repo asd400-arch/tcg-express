@@ -45,6 +45,7 @@ const adminLinks = [
   { label: 'Wallet', href: '/admin/wallet', icon: '👛' },
   { label: 'Analytics', href: '/admin/analytics', icon: '📈' },
   { label: 'API Keys', href: '/admin/api-keys', icon: '🔑' },
+  { label: 'Broadcast', href: '/admin/broadcast', icon: '📣' },
   { label: 'Settings', href: '/admin/settings', icon: '⚙️' },
 ];
 
