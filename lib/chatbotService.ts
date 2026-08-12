@@ -21,7 +21,7 @@ import type {
 // ============================================================
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
-const CHAT_MODEL = 'claude-sonnet-4-20250514';
+const CHAT_MODEL = 'claude-haiku-4-5-20251001';
 const CHAT_MAX_TOKENS = 1024;
 const SUMMARY_MAX_TOKENS = 256;
 const MAX_HISTORY_MESSAGES = 10;
