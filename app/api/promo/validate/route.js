@@ -39,7 +39,8 @@ export async function POST(request) {
         .from('express_jobs')
         .select('id', { count: 'exact', head: true })
         .eq('coupon_id', promo.id)
-        .eq('client_id', session.userId);
+        .eq('client_id', session.userId)
+        .not('status', 'eq', 'cancelled');
       if ((count ?? 0) >= promo.per_user_limit) {
         return NextResponse.json({ valid: false, error: 'You have already used this promo code' }, { status: 400 });
       }

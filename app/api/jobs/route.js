@@ -133,7 +133,8 @@ export async function POST(request) {
               .from('express_jobs')
               .select('id', { count: 'exact', head: true })
               .eq('coupon_id', promo.id)
-              .eq('client_id', session.userId);
+              .eq('client_id', session.userId)
+              .not('status', 'eq', 'cancelled');
             if (count >= promo.per_user_limit) perUserOk = false;
           }
 
