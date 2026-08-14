@@ -18,6 +18,10 @@ function SignupForm({ initialLocale = 'sg' }) {
     const roleParam = searchParams.get('role');
     if (roleParam === 'driver') { setRole('driver'); setStep(2); }
     else if (roleParam === 'client') { setRole('client'); setStep(3); }
+    const refParam = searchParams.get('ref');
+    if (refParam) {
+      setForm(prev => ({ ...prev, referral_code: refParam.toUpperCase().trim() }));
+    }
   }, []);
   const [driverType, setDriverType] = useState('');
   const [form, setForm] = useState({ email: '', password: '', confirm: '', first_name: '', last_name: '', phone: '', company_name: '', vehicle_type: '', vehicle_plate: '', license_number: '', nric_number: '', business_reg_number: '', is_ev_vehicle: false, referral_code: '' });

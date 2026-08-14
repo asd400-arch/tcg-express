@@ -65,13 +65,30 @@ export async function POST(request) {
 
     // Validate referral code if provided
     let validReferredBy = null;
+    let zoneCampaignCode = null;
     if (safeFields.referred_by) {
+      const inputCode = safeFields.referred_by.toUpperCase().trim();
       const { data: referrer } = await supabaseAdmin
         .from('express_users')
         .select('id, referral_code')
-        .eq('referral_code', safeFields.referred_by.toUpperCase())
+        .eq('referral_code', inputCode)
         .single();
-      if (referrer) validReferredBy = referrer.referral_code;
+      if (referrer) {
+        validReferredBy = referrer.referral_code;
+      } else {
+        // Fallback: check if it's a zone campaign code
+        try {
+          const { data: zone } = await supabaseAdmin
+            .from('zone_campaign_zones')
+            .select('promo_code')
+            .or(`promo_code.eq.${inputCode},ref_code.eq.${inputCode}`)
+            .limit(1)
+            .single();
+          if (zone) zoneCampaignCode = zone.promo_code;
+        } catch {
+          // Not a campaign code either — ignore silently
+        }
+      }
       delete safeFields.referred_by;
     }
 
@@ -102,6 +119,7 @@ export async function POST(request) {
         phone: '',
         referral_code,
         referred_by: validReferredBy,
+        zone_campaign_code: zoneCampaignCode,
         ...safeFields,
       }])
       .select()

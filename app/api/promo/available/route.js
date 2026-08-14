@@ -11,8 +11,9 @@ export async function GET(request) {
 
     const { data: promos, error } = await supabaseAdmin
       .from('promo_codes')
-      .select('id, code, description, discount_type, discount_value, max_discount, min_order_amount, valid_from, valid_until, new_customers_only, per_user_limit')
+      .select('id, code, description, discount_type, discount_value, max_discount, min_order_amount, valid_from, valid_until, new_customers_only, per_user_limit, owner_user_id')
       .eq('is_active', true)
+      .or(`owner_user_id.is.null,owner_user_id.eq.${session.userId}`)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -43,8 +44,9 @@ export async function GET(request) {
         usedCount = count ?? 0;
         if (usedCount >= promo.per_user_limit) continue;
       }
+      const { owner_user_id: _owner, ...safePromo } = promo;
       available.push({
-        ...promo,
+        ...safePromo,
         remaining_uses: promo.per_user_limit ? promo.per_user_limit - usedCount : null,
       });
     }

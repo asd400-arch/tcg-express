@@ -211,6 +211,26 @@ export async function POST(request, { params }) {
       }
     }
 
+    // Zone Campaign: issue vouchers on first delivery completion
+    if ((normalizedStatus === 'confirmed' || normalizedStatus === 'completed') && job.client_id) {
+      try {
+        const { data: v } = await supabaseAdmin.rpc('issue_zone_campaign_vouchers', {
+          p_user_id: job.client_id,
+          p_job_id: id,
+        });
+        if (v?.ok) {
+          await notify(job.client_id, {
+            type: 'wallet', category: 'account_alerts',
+            title: '🎁 Vouchers unlocked!',
+            message: `${v.count} x $${v.value} vouchers added to your account — use code ${v.code}`,
+            url: '/client/wallet',
+          });
+        }
+      } catch (e) {
+        console.error('[ZONE-CAMPAIGN] voucher issue failed:', e?.message);
+      }
+    }
+
     return NextResponse.json({ data, release: releaseResult });
   } catch (err) {
     console.error('POST /api/jobs/[id]/status error:', err);

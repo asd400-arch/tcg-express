@@ -63,6 +63,34 @@ export async function POST(request) {
       return NextResponse.json({ error: message }, { status: 403 });
     }
 
+    // Zone campaign: credit S$15 bonus on first verified login
+    if (user.zone_campaign_code && user.is_verified) {
+      try {
+        const { data: r } = await supabaseAdmin.rpc('claim_zone_campaign', {
+          p_user_id: user.id,
+          p_code: user.zone_campaign_code,
+        });
+        if (r?.ok) {
+          await supabaseAdmin.from('express_users')
+            .update({ zone_campaign_code: null }).eq('id', user.id);
+          user.zone_campaign_code = null;
+        } else if (r?.reason && !['not_verified'].includes(r.reason)) {
+          // Permanent failure — clear code to avoid retrying every login
+          if (['invalid_code', 'not_client', 'not_new_customer', 'already_claimed',
+               'campaign_ended', 'zone_ended', 'global_cap_reached', 'zone_cap_reached',
+               'no_user', 'invalid_phone'].includes(r.reason)) {
+            await supabaseAdmin.from('express_users')
+              .update({ zone_campaign_code: null }).eq('id', user.id);
+            user.zone_campaign_code = null;
+          }
+          console.error('[ZONE-CAMPAIGN] claim skipped:', r.reason, user.id);
+        }
+      } catch (e) {
+        console.error('[ZONE-CAMPAIGN] claim failed:', e?.message, user.id);
+        // Login proceeds normally — code stays for next attempt
+      }
+    }
+
     // Create session and set cookie
     const token = await createSession(user);
     const { password_hash, verification_code, verification_code_expires, reset_code, reset_code_expires, ...safeUser } = user;

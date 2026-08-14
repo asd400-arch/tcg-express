@@ -17,6 +17,7 @@ export async function POST(request) {
       .from('promo_codes')
       .select('*')
       .eq('code', String(code).toUpperCase().trim())
+      .or(`owner_user_id.is.null,owner_user_id.eq.${session.userId}`)
       .single();
 
     if (!promo || !promo.is_active) {

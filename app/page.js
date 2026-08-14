@@ -9,8 +9,11 @@ export default function Home() {
 
   useEffect(() => {
     if (!loading) {
-      if (!user) router.push('/login');
-      else if (user.role === 'admin') router.push('/admin/dashboard');
+      const ref = new URLSearchParams(window.location.search).get('ref');
+      if (!user) {
+        if (ref) router.push(`/signup?ref=${encodeURIComponent(ref)}`);
+        else router.push('/login');
+      } else if (user.role === 'admin') router.push('/admin/dashboard');
       else if (user.role === 'driver') router.push('/driver/dashboard');
       else router.push('/client/dashboard');
     }
