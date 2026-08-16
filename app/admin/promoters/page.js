@@ -274,11 +274,11 @@ export default function AdminPromotersPage() {
                             {p.is_active ? 'Yes' : 'No'}
                           </span>
                         </td>
-                        <td style={tdStyle}>{p.total_signups ?? 0}</td>
-                        <td style={tdStyle}>{p.pending_count ?? 0}</td>
-                        <td style={tdStyle}>{p.hold_count ?? 0}</td>
-                        <td style={tdStyle}>${Number(p.unpaid_amount ?? 0).toFixed(2)}</td>
-                        <td style={tdStyle}>${Number(p.paid_amount ?? 0).toFixed(2)}</td>
+                        <td style={tdStyle}>{p.signups_total ?? 0}</td>
+                        <td style={tdStyle}>{p.bonus_pending ?? 0}</td>
+                        <td style={tdStyle}>{p.bonus_hold ?? 0}</td>
+                        <td style={tdStyle}>${Number(p.amount_owed ?? 0).toFixed(2)}</td>
+                        <td style={tdStyle}>${Number(p.amount_paid ?? 0).toFixed(2)}</td>
                         <td style={{ ...tdStyle, display: 'flex', gap: '6px' }}>
                           <button style={{ ...btnSecondary, padding: '4px 10px', fontSize: '11px' }} onClick={() => openEdit(p)}>Edit</button>
                           <button style={{ ...btnSecondary, padding: '4px 10px', fontSize: '11px' }} onClick={() => copyLink(p.code)} title="Copy QR link">Link</button>
