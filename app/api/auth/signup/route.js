@@ -68,43 +68,47 @@ export async function POST(request) {
     let zoneCampaignCode = null;
     if (safeFields.referred_by) {
       const inputCode = safeFields.referred_by.toUpperCase().trim();
-      const { data: referrer } = await supabaseAdmin
-        .from('express_users')
-        .select('id, referral_code')
-        .eq('referral_code', inputCode)
-        .maybeSingle();
-      if (referrer) {
-        validReferredBy = referrer.referral_code;
-      } else {
-        // Fallback 2: check if it's a zone campaign code
-        try {
-          const { data: zone } = await supabaseAdmin
-            .from('zone_campaign_zones')
-            .select('promo_code')
-            .or(`promo_code.ilike.${inputCode},ref_code.ilike.${inputCode}`)
-            .limit(1)
-            .maybeSingle();
-          if (zone) zoneCampaignCode = zone.promo_code;
-        } catch {
-          // Not a campaign code either — try promoter
-        }
+      delete safeFields.referred_by;
 
-        // Fallback 3: check if it's a promoter code (ZONE-Pnn)
-        if (!zoneCampaignCode) {
+      // Skip DB queries if code contains ilike wildcards or PostgREST filter chars
+      if (/^[A-Z0-9-]{3,32}$/.test(inputCode)) {
+        const { data: referrer } = await supabaseAdmin
+          .from('express_users')
+          .select('id, referral_code')
+          .eq('referral_code', inputCode)
+          .maybeSingle();
+        if (referrer) {
+          validReferredBy = referrer.referral_code;
+        } else {
+          // Fallback 2: check if it's a zone campaign code
           try {
-            const { data: promoter } = await supabaseAdmin
-              .from('promoters')
-              .select('code')
-              .ilike('code', inputCode)
-              .eq('is_active', true)
+            const { data: zone } = await supabaseAdmin
+              .from('zone_campaign_zones')
+              .select('promo_code')
+              .or(`promo_code.ilike.${inputCode},ref_code.ilike.${inputCode}`)
+              .limit(1)
               .maybeSingle();
-            if (promoter) zoneCampaignCode = promoter.code;
+            if (zone) zoneCampaignCode = zone.promo_code;
           } catch {
-            // Not a promoter code either — ignore silently
+            // Not a campaign code either — try promoter
+          }
+
+          // Fallback 3: check if it's a promoter code (ZONE-Pnn)
+          if (!zoneCampaignCode) {
+            try {
+              const { data: promoter } = await supabaseAdmin
+                .from('promoters')
+                .select('code')
+                .ilike('code', inputCode)
+                .eq('is_active', true)
+                .maybeSingle();
+              if (promoter) zoneCampaignCode = promoter.code;
+            } catch {
+              // Not a promoter code either — ignore silently
+            }
           }
         }
       }
-      delete safeFields.referred_by;
     }
 
     // Hash password with bcrypt

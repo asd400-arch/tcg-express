@@ -11,6 +11,11 @@ export async function GET(request) {
 
     const normalized = code.toUpperCase().trim();
 
+    // Reject codes with ilike wildcards (% _) or PostgREST filter chars
+    if (!/^[A-Z0-9-]{3,32}$/.test(normalized)) {
+      return NextResponse.json({ valid: false });
+    }
+
     // 1) Check user referral code (TCG-XXXX)
     const { data: user } = await supabaseAdmin
       .from('express_users')
