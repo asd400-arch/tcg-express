@@ -96,7 +96,7 @@ function SignupForm({ initialLocale = 'sg' }) {
     try {
       // Phase 1: Create user with text fields
       const userData = { email: form.email, password: form.password, contact_name: `${form.first_name} ${form.last_name}`.trim(), phone: form.phone, role, locale };
-      if (form.referral_code.trim() && referralStatus?.valid) userData.referred_by = form.referral_code.trim();
+      if (form.referral_code.trim()) userData.referred_by = form.referral_code.trim();
       if (role === 'client') {
         userData.company_name = form.company_name;
       }
@@ -431,7 +431,11 @@ function SignupForm({ initialLocale = 'sg' }) {
                 placeholder="TCG-XXXX"
               />
               {referralStatus?.valid && (
-                <div style={{ fontSize: '12px', color: '#16a34a', fontWeight: '500', marginTop: '4px' }}>✅ Referred by: {referralStatus.name}</div>
+                <div style={{ fontSize: '12px', color: '#16a34a', fontWeight: '500', marginTop: '4px' }}>
+                  {referralStatus.type === 'promoter' ? `Promoter: ${referralStatus.name}`
+                    : referralStatus.type === 'campaign' ? `Campaign: ${referralStatus.name}`
+                    : `Referred by: ${referralStatus.name}`}
+                </div>
               )}
               {referralStatus && !referralStatus.valid && (
                 <div style={{ fontSize: '12px', color: '#ef4444', fontWeight: '500', marginTop: '4px' }}>Invalid referral code</div>

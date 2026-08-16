@@ -72,21 +72,36 @@ export async function POST(request) {
         .from('express_users')
         .select('id, referral_code')
         .eq('referral_code', inputCode)
-        .single();
+        .maybeSingle();
       if (referrer) {
         validReferredBy = referrer.referral_code;
       } else {
-        // Fallback: check if it's a zone campaign code
+        // Fallback 2: check if it's a zone campaign code
         try {
           const { data: zone } = await supabaseAdmin
             .from('zone_campaign_zones')
             .select('promo_code')
-            .or(`promo_code.eq.${inputCode},ref_code.eq.${inputCode}`)
+            .or(`promo_code.ilike.${inputCode},ref_code.ilike.${inputCode}`)
             .limit(1)
-            .single();
+            .maybeSingle();
           if (zone) zoneCampaignCode = zone.promo_code;
         } catch {
-          // Not a campaign code either — ignore silently
+          // Not a campaign code either — try promoter
+        }
+
+        // Fallback 3: check if it's a promoter code (ZONE-Pnn)
+        if (!zoneCampaignCode) {
+          try {
+            const { data: promoter } = await supabaseAdmin
+              .from('promoters')
+              .select('code')
+              .ilike('code', inputCode)
+              .eq('is_active', true)
+              .maybeSingle();
+            if (promoter) zoneCampaignCode = promoter.code;
+          } catch {
+            // Not a promoter code either — ignore silently
+          }
         }
       }
       delete safeFields.referred_by;
