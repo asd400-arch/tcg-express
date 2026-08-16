@@ -18,6 +18,13 @@ const AUDIENCE_COLORS = {
   all: { bg: '#f3e8ff', color: '#6b21a8' },
 };
 
+const STATUS_COLORS = {
+  completed: { bg: '#ecfdf5', color: '#065f46' },
+  sending: { bg: '#eff6ff', color: '#1e40af' },
+  partial: { bg: '#fff7ed', color: '#9a3412' },
+  failed: { bg: '#fef2f2', color: '#991b1b' },
+};
+
 export default function AdminBroadcastPage() {
   const { user } = useAuth();
   const toast = useToast();
@@ -74,11 +81,17 @@ export default function AdminBroadcastPage() {
       const result = await res.json();
 
       if (res.ok) {
-        toast.success(`Sent: ${result.sent_count}, Failed: ${result.failed_count}`);
+        const parts = [`Sent: ${result.sent_count}`];
+        if (result.failed_count > 0) parts.push(`Failed: ${result.failed_count}`);
+        parts.push(`Push eligible: ${result.push_eligible_count ?? '?'} / ${result.total ?? '?'}`);
+        if (result.status === 'partial') parts.push('(partial — time limit reached)');
+        toast.success(parts.join(' · '));
         setTitle('');
         setMessage('');
         setAudience('test');
         fetchHistory();
+      } else if (res.status === 409) {
+        toast.error('동일한 브로드캐스트가 방금 발송되었습니다');
       } else {
         toast.error(result.error || 'Broadcast failed');
       }
@@ -158,6 +171,11 @@ export default function AdminBroadcastPage() {
         ) : (
           history.map(b => {
             const ac = AUDIENCE_COLORS[b.audience] || AUDIENCE_COLORS.all;
+            const status = b.status || 'completed';
+            const sc = STATUS_COLORS[status] || STATUS_COLORS.completed;
+            const total = b.total_count ?? b.sent_count + (b.failed_count || 0);
+            const pushEligible = b.push_eligible_count;
+            const showPushNote = pushEligible != null && total > 0 && pushEligible < total;
             return (
               <div key={b.id} style={{ ...card, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -166,6 +184,9 @@ export default function AdminBroadcastPage() {
                     {b.message.length > 120 ? b.message.slice(0, 120) + '...' : b.message}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '600', background: sc.bg, color: sc.color }}>
+                      {status}
+                    </span>
                     <span style={{ padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '600', background: ac.bg, color: ac.color }}>
                       {b.audience}
                     </span>
@@ -177,10 +198,25 @@ export default function AdminBroadcastPage() {
                         {b.failed_count} failed
                       </span>
                     )}
+                    {pushEligible != null && (
+                      <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: '500' }}>
+                        Push eligible: {pushEligible} / {total}
+                      </span>
+                    )}
                     <span style={{ fontSize: '11px', color: '#94a3b8' }}>
                       {new Date(b.created_at).toLocaleString()}
                     </span>
                   </div>
+                  {showPushNote && (
+                    <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px' }}>
+                      In-app only for the rest — they have no push token.
+                    </div>
+                  )}
+                  {b.error_message && (
+                    <div style={{ fontSize: '11px', color: '#991b1b', marginTop: '4px' }}>
+                      {b.error_message}
+                    </div>
+                  )}
                 </div>
               </div>
             );
