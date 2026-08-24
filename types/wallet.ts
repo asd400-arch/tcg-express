@@ -208,6 +208,8 @@ export interface PayNowQRData {
   expiry: string;
   recipient_name: string;
   uen: string;
+  /** Stripe-hosted payment instructions page (auto mode only) */
+  hosted_instructions_url?: string | null;
 }
 
 // --- Request / Response Types ---
@@ -219,6 +221,12 @@ export interface TopupRequest {
 
 export interface TopupResponse {
   topup: WalletTopup;
+  /**
+   * 'auto'  — Stripe PayNow QR: wallet is credited automatically by
+   *           webhook the moment payment succeeds (no admin step).
+   * 'manual' — legacy direct-UEN transfer QR: requires admin verification.
+   */
+  mode?: 'auto' | 'manual';
   /** PayNow QR data returned when payment_method is 'paynow' */
   paynow_qr?: PayNowQRData;
   /** Stripe client secret returned when payment_method is 'stripe_card' */

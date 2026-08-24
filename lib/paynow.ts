@@ -9,7 +9,7 @@ import { WALLET_CONSTANTS } from '@/types/wallet';
 
 const PAYNOW_CONFIG = {
   UEN: '202005872W',
-  COMPANY_NAME: 'HHI SOLUTIONS PTE LTD',
+  COMPANY_NAME: 'TECH CHAIN GLOBAL PTE LTD',
   PROXY_TYPE: '2',        // UEN
   CURRENCY: '702',        // SGD
   COUNTRY: 'SG',

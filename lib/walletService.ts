@@ -74,6 +74,58 @@ function getBonusAmount(topupAmount: number): number {
 }
 
 // ============================================================
+// 0b. applyTopupBonus — credit tiered bonus (non-withdrawable)
+// Shared by the manual admin-confirm path and the Stripe
+// webhook auto-credit path so both apply the same bonus rules.
+// ============================================================
+
+export async function applyTopupBonus(topup: {
+  id: string;
+  wallet_id: string;
+  user_id: string;
+  amount: number | string;
+}): Promise<number> {
+  const bonusAmount = getBonusAmount(Number(topup.amount));
+  if (bonusAmount <= 0) return 0;
+
+  // Guard: never credit the same topup's bonus twice
+  const { data: existingBonus } = await supabaseAdmin
+    .from('wallet_transactions')
+    .select('id')
+    .eq('reference_type', 'topup_bonus')
+    .eq('reference_id', topup.id)
+    .limit(1);
+  if (existingBonus && existingBonus.length > 0) return 0;
+
+  await supabaseAdmin.rpc('wallet_credit', {
+    p_wallet_id: topup.wallet_id,
+    p_user_id: topup.user_id,
+    p_amount: bonusAmount,
+    p_type: 'bonus',
+    p_reference_type: 'topup_bonus',
+    p_reference_id: topup.id,
+    p_payment_method: 'system',
+    p_payment_provider_ref: null,
+    p_description: `Top-up bonus: +$${bonusAmount.toFixed(2)} for $${Number(topup.amount).toFixed(2)} top-up`,
+    p_metadata: { bonus_type: 'topup', non_withdrawable: true },
+  });
+
+  // Track in bonus_balance (non-withdrawable portion)
+  const { data: currentWallet } = await supabaseAdmin
+    .from('wallets')
+    .select('bonus_balance')
+    .eq('id', topup.wallet_id)
+    .single();
+
+  await supabaseAdmin
+    .from('wallets')
+    .update({ bonus_balance: Number(currentWallet?.bonus_balance || 0) + bonusAmount })
+    .eq('id', topup.wallet_id);
+
+  return bonusAmount;
+}
+
+// ============================================================
 // 1. getOrCreateWallet
 // ============================================================
 
@@ -204,6 +256,111 @@ export async function getTransactionHistory(
 }
 
 // ============================================================
+// 3b. pickUniqueTopupAmount — unique-cent amount assignment
+//
+// Direct-UEN PayNow transfers carry no reference we can rely on,
+// so each pending top-up is assigned a unique cent suffix
+// (e.g. $50 → $50.07). The bank's incoming-credit alert is then
+// matched to exactly one pending top-up by the exact amount.
+// The customer is credited exactly what they paid.
+// ============================================================
+
+async function pickUniqueTopupAmount(baseAmount: number): Promise<number> {
+  const baseCents = Math.round(baseAmount * 100);
+
+  // Cents already taken by pending, unexpired PayNow top-ups in [base, base+0.99]
+  const { data: pending } = await supabaseAdmin
+    .from('wallet_topups')
+    .select('amount')
+    .eq('status', 'pending')
+    .eq('payment_method', 'paynow')
+    .gte('amount', baseCents / 100)
+    .lte('amount', (baseCents + 99) / 100)
+    .gt('expires_at', new Date().toISOString());
+
+  const used = new Set(
+    (pending || []).map(t => Math.round(Number(t.amount) * 100) - baseCents)
+  );
+
+  for (let k = 0; k <= 99; k++) {
+    const candidate = (baseCents + k) / 100;
+    if (candidate > WALLET_CONSTANTS.MAX_TOPUP) break;
+    if (!used.has(k)) return candidate;
+  }
+  throw new Error('Too many pending top-ups for this amount right now. Please try again in a few minutes.');
+}
+
+// ============================================================
+// 3c. autoConfirmTopupByAmount — bank-alert auto reconciliation
+//
+// Called when the company bank account reports an incoming
+// PayNow credit (via /api/wallet/paynow-incoming). Matches the
+// exact amount to a single pending manual top-up and credits it
+// with NO admin involvement. Ambiguous matches (should not
+// happen thanks to unique-cent amounts) are left for the admin.
+// ============================================================
+
+export async function autoConfirmTopupByAmount(
+  amount: number,
+  bankReference?: string
+): Promise<WalletTopup | null> {
+  // Tiny window around the amount to avoid float-equality issues,
+  // and a 10-minute grace period past QR expiry (bank alerts lag).
+  const graceCutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+
+  const { data: matches } = await supabaseAdmin
+    .from('wallet_topups')
+    .select('*')
+    .eq('status', 'pending')
+    .eq('payment_method', 'paynow')
+    .is('stripe_payment_intent_id', null)
+    .gte('amount', amount - 0.005)
+    .lte('amount', amount + 0.005)
+    .gt('expires_at', graceCutoff);
+
+  if (!matches || matches.length === 0) return null;
+  if (matches.length > 1) {
+    console.warn('[autoConfirmTopupByAmount] Ambiguous amount match — leaving for admin:', { amount, count: matches.length });
+    return null;
+  }
+
+  const topup = matches[0];
+
+  const { error: creditErr } = await supabaseAdmin.rpc('wallet_credit', {
+    p_wallet_id: topup.wallet_id,
+    p_user_id: topup.user_id,
+    p_amount: topup.amount,
+    p_type: 'top_up',
+    p_reference_type: 'topup',
+    p_reference_id: topup.id,
+    p_payment_method: 'paynow',
+    p_payment_provider_ref: bankReference || 'bank_alert',
+    p_description: `PayNow top-up of $${Number(topup.amount).toFixed(2)}`,
+    p_metadata: { auto_matched: true, bank_reference: bankReference || null },
+  });
+
+  if (creditErr) {
+    console.error('[autoConfirmTopupByAmount] wallet_credit FAILED:', { topupId: topup.id, error: creditErr.message });
+    throw new Error(`Credit failed: ${creditErr.message}`);
+  }
+
+  const { data: updated } = await supabaseAdmin
+    .from('wallet_topups')
+    .update({ status: 'completed', completed_at: new Date().toISOString() })
+    .eq('id', topup.id)
+    .select()
+    .single();
+
+  try {
+    await applyTopupBonus(topup);
+  } catch (e: any) {
+    console.error('[autoConfirmTopupByAmount] bonus credit failed (non-fatal):', e?.message);
+  }
+
+  return (updated || topup) as WalletTopup;
+}
+
+// ============================================================
 // 4. createPayNowTopup
 // ============================================================
 
@@ -220,7 +377,12 @@ export async function createPayNowTopup(
   const ref = (reference || '').trim();
   if (!ref) throw new Error('PayNow reference is required');
   const referenceId = ref.slice(0, 25);
-  const qrString = generatePayNowQR(amount);
+
+  // Unique-cent amount: lets the bank-alert reconciler identify this
+  // exact top-up (e.g. $50 → $50.07). Customer pays and is credited
+  // this exact amount.
+  const uniqueAmount = await pickUniqueTopupAmount(amount);
+  const qrString = generatePayNowQR(uniqueAmount);
 
   const expiry = new Date(Date.now() + WALLET_CONSTANTS.PAYNOW_QR_EXPIRY_MINUTES * 60 * 1000).toISOString();
 
@@ -229,7 +391,7 @@ export async function createPayNowTopup(
     .insert({
       wallet_id: wallet.id,
       user_id: userId,
-      amount,
+      amount: uniqueAmount,
       payment_method: 'paynow',
       paynow_qr_data: qrString,
       paynow_reference: referenceId,
@@ -244,11 +406,16 @@ export async function createPayNowTopup(
 
   return {
     topup: topup as WalletTopup,
+    mode: 'manual',
     paynow_qr: {
       qr_string: qrString,
       reference: referenceId,
-      amount,
+      amount: uniqueAmount,
       expiry,
+      // Bank-registered PayNow name — still the former company name until
+      // DBS processes the ACRA change. Must match what the customer's
+      // banking app shows. Flip to 'Tech Chain Global Pte Ltd' after DBS
+      // confirms (and update lib/paynow-qr.js field 59 together).
       recipient_name: 'HHI Solutions Pte Ltd',
       uen: '202005872W',
     },
@@ -316,36 +483,157 @@ export async function confirmPayNowTopup(
   if (updateError) throw new Error(`Failed to update top-up: ${updateError.message}`);
 
   // Credit bonus if eligible (non-withdrawable)
-  const bonusAmount = getBonusAmount(Number(topup.amount));
-  if (bonusAmount > 0) {
-    // Credit bonus to wallet balance
-    await supabaseAdmin.rpc('wallet_credit', {
-      p_wallet_id: topup.wallet_id,
-      p_user_id: topup.user_id,
-      p_amount: bonusAmount,
-      p_type: 'bonus',
-      p_reference_type: 'topup_bonus',
-      p_reference_id: topup.id,
-      p_payment_method: 'system',
-      p_payment_provider_ref: null,
-      p_description: `Top-up bonus: +$${bonusAmount.toFixed(2)} for $${Number(topup.amount).toFixed(2)} top-up`,
-      p_metadata: { bonus_type: 'topup', non_withdrawable: true },
-    });
-
-    // Track in bonus_balance (non-withdrawable portion)
-    const { data: currentWallet } = await supabaseAdmin
-      .from('wallets')
-      .select('bonus_balance')
-      .eq('id', topup.wallet_id)
-      .single();
-    
-    await supabaseAdmin
-      .from('wallets')
-      .update({ bonus_balance: Number(currentWallet?.bonus_balance || 0) + bonusAmount })
-      .eq('id', topup.wallet_id);
-  }
+  await applyTopupBonus(topup);
 
   return updated as WalletTopup;
+}
+
+// ============================================================
+// 5b. createStripePayNowTopup — automatic PayNow via Stripe
+//
+// Creates a Stripe PaymentIntent with the 'paynow' payment
+// method and confirms it server-side. Stripe returns a SGQR
+// string in next_action.paynow_display_qr_code — the customer
+// scans it with any SG banking app, Stripe receives the funds,
+// and the payment_intent.succeeded webhook credits the wallet
+// automatically. NO admin confirmation involved.
+// ============================================================
+
+export async function createStripePayNowTopup(
+  userId: string,
+  amount: number
+): Promise<TopupResponse> {
+  if (amount < WALLET_CONSTANTS.MIN_TOPUP || amount > WALLET_CONSTANTS.MAX_TOPUP) {
+    throw new Error(`Top-up amount must be between $${WALLET_CONSTANTS.MIN_TOPUP} and $${WALLET_CONSTANTS.MAX_TOPUP}`);
+  }
+
+  const stripe = getStripe();
+  if (!stripe) throw new Error('Stripe is not configured');
+
+  const wallet = await getOrCreateWallet(userId);
+
+  // Create + confirm PaymentIntent (amount in cents).
+  // Confirming a 'paynow' intent server-side yields the QR code
+  // in next_action without needing Stripe.js on the client.
+  const paymentIntent = await stripe.paymentIntents.create({
+    amount: Math.round(amount * 100),
+    currency: 'sgd',
+    payment_method_types: ['paynow'],
+    payment_method_data: { type: 'paynow' },
+    confirm: true,
+    metadata: {
+      type: 'wallet_topup',
+      user_id: userId,
+      wallet_id: wallet.id,
+    },
+  });
+
+  const qrAction: any = (paymentIntent.next_action as any)?.paynow_display_qr_code;
+  if (!qrAction?.data) {
+    // Stripe accepted the intent but returned no QR — cancel and bail
+    try { await stripe.paymentIntents.cancel(paymentIntent.id); } catch {}
+    throw new Error('Failed to generate PayNow QR via Stripe');
+  }
+
+  const expiry = new Date(Date.now() + WALLET_CONSTANTS.PAYNOW_QR_EXPIRY_MINUTES * 60 * 1000).toISOString();
+
+  const { data: topup, error } = await supabaseAdmin
+    .from('wallet_topups')
+    .insert({
+      wallet_id: wallet.id,
+      user_id: userId,
+      amount,
+      payment_method: 'paynow',
+      paynow_qr_data: qrAction.data,
+      paynow_reference: paymentIntent.id.slice(0, 50),
+      paynow_expiry: expiry,
+      stripe_payment_intent_id: paymentIntent.id,
+      stripe_client_secret: paymentIntent.client_secret,
+      status: 'pending',
+      expires_at: expiry,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    try { await stripe.paymentIntents.cancel(paymentIntent.id); } catch {}
+    throw new Error(`Failed to create top-up: ${error.message}`);
+  }
+
+  return {
+    topup: topup as WalletTopup,
+    mode: 'auto',
+    paynow_qr: {
+      qr_string: qrAction.data,
+      reference: paymentIntent.id,
+      amount,
+      expiry,
+      recipient_name: 'TCG Express (via Stripe)',
+      uen: '202005872W',
+      hosted_instructions_url: qrAction.hosted_instructions_url || null,
+    },
+  };
+}
+
+// ============================================================
+// 5c. completeStripeTopup — webhook-side auto credit
+//
+// Called from the Stripe webhook on payment_intent.succeeded.
+// Finds the pending topup by PaymentIntent id, credits the
+// wallet atomically, marks the topup completed, and applies
+// the tiered bonus. Idempotent: a topup already completed
+// (or not found pending) is a no-op.
+// ============================================================
+
+export async function completeStripeTopup(paymentIntent: {
+  id: string;
+  metadata?: Record<string, string>;
+}): Promise<WalletTopup | null> {
+  const { data: topup } = await supabaseAdmin
+    .from('wallet_topups')
+    .select('*')
+    .eq('stripe_payment_intent_id', paymentIntent.id)
+    .eq('status', 'pending')
+    .single();
+
+  if (!topup) return null; // already processed or unknown — idempotent no-op
+
+  const isPayNow = topup.payment_method === 'paynow';
+
+  const { error: creditErr } = await supabaseAdmin.rpc('wallet_credit', {
+    p_wallet_id: topup.wallet_id,
+    p_user_id: topup.user_id,
+    p_amount: topup.amount,
+    p_type: 'top_up',
+    p_reference_type: 'topup',
+    p_reference_id: topup.id,
+    p_payment_method: isPayNow ? 'paynow' : 'stripe_card',
+    p_payment_provider_ref: paymentIntent.id,
+    p_description: `${isPayNow ? 'PayNow' : 'Card'} top-up of $${Number(topup.amount).toFixed(2)}`,
+    p_metadata: { stripe_payment_intent_id: paymentIntent.id, auto_credited: true },
+  });
+
+  if (creditErr) {
+    console.error('[completeStripeTopup] wallet_credit FAILED:', { topupId: topup.id, error: creditErr.message });
+    await supabaseAdmin.from('wallet_topups').update({ status: 'failed' }).eq('id', topup.id);
+    throw new Error(`Credit failed: ${creditErr.message}`);
+  }
+
+  const { data: updated } = await supabaseAdmin
+    .from('wallet_topups')
+    .update({ status: 'completed', completed_at: new Date().toISOString() })
+    .eq('id', topup.id)
+    .select()
+    .single();
+
+  // Apply tiered bonus (idempotent — guarded inside)
+  try {
+    await applyTopupBonus(topup);
+  } catch (e: any) {
+    console.error('[completeStripeTopup] bonus credit failed (non-fatal):', e?.message);
+  }
+
+  return (updated || topup) as WalletTopup;
 }
 
 // ============================================================

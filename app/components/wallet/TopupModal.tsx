@@ -41,6 +41,8 @@ export default function TopupModal({ open, onClose, onSuccess, initialAmount }: 
   const [qrData, setQrData] = useState<PayNowQRData | null>(null);
   const [qrString, setQrString] = useState('');
   const [referenceId, setReferenceId] = useState('');
+  const [topupMode, setTopupMode] = useState<'auto' | 'manual' | null>(null);
+  const [topupId, setTopupId] = useState('');
   const [timeLeft, setTimeLeft] = useState(0);
   const [qrLoading, setQrLoading] = useState(false);
 
@@ -55,6 +57,8 @@ export default function TopupModal({ open, onClose, onSuccess, initialAmount }: 
       setQrData(null);
       setQrString('');
       setReferenceId('');
+      setTopupMode(null);
+      setTopupId('');
     }
   }, [open]);
 
@@ -109,6 +113,34 @@ export default function TopupModal({ open, onClose, onSuccess, initialAmount }: 
     return () => clearInterval(interval);
   }, [qrData]);
 
+  // Poll top-up status while the QR is shown — auto mode completes via
+  // the Stripe webhook; manual mode completes via bank-alert
+  // reconciliation (both credit the wallet with no admin step).
+  useEffect(() => {
+    if (step !== 'qr' || !topupId) return;
+    let stopped = false;
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/wallet/topup?id=${encodeURIComponent(topupId)}`);
+        const result = await res.json();
+        if (stopped || !res.ok) return;
+        const status = result?.data?.status;
+        if (status === 'completed') {
+          stopped = true;
+          setStep('success');
+          onSuccess();
+        } else if (['failed', 'cancelled', 'expired'].includes(status)) {
+          stopped = true;
+          toast.error('Payment was not completed. Please try again.');
+          setStep('amount');
+        }
+      } catch {}
+    };
+    const interval = setInterval(poll, topupMode === 'auto' ? 3000 : 5000);
+    return () => { stopped = true; clearInterval(interval); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, topupMode, topupId]);
+
   const handleSubmit = async () => {
     if (!numAmount || numAmount < WALLET_CONSTANTS.MIN_TOPUP || numAmount > WALLET_CONSTANTS.MAX_TOPUP) {
       toast.error(`Amount must be between ${formatSGD(WALLET_CONSTANTS.MIN_TOPUP)} and ${formatSGD(WALLET_CONSTANTS.MAX_TOPUP)}`);
@@ -143,6 +175,11 @@ export default function TopupModal({ open, onClose, onSuccess, initialAmount }: 
 
     if (method === 'paynow' && result.paynow_qr) {
       setQrData(result.paynow_qr);
+      setTopupMode(result.mode === 'auto' ? 'auto' : 'manual');
+      setTopupId(result.topup?.id || '');
+      // Always use the server-issued QR — it carries the exact
+      // (unique-cent) amount that reconciliation matches on.
+      setQrString(result.paynow_qr.qr_string);
       setStep('qr');
     } else if (method === 'stripe_card' && result.client_secret) {
       // Stripe card flow handled externally
@@ -421,18 +458,27 @@ export default function TopupModal({ open, onClose, onSuccess, initialAmount }: 
               marginBottom: '20px',
               textAlign: 'left',
             }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span style={{ fontSize: '13px', color: '#64748b' }}>UEN</span>
-                <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>{qrData.uen}</span>
-              </div>
+              {topupMode !== 'auto' && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '13px', color: '#64748b' }}>UEN</span>
+                  <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>{qrData.uen}</span>
+                </div>
+              )}
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                 <span style={{ fontSize: '13px', color: '#64748b' }}>Recipient</span>
                 <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>{qrData.recipient_name}</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '13px', color: '#64748b' }}>Reference</span>
-                <span style={{ fontSize: '12px', fontWeight: '600', color: '#7c3aed', fontFamily: 'monospace' }}>{qrData.reference}</span>
-              </div>
+              {topupMode !== 'auto' && qrData.recipient_name.toLowerCase().includes('hhi') && (
+                <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '8px' }}>
+                  HHI Solutions Pte Ltd is the former registered name of Tech Chain Global Pte Ltd (TCG Express) — same company, same UEN.
+                </div>
+              )}
+              {topupMode !== 'auto' && (
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: '13px', color: '#64748b' }}>Reference</span>
+                  <span style={{ fontSize: '12px', fontWeight: '600', color: '#7c3aed', fontFamily: 'monospace' }}>{qrData.reference}</span>
+                </div>
+              )}
             </div>
 
             {/* Instructions */}
@@ -446,12 +492,42 @@ export default function TopupModal({ open, onClose, onSuccess, initialAmount }: 
               <div style={{ fontSize: '13px', fontWeight: '700', color: '#7c3aed', marginBottom: '8px' }}>
                 Scan with any Singapore banking app
               </div>
-              <div style={{ fontSize: '12px', color: '#6b21a8', lineHeight: '1.6' }}>
-                1. Open your banking app and choose PayNow / Scan<br />
-                2. Scan this QR code and confirm the amount<br />
-                3. After payment, keep the reference number for verification
-              </div>
+              {topupMode === 'auto' ? (
+                <div style={{ fontSize: '12px', color: '#6b21a8', lineHeight: '1.6' }}>
+                  1. Open your banking app and choose PayNow / Scan<br />
+                  2. Scan this QR code and confirm the amount<br />
+                  3. Your wallet is credited automatically within seconds — no verification needed
+                </div>
+              ) : (
+                <div style={{ fontSize: '12px', color: '#6b21a8', lineHeight: '1.6' }}>
+                  1. Open your banking app and choose PayNow / Scan<br />
+                  2. Scan this QR code and pay the <b>exact amount shown</b> — do not round it<br />
+                  3. The exact amount links your payment: your wallet is credited automatically once the transfer arrives
+                </div>
+              )}
             </div>
+
+            {topupMode === 'auto' && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                marginBottom: '20px',
+                fontSize: '13px',
+                fontWeight: '600',
+                color: '#10b981',
+              }}>
+                <span style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  background: '#10b981',
+                  display: 'inline-block',
+                }} />
+                Waiting for payment — credited automatically
+              </div>
+            )}
 
             <button
               onClick={() => { setStep('amount'); }}
