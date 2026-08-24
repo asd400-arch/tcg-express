@@ -238,13 +238,17 @@ export default function TopupModal({ open, onClose, onSuccess, initialAmount }: 
     padding: m ? '0' : '20px',
   };
 
+  // dvh shrinks with the on-screen keyboard so the submit button stays
+  // reachable; fall back to vh on older browsers.
+  const supportsDvh =
+    typeof CSS !== 'undefined' && typeof CSS.supports === 'function' && CSS.supports('height', '100dvh');
   const modal: React.CSSProperties = {
     background: 'white',
     borderRadius: m ? '20px 20px 0 0' : '20px',
     padding: '28px 24px',
     maxWidth: '480px',
     width: '100%',
-    maxHeight: m ? '90vh' : '85vh',
+    maxHeight: m ? (supportsDvh ? '88dvh' : '90vh') : '85vh',
     overflowY: 'auto',
     boxShadow: '0 4px 24px rgba(0,0,0,0.12)',
   };
@@ -316,8 +320,22 @@ export default function TopupModal({ open, onClose, onSuccess, initialAmount }: 
               }}>$</span>
               <input
                 type="number"
+                inputMode="decimal"
+                enterKeyHint="done"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value ? Number(e.target.value) : '')}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    (e.target as HTMLInputElement).blur(); // dismiss keyboard
+                    handleSubmit();
+                  }
+                }}
+                onFocus={(e) => {
+                  const el = e.target as HTMLInputElement;
+                  // Wait for the keyboard animation, then bring the field
+                  // (and the button below it) into the visible area.
+                  setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
+                }}
                 placeholder="Enter amount"
                 min={WALLET_CONSTANTS.MIN_TOPUP}
                 max={WALLET_CONSTANTS.MAX_TOPUP}
