@@ -262,6 +262,11 @@ export interface WalletOverview {
 export const WALLET_CONSTANTS = {
   MIN_TOPUP: 10,
   MAX_TOPUP: 10000,
+  /** Instant provisional credit ceiling for direct PayNow top-ups.
+   *  <= this: credited the moment the customer taps "I have paid"
+   *  (verified later against the bank's incoming-funds alert).
+   *  >  this: credited only after bank confirmation. */
+  INSTANT_TOPUP_LIMIT: 500,
   MIN_WITHDRAWAL: 50,
   MAX_WITHDRAWAL: 10000,
   PAYNOW_QR_EXPIRY_MINUTES: 30,

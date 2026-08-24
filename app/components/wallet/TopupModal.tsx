@@ -43,6 +43,8 @@ export default function TopupModal({ open, onClose, onSuccess, initialAmount }: 
   const [referenceId, setReferenceId] = useState('');
   const [topupMode, setTopupMode] = useState<'auto' | 'manual' | null>(null);
   const [topupId, setTopupId] = useState('');
+  const [claiming, setClaiming] = useState(false);
+  const [awaitingBank, setAwaitingBank] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
   const [qrLoading, setQrLoading] = useState(false);
 
@@ -59,6 +61,8 @@ export default function TopupModal({ open, onClose, onSuccess, initialAmount }: 
       setReferenceId('');
       setTopupMode(null);
       setTopupId('');
+      setClaiming(false);
+      setAwaitingBank(false);
     }
   }, [open]);
 
@@ -140,6 +144,33 @@ export default function TopupModal({ open, onClose, onSuccess, initialAmount }: 
     return () => { stopped = true; clearInterval(interval); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, topupMode, topupId]);
+
+  // Customer taps "I have paid" — instant credit up to the limit,
+  // otherwise a waiting state until the bank confirms.
+  const handleClaim = async () => {
+    if (!topupId || claiming) return;
+    setClaiming(true);
+    try {
+      const res = await fetch('/api/wallet/topup/claim', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topup_id: topupId }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Failed to confirm payment');
+      if (result.data?.instant) {
+        setStep('success');
+        onSuccess();
+      } else {
+        // Above instant limit — keep polling until the bank alert lands
+        setAwaitingBank(true);
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to confirm payment');
+    } finally {
+      setClaiming(false);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!numAmount || numAmount < WALLET_CONSTANTS.MIN_TOPUP || numAmount > WALLET_CONSTANTS.MAX_TOPUP) {
@@ -502,7 +533,7 @@ export default function TopupModal({ open, onClose, onSuccess, initialAmount }: 
                 <div style={{ fontSize: '12px', color: '#6b21a8', lineHeight: '1.6' }}>
                   1. Open your banking app and choose PayNow / Scan<br />
                   2. Scan this QR code and pay the <b>exact amount shown</b> — do not round it<br />
-                  3. The exact amount links your payment: your wallet is credited automatically once the transfer arrives
+                  3. Tap "I've paid" below — your wallet is credited instantly
                 </div>
               )}
             </div>
@@ -527,6 +558,47 @@ export default function TopupModal({ open, onClose, onSuccess, initialAmount }: 
                 }} />
                 Waiting for payment — credited automatically
               </div>
+            )}
+
+            {topupMode !== 'auto' && (
+              awaitingBank ? (
+                <div style={{
+                  background: '#fffbeb',
+                  border: '1px solid #fde68a',
+                  borderRadius: '12px',
+                  padding: '14px',
+                  marginBottom: '12px',
+                  fontSize: '13px',
+                  color: '#92400e',
+                  fontWeight: 600,
+                  textAlign: 'center',
+                }}>
+                  Payment noted — awaiting bank confirmation.<br />
+                  <span style={{ fontWeight: 400 }}>
+                    Your wallet will be credited automatically once the bank confirms (usually within the hour). You can close this window.
+                  </span>
+                </div>
+              ) : (
+                <button
+                  onClick={handleClaim}
+                  disabled={claiming}
+                  style={{
+                    width: '100%',
+                    padding: '15px',
+                    borderRadius: '12px',
+                    border: 'none',
+                    background: 'linear-gradient(135deg, #10b981, #059669)',
+                    color: 'white',
+                    fontSize: '15px',
+                    fontWeight: '700',
+                    cursor: claiming ? 'not-allowed' : 'pointer',
+                    fontFamily: "'Inter', sans-serif",
+                    marginBottom: '12px',
+                  }}
+                >
+                  {claiming ? 'Confirming…' : "I've paid — credit my wallet"}
+                </button>
+              )
             )}
 
             <button

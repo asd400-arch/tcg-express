@@ -269,14 +269,16 @@ async function pickUniqueTopupAmount(baseAmount: number): Promise<number> {
   const baseCents = Math.round(baseAmount * 100);
 
   // Cents already taken by pending, unexpired PayNow top-ups in [base, base+0.99]
+  // 'processing' = provisionally credited, still awaiting the bank alert —
+  // its amount must stay reserved or the late alert becomes ambiguous.
   const { data: pending } = await supabaseAdmin
     .from('wallet_topups')
-    .select('amount')
-    .eq('status', 'pending')
+    .select('amount, status, expires_at')
+    .in('status', ['pending', 'processing'])
     .eq('payment_method', 'paynow')
     .gte('amount', baseCents / 100)
     .lte('amount', (baseCents + 99) / 100)
-    .gt('expires_at', new Date().toISOString());
+    .gt('expires_at', new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString());
 
   const used = new Set(
     (pending || []).map(t => Math.round(Number(t.amount) * 100) - baseCents)
@@ -288,6 +290,92 @@ async function pickUniqueTopupAmount(baseAmount: number): Promise<number> {
     if (!used.has(k)) return candidate;
   }
   throw new Error('Too many pending top-ups for this amount right now. Please try again in a few minutes.');
+}
+
+// ============================================================
+// 3b-2. claimPayNowTopup — INSTANT credit on customer confirmation
+//
+// The customer pays the exact unique-cent amount, then taps
+// "I have paid". For amounts up to INSTANT_TOPUP_LIMIT the wallet
+// is credited IMMEDIATELY (status → 'processing') and verified
+// later when the bank's incoming-funds alert arrives. Amounts
+// above the limit stay 'pending' until bank confirmation.
+// Policy approved by owner 2026-08-24: instant up to S$500/top-up.
+// ============================================================
+
+export async function claimPayNowTopup(
+  userId: string,
+  topupId: string
+): Promise<{ instant: boolean; topup: WalletTopup }> {
+  const { data: topup, error } = await supabaseAdmin
+    .from('wallet_topups')
+    .select('*')
+    .eq('id', topupId)
+    .eq('user_id', userId)
+    .eq('payment_method', 'paynow')
+    .is('stripe_payment_intent_id', null)
+    .single();
+
+  if (error || !topup) throw new Error('Top-up not found');
+  if (topup.status === 'processing' || topup.status === 'completed') {
+    // Already claimed/credited — idempotent
+    return { instant: topup.status !== 'pending', topup: topup as WalletTopup };
+  }
+  if (topup.status !== 'pending') throw new Error('Top-up is no longer active');
+  if (topup.expires_at && new Date(topup.expires_at) < new Date()) {
+    throw new Error('This top-up has expired. Please start a new top-up.');
+  }
+
+  // Above the instant limit: no provisional credit — bank confirmation
+  // (auto reconciliation) will credit it. Client shows a waiting state.
+  if (Number(topup.amount) > WALLET_CONSTANTS.INSTANT_TOPUP_LIMIT) {
+    return { instant: false, topup: topup as WalletTopup };
+  }
+
+  // Atomically move pending → processing; the status filter makes a
+  // double-tap race harmless (second update matches no row).
+  const { data: claimed } = await supabaseAdmin
+    .from('wallet_topups')
+    .update({ status: 'processing' })
+    .eq('id', topup.id)
+    .eq('status', 'pending')
+    .select()
+    .single();
+
+  if (!claimed) {
+    // Someone else (double-tap or the reconciler) got here first
+    const { data: fresh } = await supabaseAdmin
+      .from('wallet_topups').select('*').eq('id', topup.id).single();
+    return { instant: true, topup: (fresh || topup) as WalletTopup };
+  }
+
+  const { error: creditErr } = await supabaseAdmin.rpc('wallet_credit', {
+    p_wallet_id: topup.wallet_id,
+    p_user_id: topup.user_id,
+    p_amount: topup.amount,
+    p_type: 'top_up',
+    p_reference_type: 'topup',
+    p_reference_id: topup.id,
+    p_payment_method: 'paynow',
+    p_payment_provider_ref: topup.paynow_reference,
+    p_description: `PayNow top-up of $${Number(topup.amount).toFixed(2)}`,
+    p_metadata: { provisional: true, claimed_at: new Date().toISOString() },
+  });
+
+  if (creditErr) {
+    // Roll the status back so the reconciler / a retry can still credit
+    await supabaseAdmin.from('wallet_topups')
+      .update({ status: 'pending' }).eq('id', topup.id);
+    throw new Error(`Credit failed: ${creditErr.message}`);
+  }
+
+  try {
+    await applyTopupBonus(topup);
+  } catch (e: any) {
+    console.error('[claimPayNowTopup] bonus credit failed (non-fatal):', e?.message);
+  }
+
+  return { instant: true, topup: { ...(claimed as any), status: 'processing' } as WalletTopup };
 }
 
 // ============================================================
@@ -304,19 +392,26 @@ export async function autoConfirmTopupByAmount(
   amount: number,
   bankReference?: string
 ): Promise<WalletTopup | null> {
-  // Tiny window around the amount to avoid float-equality issues,
-  // and a 10-minute grace period past QR expiry (bank alerts lag).
-  const graceCutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+  // Tiny window around the amount to avoid float-equality issues.
+  // DBS incoming-funds alert emails are NOT real-time (observed lag of
+  // up to ~1 hour). Match:
+  //  - 'processing' (already provisionally credited via claim): VERIFY
+  //    only — no second credit — up to 48h after QR expiry.
+  //  - 'pending' (customer never tapped "I have paid"): credit now,
+  //    up to 3h past QR expiry; older ones are left for admin.
+  const now = Date.now();
+  const wideCutoff = new Date(now - 48 * 60 * 60 * 1000).toISOString();
+  const pendingCutoff = new Date(now - 180 * 60 * 1000);
 
   const { data: matches } = await supabaseAdmin
     .from('wallet_topups')
     .select('*')
-    .eq('status', 'pending')
+    .in('status', ['pending', 'processing'])
     .eq('payment_method', 'paynow')
     .is('stripe_payment_intent_id', null)
     .gte('amount', amount - 0.005)
     .lte('amount', amount + 0.005)
-    .gt('expires_at', graceCutoff);
+    .gt('expires_at', wideCutoff);
 
   if (!matches || matches.length === 0) return null;
   if (matches.length > 1) {
@@ -325,6 +420,28 @@ export async function autoConfirmTopupByAmount(
   }
 
   const topup = matches[0];
+
+  // Provisionally credited already — just mark it verified/complete.
+  if (topup.status === 'processing') {
+    const { data: verified } = await supabaseAdmin
+      .from('wallet_topups')
+      .update({
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+        admin_notes: `Auto-verified by bank alert${bankReference ? ` (${bankReference})` : ''}`,
+      })
+      .eq('id', topup.id)
+      .eq('status', 'processing')
+      .select()
+      .single();
+    return (verified || topup) as WalletTopup;
+  }
+
+  // Un-claimed pending top-up: only credit within the 3h grace window.
+  if (topup.expires_at && new Date(topup.expires_at) < pendingCutoff) {
+    console.warn('[autoConfirmTopupByAmount] Pending match too old — leaving for admin:', { topupId: topup.id });
+    return null;
+  }
 
   const { error: creditErr } = await supabaseAdmin.rpc('wallet_credit', {
     p_wallet_id: topup.wallet_id,
@@ -430,16 +547,35 @@ export async function confirmPayNowTopup(
   paynowReference: string,
   adminId?: string
 ): Promise<WalletTopup> {
-  // Find pending topup by PayNow reference
+  // Find pending/processing topup by PayNow reference
   const { data: topup, error: findError } = await supabaseAdmin
     .from('wallet_topups')
     .select('*')
     .eq('paynow_reference', paynowReference)
-    .eq('status', 'pending')
+    .in('status', ['pending', 'processing'])
     .single();
 
   if (findError || !topup) {
     throw new Error('Pending top-up not found for this reference');
+  }
+
+  // 'processing' = already provisionally credited via customer claim —
+  // admin confirmation just verifies it. NO second credit.
+  if (topup.status === 'processing') {
+    const { data: verified, error: vErr } = await supabaseAdmin
+      .from('wallet_topups')
+      .update({
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+        admin_verified_by: adminId || null,
+        admin_verified_at: adminId ? new Date().toISOString() : null,
+      })
+      .eq('id', topup.id)
+      .eq('status', 'processing')
+      .select()
+      .single();
+    if (vErr) throw new Error(`Failed to verify top-up: ${vErr.message}`);
+    return verified as WalletTopup;
   }
 
   // Check expiry
