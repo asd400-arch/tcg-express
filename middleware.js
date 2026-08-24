@@ -21,6 +21,11 @@ const PUBLIC_API_PATHS = [
   '/api/stripe/webhook',
   '/api/external/orders',
   '/api/wallet/paynow-qr',
+  // Bank-alert auto reconciliation — authenticated inside the route
+  // by PAYNOW_ALERT_SECRET (Bearer), not by a user session.
+  '/api/wallet/paynow-incoming',
+  // Canonical Stripe wallet webhook — authenticated by Stripe signature.
+  '/api/payment/stripe-webhook',
 ];
 
 // Paths accessible when logged in but unverified
