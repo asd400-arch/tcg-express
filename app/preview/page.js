@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 
 // Set when store listings are live. Leave empty to hide the badge.
-const APP_STORE_URL = ''; // e.g. 'https://apps.apple.com/sg/app/tcg-express/idXXXXXXXXXX'
+const APP_STORE_URL = 'https://apps.apple.com/sg/app/tcg-exress/id6785920144';
 const PLAY_STORE_URL = ''; // pending — closed testing ends late Aug
 
 const NAVY = '#070D1A';
