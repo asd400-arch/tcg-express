@@ -7,6 +7,7 @@ const PUBLIC_PATHS = [
   '/signup',
   '/forgot-password',
   '/offline',
+  '/preview',
   '/services',
   '/terms',
   '/privacy',
@@ -21,6 +22,8 @@ const PUBLIC_API_PATHS = [
   '/api/stripe/webhook',
   '/api/external/orders',
   '/api/wallet/paynow-qr',
+  // Pre-launch preview signup — public, rate-limited inside the route
+  '/api/preview-signup',
   // Bank-alert auto reconciliation — authenticated inside the route
   // by PAYNOW_ALERT_SECRET (Bearer), not by a user session.
   '/api/wallet/paynow-incoming',
