@@ -17,11 +17,13 @@
 --
 -- ⚠ SCHEMA DEBT — FIX THIS SEPARATELY
 --   The DDL for promoters, promoter_bonuses and promoter_summary is NOT in
---   the repository. Those objects exist only in the live database. Run
---   `supabase db dump --schema public -f supabase/schema.sql` and commit it,
---   otherwise the database cannot be rebuilt and nobody can review changes.
---   The ALTERs below are written with IF NOT EXISTS so they are safe against
---   a schema we cannot fully see, but that is a workaround, not a fix.
+--   the repository. Column definitions have been recovered from
+--   information_schema into supabase/schema-promoters.sql, but keys,
+--   constraints, indexes, triggers and RLS policies are still unknown, and
+--   the promoter_summary view definition was never captured. Get a real dump:
+--     npx supabase login
+--     npx supabase link --project-ref aeaisolmobsvreujofwa
+--     npx supabase db dump --schema public -f supabase/schema.sql
 -- ============================================================================
 
 
@@ -119,7 +121,7 @@ ALTER TABLE promoters
   ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'other',
   ADD COLUMN IF NOT EXISTS agreement_signed_at TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS bonus_first_delivery NUMERIC(10,2) DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS notes TEXT;
+  ADD COLUMN IF NOT EXISTS notes TEXT;   -- already exists; this is a no-op
 
 DO $$ BEGIN
   ALTER TABLE promoters ADD CONSTRAINT promoters_partner_type_chk
@@ -150,19 +152,33 @@ COMMENT ON COLUMN promoters.user_id IS
 
 -- ============================================================================
 -- SECTION 2 — EXTEND `promoter_bonuses` FOR TWO-STAGE PAYOUT
--- Existing columns (from the admin API): id, promoter_id, user_id, amount,
--- status (pending|hold|approved|rejected), hold_reason, approved_at,
--- approved_by, created_at. The review workflow already does what we need;
--- it only lacks a stage and a clawback window.
+-- Verified live columns (information_schema, 29 Aug 2026):
+--   id, promoter_id, redemption_id (NOT NULL), user_id, amount,
+--   status (default 'pending'), hold_reason, approved_at, approved_by,
+--   paid_at, payout_ref, created_at
+-- The approval workflow already does what we need. It lacks only a stage
+-- and a clawback window — and redemption_id blocks referral bonuses.
 -- ============================================================================
 
+-- paid_at and payout_ref ALREADY EXIST on this table — do not add them again
+-- and do not invent a second payment reference column.
 ALTER TABLE promoter_bonuses
-  ADD COLUMN IF NOT EXISTS stage       TEXT NOT NULL DEFAULT 'signup',
-  ADD COLUMN IF NOT EXISTS job_id      UUID,
-  ADD COLUMN IF NOT EXISTS uen         TEXT,
-  ADD COLUMN IF NOT EXISTS payable_at  TIMESTAMPTZ,
-  ADD COLUMN IF NOT EXISTS paid_at     TIMESTAMPTZ,
-  ADD COLUMN IF NOT EXISTS payment_ref TEXT;
+  ADD COLUMN IF NOT EXISTS stage      TEXT NOT NULL DEFAULT 'signup',
+  ADD COLUMN IF NOT EXISTS job_id     UUID,
+  ADD COLUMN IF NOT EXISTS uen        TEXT,
+  ADD COLUMN IF NOT EXISTS payable_at TIMESTAMPTZ;
+
+-- ⚠ BLOCKER — redemption_id is NOT NULL on promoter_bonuses.
+--   It points at a zone campaign redemption, which exists for a street
+--   promoter's QR sign-up but NOT for a referral partner's first-delivery
+--   bonus. Without this change, inserting a first_delivery bonus fails.
+--   Confirm nothing relies on the NOT NULL before running.
+ALTER TABLE promoter_bonuses ALTER COLUMN redemption_id DROP NOT NULL;
+
+DO $$ BEGIN
+  ALTER TABLE promoter_bonuses ADD CONSTRAINT promoter_bonuses_redemption_required_chk
+    CHECK (stage = 'first_delivery' OR redemption_id IS NOT NULL);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN
   ALTER TABLE promoter_bonuses ADD CONSTRAINT promoter_bonuses_stage_chk
