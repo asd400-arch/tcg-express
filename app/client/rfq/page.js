@@ -105,20 +105,32 @@ export default function RFQPage() {
 
     setSubmitting(true);
     const duration = CONTRACT_DURATIONS.find(d => d.key === form.duration);
-    const { error } = await supabase.from('corp_premium_requests').insert([{
-      client_id: user.id,
-      title: form.title,
-      description: form.description,
-      contract_duration: duration?.months || 3,
-      estimated_volume: form.estimated_volume,
-      pickup_regions: form.pickup_regions ? form.pickup_regions.split(',').map(s => s.trim()).filter(Boolean) : [],
-      delivery_regions: form.delivery_regions ? form.delivery_regions.split(',').map(s => s.trim()).filter(Boolean) : [],
-      vehicle_types: form.vehicle_types ? form.vehicle_types.split(',').map(s => s.trim()).filter(Boolean) : [],
-      special_requirements: form.special_requirements,
-      nda_accepted: true,
-      attachments: files.map(f => f.url),
-      status: 'submitted',
-    }]);
+
+    // Go through the API so the request gets its CPR number and the admins
+    // get notified. A direct table insert does neither.
+    let error = null;
+    try {
+      const res = await fetch('/api/corp-premium', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: form.title,
+          description: form.description,
+          contract_duration: duration?.months || 3,
+          estimated_volume: form.estimated_volume,
+          pickup_regions: form.pickup_regions,
+          delivery_regions: form.delivery_regions,
+          vehicle_types: form.vehicle_types,
+          special_requirements: form.special_requirements,
+          nda_accepted: true,
+          attachments: files.map(f => f.url),
+        }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) error = { message: payload.error || `Request failed (${res.status})` };
+    } catch (e) {
+      error = { message: e?.message || 'Network error' };
+    }
     setSubmitting(false);
 
     if (error) { toast.error('Failed to submit: ' + error.message); return; }

@@ -22,6 +22,32 @@
 
 ---
 
+## ★ 타겟 규칙 (2026-08-29 확정 · 모든 판단의 기준)
+
+**1차 타겟 고객 = 테크 기업, B2B 전용.**
+
+| 대상 | |
+|---|---|
+| **포함** | IT 총판·도매 · 컴퓨터/부품 소매(Sim Lim·Funan) · 시스템 통합업체(SI) · AV·POS 설치업체 · MSP·IT 서비스 · 전자제품 이커머스 셀러 |
+| **제외 (현재)** | 개인 고객 · 일반 소매 · F&B · 이사 · 그 외 전부 → 문의가 와도 쫓지 않고 "추후 건별 검토"로 기록만 |
+
+**메일 문체 = 간단 명료.** 서론·군더더기 없이 답하고 끝낸다. 질문을 되풀이하지 않고, "정확히 답변드리기 위해" 같은 서두를 붙이지 않는다. 여러 항목을 다뤄야 하면 짧은 소제목으로 나눈다. 벤더 메일·고객 메일 모두 동일.
+
+**영업 채널 = B2B 이메일 · 전화 · 대면 중심. LinkedIn 회사 페이지는 신뢰도 확보용.**
+
+| 채널 | 역할 | 비중 |
+|---|---|---|
+| **B2B 콜드메일** | 주력. IT 총판 33개사 리스트 보유, ADV Security가 첫 리드 | ★★★ |
+| **전화 / WhatsApp 직접 연락** | 메일 무응답 업체에 실제로 통하는 유일한 경로 | ★★★ |
+| **프로모터 대면 방문** | Sim Lim·Funan·Tai Seng·Ubi·Jurong·Changi Business Park — 전부 테크 B2B 밀집지 | ★★★ |
+| **리퍼럴 파트너** | 업계 인맥 기반, C안 계정당 S$70 | ★★☆ |
+| **LinkedIn 회사 페이지** | **영업 채널이 아니라 검증 자산.** 콜드메일 받은 담당자가 회사명을 검색했을 때 제대로 된 페이지가 보이는 것이 역할 | ★☆☆ |
+
+- **Carousell은 공급측 전용** — 드라이버·프로모터 모집용이며 **고객 유치 채널이 아니다.** Carousell로 들어온 고객 문의는 테크 B2B일 때만 리드로 잡는다.
+- **스캇님 개인 LinkedIn 프로필로는 어떤 활동도 하지 않는다** (DP World 재직 중, 발각 시 해고 위험). 회사 페이지만 사용한다. 개인 프로필이 막혀 있으므로 LinkedIn 아웃바운드는 기대하지 않는다.
+
+---
+
 ## 1. 워크스트림 경계 (중요 — 섞지 말 것)
 
 이 저장소/이 세션이 담당하는 것은 **TCG Express 런칭 트랙 하나뿐**이다.
@@ -101,6 +127,18 @@
 
 ## 4. 날짜별 기록
 
+### 2026-08-30 (일) — D-2
+- **Corp Premium / RFQ 파이프라인 수리.** 증상: client가 `/client/rfq`에서 RFQ를 제출하면 "My Quotes"에는 보이는데 어드민 **Corp Premium Requests**는 계속 "No corp premium requests yet", 알림도 안 옴.
+  - 원인 1 — **`GET /api/corp-premium` 라우트 자체가 없었음.** 어드민 페이지(`app/admin/corp-premium/page.js:53`)는 그 주소를 호출하는데 파일이 없어 404 → `data.data` undefined → 빈 목록. 어제 만든 `app/api/corp-premium/route.js`로 해결(로컬 확인: 401 = 미들웨어 인증 단계까지 정상 도달).
+  - 원인 2 — **`/client/rfq`가 API를 안 거치고 브라우저에서 `supabase.from('corp_premium_requests').insert()`로 DB에 직접 꽂고 있었음.** 그래서 `request_number`(CPR-YYYY-NNN 트리거)도 안 붙고 어드민 알림(`express_notifications`)도 발생하지 않음. → 제출부를 `POST /api/corp-premium` 호출로 교체.
+  - 라우트 보완: `locations[]`(=`/corp-premium` 폼) 또는 `pickup_regions`/`delivery_regions`(=`/client/rfq` 폼) 둘 중 하나만 있으면 통과. regions·vehicle_types는 배열/콤마문자열 둘 다 수용(컬럼은 text[]). attachments는 URL 문자열 배열과 객체 배열 둘 다 수용.
+  - 확인 완료: `express_notifications` 컬럼(user_id/title/body/type/reference_id/is_read) 스키마와 일치. `corp_premium_requests.client_id → express_users(id)` FK 존재하므로 `client:client_id(...)` 임베드 유효.
+  - **미해결**: 기존에 직접 insert로 들어간 RFQ 1건("Daily Delivery", 30/08/2026, 3개월)은 `request_number`가 비어 있을 수 있음. 어드민 목록에는 뜸.
+- **추가 수정(같은 날)**: 알림은 정상 도착했으나 어드민 목록은 여전히 비어 있었음 → POST는 성공, **GET이 실패**한 것. 원인은 `select('*, client:client_id(...)')` **PostgREST 임베드** — 마이그레이션 파일에는 `client_id → express_users(id)` FK가 있으나 라이브 DB에는 없어 관계 추론 실패 → 500. 임베드를 없애고 `express_users`를 `.in('id', ...)`로 따로 조회해 붙이는 방식으로 교체. FK 유무와 무관하게 동작함.
+- **`npm run dev` 관련**: `✓ Ready in 22.6s` 이후 터미널이 조용한 것은 정상(Next.js 16 Turbopack은 접속한 페이지만 그때그때 컴파일). Sentry `disableLogger` / middleware→proxy 경고는 무해.
+- **스캇님 할 일**: 로컬에서 client 계정으로 `/client/rfq` 재제출 → 어드민 `/admin/corp-premium`에 뜨는지 확인 → 되면 `app/api/corp-premium/route.js`, `app/client/rfq/page.js` 커밋·푸시.
+
+
 ### 2026-08-29 (토) — D-3
 - **Alibaba Printing 상태 확인**: 8/26·8/26·8/27 3회 발송, **3일간 무응답**. 8/28 5개사 패키지 입찰(Kiasu·CustomPrint·Lim Sign·Raffles Tag·Fatty Print)에는 **포함되지 않았음**. 오늘 확정 수량 전체 패키지 RFQ를 재발송(월 31일 마감, "입찰 불가면 한 줄만 회신" 포함).
 - **링크 문제 원인 확정**: 발송 메일의 아트워크 링크가 전부 `google.com/url?q=...` 로 재작성되고 있었음. Dekawrap(Betty)·VWrap(Yik Khoon)·Fatty Print 모두 "열리지 않는다"고 회신. → **프로토콜 없이 `app.techchainglobal.com/artwork/x.pdf` 형태로만 발송할 것.** 오늘 발송분부터 적용.
@@ -125,6 +163,15 @@
 - **파트너 계약서 초안 작성** → `marketing/TCG-Express-referral-partner-agreement-DRAFT.docx`. 10개 조항(독립계약자 지위, 사전 회사 등록·14일 영역락, 커미션 2단계, 미지급 사유, PDPA 준수 행동규칙, 기밀유지, 정지·해지, 면책, 싱가포르 준거법) + 마지막 장에 **변호사에게 물을 질문 7개**. ⚠️ 변호사 검토 전 배포 금지.
 - **DB 마이그레이션 작성** → `supabase/migrations/20260901000000_partner_referral_and_driver_activation.sql`. 신규 테이블 4개(referral_partners / partner_company_claims / partner_commissions / driver_activation_bonuses), 자기거래 감시 뷰, 주간 지급 뷰, RLS(service_role 전용), `generate_partner_code()`. **아직 실행 안 함 — 스캇님 검토 필요.** 기존 `express_users.referral_code`(TCG-XXXX)와 `referral_rewards`는 건드리지 않음.
 - 미확인: 드라이버 40명 중 실제 검증 완료 인원. SQL 파일 SECTION 0에 조회 쿼리 넣어둠.
+- **DB 실측 (8/29 직접 조회)**: 드라이버 71명(approved 57 / pending 14 / rejected 3). approved 중 테스트계정 5 → **실사용 승인 드라이버 52명**. 배송 실적: 0건 54명, 1~4건 2명, 5건+ 1명(웰컴보너스 정상 지급 확인).
+- **잡 82건 중 실고객 주문은 9건뿐** (나머지 73건은 테스트/더미). 최근 주문 2026-08-09. 미결 상태로 남은 테스트 잡: assigned 14, confirmed 20, delivered 5 → 런칭 전 정리 대상.
+- **코드 확인 2건**: (1) `express_users.total_deliveries`는 어떤 API도 쓰지 않는 죽은 컬럼 — 진단 기준으로 쓰면 안 됨. 기존 S$50 웰컴보너스는 `express_jobs`를 직접 세므로 정상 작동. (2) `promoters`/`promoter_bonuses`/`promoter_summary` + 관리자 API가 **이미 구현돼 있었음** → 신규 테이블 대신 기존 것 확장으로 마이그레이션 전면 재작성.
+- **마이그레이션 버그 2건 수정**: `payment_ref`가 기존 `payout_ref`와 중복 → 제거. `promoter_bonuses.redemption_id`가 NOT NULL이라 리퍼럴 첫배송 보너스 INSERT가 전부 실패했을 것 → DROP NOT NULL + stage별 CHECK 추가.
+- **스키마 복구**: Supabase CLI 미설치로 `db dump` 실패 → `information_schema`에서 컬럼 정의를 뽑아 `supabase/schema-promoters.sql` 생성·커밋. PK/FK/인덱스/RLS/뷰 정의는 여전히 미확보 — 런칭 후 `npx supabase db dump` 필요.
+- **예산 확정 (프로모터 8명 + 실측 드라이버)**: 총 **S$7,504**. 드라이버 트랙 S$2,348(대기감사금 1,040 / 신규검증 196 / 첫배송 649 / 5건웰컴 464), 파트너 S$1,700, 프로모터 S$3,456. 고정비 비중 41%.
+- **타겟 규칙 확정 (스캇님 지시)**: 1차 타겟 고객은 테크 기업 B2B 전용. 그 외 고객군은 추후 건별 검토. 영업은 B2B 이메일·전화·대면 중심(LinkedIn 회사 페이지는 검증 자산 역할). Carousell은 드라이버·프로모터 모집(공급측) 전용으로 격하. PROGRESS.md 상단에 상시 규칙으로 명시.
+- **메일 문체 규칙 확정 (스캇님 지시)**: 앞으로 모든 대외 메일은 간단 명료하게. ADV Security 초안을 약 900단어 → 약 400단어로 축약해 재작성.
+- **ADV Security 회신 예약**: 8/31(월) 09:00 SGT 자동 발송 예약 완료. Gmail 초안 `r6931562985255609971`. 내용 — 미답변 질문 5건 답변(일반화물 가능 / 멀티드롭은 건별 게시 + 볼륨할인 / 당일배송 가능 / 서명서류 회수는 유료), **전자서명·자동 인보이스 무료 기능 안내**(코드 확인: `status/route.js`가 서명+사진 없으면 배송완료 처리를 막음, `invoice/route.js`가 PDF 자동생성), 국제운송은 자체 포워딩 Q4 유지하되 파트너 견적 무료 대행 제안. 중복발송 방지 가드 포함.
 - iOS 심사 결과 대기 중, Play 프로덕션 액세스 심사 대기 중.
 
 ### 2026-08-28 (금) — D-4
