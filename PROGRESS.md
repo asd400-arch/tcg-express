@@ -136,6 +136,9 @@
   - **미해결**: 기존에 직접 insert로 들어간 RFQ 1건("Daily Delivery", 30/08/2026, 3개월)은 `request_number`가 비어 있을 수 있음. 어드민 목록에는 뜸.
 - **추가 수정(같은 날)**: 알림은 정상 도착했으나 어드민 목록은 여전히 비어 있었음 → POST는 성공, **GET이 실패**한 것. 원인은 `select('*, client:client_id(...)')` **PostgREST 임베드** — 마이그레이션 파일에는 `client_id → express_users(id)` FK가 있으나 라이브 DB에는 없어 관계 추론 실패 → 500. 임베드를 없애고 `express_users`를 `.in('id', ...)`로 따로 조회해 붙이는 방식으로 교체. FK 유무와 무관하게 동작함.
 - **`npm run dev` 관련**: `✓ Ready in 22.6s` 이후 터미널이 조용한 것은 정상(Next.js 16 Turbopack은 접속한 페이지만 그때그때 컴파일). Sentry `disableLogger` / middleware→proxy 경고는 무해.
+- **배포 완료·검증됨**: 운영 어드민 `/admin/corp-premium`에 **CPR-2026-017 "New Delivery" (Beta Corp Alpha, SUBMITTED)** 정상 표시. 문서번호 트리거·고객명 조회·알림 모두 동작 확인. (그 전까지 어드민이 비어 보였던 마지막 원인은 단순히 **운영 서버에 route.js가 아직 푸시되지 않아 404**였던 것.)
+- **`GET /api/geo-zones` 500 수정**: 라우트가 `.eq('is_active', true).eq('country', country)`로 필터했는데 **`service_zones` 테이블에는 두 컬럼 다 없음**(대신 `status`). → `select('*')` 후 JS에서 status/is_active/country를 있으면 쓰고 없으면 통과하는 방식으로 교체 + 에러 로깅 추가. 영향: 지금까지 **존 서차지와 restricted zone 차단이 전혀 적용되지 않고 있었음**(fetch 실패 시 `.catch(() => {})`로 조용히 빈 배열 → 경고·할증 없음). 주문 자체는 정상 생성되므로 오픈 블로커는 아님. `app/api/geo-zones/route.js` 커밋 필요.
+- **존 할증 정책 확정 (2026-08-30)**: **권역별 할증·제한구역은 사용하지 않는다.** 시드된 싱가포르 5개 권역(중부·동부·서부·북부·남부)은 전부 할증 0으로 그대로 둔다. 따라서 geo-zones 수정은 로그의 500만 없애는 정리 작업이며 요금에는 영향 없음. 나중에 권역 요금을 도입할 일이 생기면 이 결정부터 다시 볼 것.
 - **스캇님 할 일**: 로컬에서 client 계정으로 `/client/rfq` 재제출 → 어드민 `/admin/corp-premium`에 뜨는지 확인 → 되면 `app/api/corp-premium/route.js`, `app/client/rfq/page.js` 커밋·푸시.
 
 
