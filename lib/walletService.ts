@@ -529,11 +529,10 @@ export async function createPayNowTopup(
       reference: referenceId,
       amount: uniqueAmount,
       expiry,
-      // Bank-registered PayNow name — still the former company name until
-      // DBS processes the ACRA change. Must match what the customer's
-      // banking app shows. Flip to 'Tech Chain Global Pte Ltd' after DBS
-      // confirms (and update lib/paynow-qr.js field 59 together).
-      recipient_name: 'HHI Solutions Pte Ltd',
+      // Bank-registered PayNow name. Must match what the customer's banking
+      // app shows, and field 59 in lib/paynow-qr.js.
+      // Updated 2026-08-30 after DBS completed the company name change.
+      recipient_name: 'TECH CHAIN GLOBAL PTE LTD',
       uen: '202005872W',
     },
   };

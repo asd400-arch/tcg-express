@@ -59,6 +59,28 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: 'Not your job' }, { status: 403 });
     }
 
+    // Role gate per transition.
+    // Delivery progress belongs to the driver; the sign-off that releases the
+    // escrow payment belongs to the client. Without this an assigned driver
+    // could post 'confirmed' on their own job and pay themselves out, because
+    // release_payment() does not check who requested the release.
+    const DRIVER_ONLY_STATUSES = ['pickup_confirmed', 'picked_up', 'in_transit', 'delivered'];
+    const CLIENT_ONLY_STATUSES = ['confirmed', 'completed'];
+    if (session.role !== 'admin') {
+      if (DRIVER_ONLY_STATUSES.includes(status) && session.role !== 'driver') {
+        return NextResponse.json(
+          { error: 'Only the assigned driver can update delivery progress' },
+          { status: 403 }
+        );
+      }
+      if (CLIENT_ONLY_STATUSES.includes(status) && session.role !== 'client') {
+        return NextResponse.json(
+          { error: 'Only the client can confirm a completed delivery' },
+          { status: 403 }
+        );
+      }
+    }
+
     // Validate transition
     const allowed = VALID_TRANSITIONS[job.status];
     if (!allowed || !allowed.includes(status)) {

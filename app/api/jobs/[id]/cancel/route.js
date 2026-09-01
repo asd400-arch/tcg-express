@@ -16,7 +16,14 @@ export async function POST(request, { params }) {
       .single();
 
     if (!job) return NextResponse.json({ error: 'Job not found' }, { status: 404 });
-    if (session.role === 'client' && job.client_id !== session.userId) {
+
+    // Only the client who posted the job, or an admin, may cancel it.
+    // The old check only ran for role === 'client', which let any signed-in
+    // driver cancel open jobs belonging to other people.
+    if (session.role === 'driver') {
+      return NextResponse.json({ error: 'Drivers cannot cancel jobs' }, { status: 403 });
+    }
+    if (session.role !== 'admin' && job.client_id !== session.userId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
     if (!['open', 'bidding'].includes(job.status)) {

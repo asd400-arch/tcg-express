@@ -105,7 +105,7 @@
 - `public/artwork/TCG-Express-one-pager.pdf` — 총판용 영업 자료 1p
 
 ### 기타 열린 항목
-- DBS 계좌명이 아직 **HHI SOLUTIONS** → 변경 완료되면 `lib/paynow-qr.js`의 field('59')와 `lib/walletService.ts`의 `recipient_name` 수정
+- ~~DBS 계좌명 HHI SOLUTIONS~~ → **2026-08-30 변경 완료.** 코드 두 곳 모두 `TECH CHAIN GLOBAL PTE LTD`로 수정함 (`lib/paynow-qr.js` field 59, `lib/walletService.ts` recipient_name). 배포 후 실제 QR로 수취인명 육안 확인 필요.
 - Facebook 페이지 링크 오타: techc**ah**inglobal.com → techc**ha**inglobal.com
 - Sim Lim Square 홍보 공간 회신 미발송
 - 사전등록 수 **1명**에서 정체
@@ -127,6 +127,15 @@
 
 ## 4. 날짜별 기록
 
+### 2026-09-01 (화) — **런칭일 D-DAY**
+- **ADV Security 회신 발송 완료** (09:0x SGT). 드래프트 `r6931562985255609971` → 메시지 `1a05a7cd220a2392`, accounts@advcctv.com.sg (Cindy Chia), cc wennie@advcctv.com.sg. 내용: 일반화물 가능 / 멀티드롭은 건별 게시 + 볼륨할인 / 당일배송 예약 불필요 / **전자서명·사진·인보이스 무료** / 자사 양식 회수는 드라이버 입찰로 유료 / 국제운송은 Q4까지 파트너 견적 대행 / 계정 개설용 실제 1건 요청 + 무료 크레딧 10건 / 안드로이드 안내 문단.
+- **Fatty Print (Ginnie)** — 밤사이 정리됨. 스캇님이 8/31 16:58에 **PDF 직접 첨부**로 재발송, 17:34에 **수정 납기(배너 4장 $548+GST, 9/7 오후) 수락** 회신 완료. 내 회신 초안은 중복이라 발송하지 않고 폐기.
+  - 남은 것: 업체의 첨부 열림 확인 · 전단 2,000장($219+GST) 납기 확정 · **인보이스 수령**. 입금 전 계좌는 **전화(+65 6100 1266)로 검증** — 메일에 적힌 계좌 그대로 믿지 말 것.
+- **Carousell 프로모터**
+  - **cheepothrills (Henry) — 첫 자격 충족 지원자.** 싱가포리안, Tai Seng/Ubi, 월–목, WhatsApp 9722 3458. 질문: "교육시간도 유급인가 / 매주 지급이 신뢰에만 의존하나?" → **정산 조건은 스캇님 결정 사항**이라 조건을 새로 만들지 않고 "서면으로 확정해 하루 안에 회신하겠다"고만 답신함. **스캇님 답 필요.**
+  - bwyoxx: 브리핑 뒤 "Hmm??" 회신. 짧은 요약 재발송 시도했으나 **자동 분류기에 차단** — 우회하지 않음. 스캇님이 직접 보내거나 다음 세션에서 재시도.
+- **정정 기록**: 아트웍 링크 미열림의 원인은 middleware 하나가 아니라 **middleware + Gmail URL 재작성 두 가지가 겹친 것**이었음(§2026-08-30 항목에 반영). 업체 발송은 앞으로 **PDF 첨부가 기본**.
+
 ### 2026-08-30 (일) — D-2
 - **Corp Premium / RFQ 파이프라인 수리.** 증상: client가 `/client/rfq`에서 RFQ를 제출하면 "My Quotes"에는 보이는데 어드민 **Corp Premium Requests**는 계속 "No corp premium requests yet", 알림도 안 옴.
   - 원인 1 — **`GET /api/corp-premium` 라우트 자체가 없었음.** 어드민 페이지(`app/admin/corp-premium/page.js:53`)는 그 주소를 호출하는데 파일이 없어 404 → `data.data` undefined → 빈 목록. 어제 만든 `app/api/corp-premium/route.js`로 해결(로컬 확인: 401 = 미들웨어 인증 단계까지 정상 도달).
@@ -135,6 +144,83 @@
   - 확인 완료: `express_notifications` 컬럼(user_id/title/body/type/reference_id/is_read) 스키마와 일치. `corp_premium_requests.client_id → express_users(id)` FK 존재하므로 `client:client_id(...)` 임베드 유효.
   - **미해결**: 기존에 직접 insert로 들어간 RFQ 1건("Daily Delivery", 30/08/2026, 3개월)은 `request_number`가 비어 있을 수 있음. 어드민 목록에는 뜸.
 - **추가 수정(같은 날)**: 알림은 정상 도착했으나 어드민 목록은 여전히 비어 있었음 → POST는 성공, **GET이 실패**한 것. 원인은 `select('*, client:client_id(...)')` **PostgREST 임베드** — 마이그레이션 파일에는 `client_id → express_users(id)` FK가 있으나 라이브 DB에는 없어 관계 추론 실패 → 500. 임베드를 없애고 `express_users`를 `.in('id', ...)`로 따로 조회해 붙이는 방식으로 교체. FK 유무와 무관하게 동작함.
+- **오픈 전 전체 프로세스 점검 실시** (주문 생성 → 요금 → 입찰·낙찰 → 픽업·배송 → 고객확인 → 인보이스 → 출금). 보고서는 Cowork 아티팩트로 발행. 발견 8건.
+- **F-01 (즉시·수정 완료)**: `app/api/jobs/[id]/status/route.js`에 **전환별 역할 검사가 없었음.** 요청자가 그 주문 당사자인지만 확인 → 배송완료 상태에서 **드라이버가 스스로 `confirmed`를 찍어 에스크로를 자기 지갑으로 이체 가능**했음. `release_payment()` DB 함수도 `p_released_by`를 검증하지 않음(마이그레이션 20260224180000 확인). 같은 일을 하는 `/api/transactions/release`는 고객 본인 확인을 제대로 하고 있어 정문만 잠겨 있던 상태. → `pickup_confirmed/picked_up/in_transit/delivered`는 driver만, `confirmed/completed`는 client만(admin 예외) 허용하도록 수정.
+  - 영향 없음 확인: 드라이버 웹(`app/driver/my-jobs/page.js` statusFlow)은 `delivered`에서 끝나고, 드라이버 앱(`tcg-express-app/app/(driver)/my-jobs.tsx`)은 `delivered` 이후 "Awaiting confirmation" 뱃지만 표시. `confirmed`를 보내는 곳은 고객 웹(`app/client/jobs/[id]/page.js:201`) 하나뿐.
+- **F-02 (수정 완료)**: `app/api/jobs/[id]/cancel/route.js`의 소유자 검사가 `role === 'client'`일 때만 걸려서 **아무 드라이버나 남의 open/bidding 잡을 취소 가능**했음. → driver 취소 차단, admin만 예외.
+- **F-03 (미해결·오픈 후)**: 고객이 확인을 누르지 않으면 **드라이버 정산이 무한정 묶임.** 자동 확정 크론 없음(등록된 크론은 `vercel.json`의 정기배송 생성 1건, 매일 09:00 UTC = 17:00 SGT). 첫 정산 전까지는 자동 확정 또는 어드민 수동 릴리즈 경로가 필요.
+- **F-06 (확인 필요)**: 코드가 쓰는 컬럼 9종이 마이그레이션 파일에 없음(대시보드 직접 추가 추정). 진단 쿼리를 `sql/schema-check.sql`로 저장 — 읽기 전용. 스캇님이 실행 후 `exists = false` 줄만 회신.
+- **★ 아트웍 링크가 열리지 않던 진짜 원인을 찾음 (일주일간 오진).** `middleware.js`의 matcher가 `_next/static`·`icons/`·`.png`·`.svg`만 제외하고 **`.pdf`와 `/artwork/`를 제외하지 않아서**, `app.techchainglobal.com/artwork/*.pdf` 요청이 전부 인증 검사를 거쳐 **로그인 페이지로 리다이렉트**되고 있었음. 업체들이 "링크가 안 열린다 / 등록해야 한다(need to register)"고 한 게 정확히 이것.
+  - **정정 (9/1)**: 한때 "Gmail 재작성은 원인이 아니었다"고 적었으나 **그것도 틀렸음. 원인은 두 개가 겹쳐 있었다.** (1) middleware가 PDF를 로그인으로 리다이렉트, (2) Gmail이 `https://` 없이 쓴 링크까지 `google.com/url?q=...` 로 감쌈. 근거 — Ginnie(Fatty Print) 8/31 11:21 회신에서 middleware 수정 배포 **이후에도** 링크가 열리지 않았고, 첨부한 영상에 `https://www.google.com/url?q=http://app.techchainglobal.com/...` 래퍼가 그대로 찍혀 있었음. → **업체 발송은 링크가 아니라 PDF 첨부를 기본으로 한다.**
+  - 수정: matcher에 `artwork/.*`와 `.*\.pdf$` 추가. 정규식 검증 완료 — `/artwork/x.pdf`는 미들웨어 통과하지 않고, `/admin/*`·`/api/*`·`/client/*`는 그대로 보호됨.
+  - **배포·검증 완료 (8/31)**: `app.techchainglobal.com/artwork/TCG-Express-A5-flyer.pdf`와 `...standee-artwork.pdf` 둘 다 브라우저에서 로그인 없이 바로 열림(2페이지 PDF 뷰어 정상 표시). **앞으로 모든 업체에 링크로 보내면 됨.** 단 메일에는 `https://` 없이 `app.techchainglobal.com/...` 형태로만 쓸 것(Gmail 재작성 회피).
+  - ~~푸시 필요.~~ 배포되면 링크 방식이 되살아나므로 앞으로 모든 업체에 링크로 보내도 됨. 배포 후 브라우저에서 실제로 열리는지 한 번 확인할 것.
+- **ADV Security 회신 — 9/1(화) 09:00 SGT 발송 예약 완료.** 드래프트 `r6931562985255609971` (accounts@advcctv.com.sg / Cindy Chia, cc wennie@). 스캇님 승인.
+  - 수정: "We open Tuesday" → **"We open today"** (발송일이 곧 오픈일).
+  - **안드로이드 문단 신설** — Play 반려를 선반영. "오늘부터 iPhone·웹, 안드로이드는 곧. 설치기사가 안드로이드면 그동안 웹 버전 사용, 같은 계정·같은 주문." 나중에 스토어에 없다는 지적을 받기 전에 먼저 밝히고 대안 제시.
+  - 담긴 답변: 일반화물 가능(위험물·부패성·생물·무면허 제외) / 멀티스톱은 건별 분리 + 정기 다건이면 볼륨 할인(하루치 샘플 요청) / 당일 가능·사전예약 불필요(오전 게시가 입찰 유리라고 솔직히) / **전자서명·사진·인보이스 전액 무료**, 종이를 Ubi로 회수할 필요 자체가 없다는 각도 / 자체 양식(DO) 회수는 **추가 요금**이며 드라이버 입찰에 반영되어 수락 전 금액 확인 가능 / 국제운송은 Q4 전까지 파트너 견적 대행(무료·무조건) + 필요 정보 목록 / 마지막에 **첫 주문 정보 요청**(계정 개설 + 무료 크레딧 10건).
+- **Carousell 인박스 점검 (8/31 16시경)**. 표시상 "94 unread"지만 **대부분 스캇님 개인 판매글**(침대프레임·쿠쿠 밥솥, 6~7월)이라 실제 채용 관련 미답변은 **6건**.
+  | 계정 | 날짜 | 공고 | 내용 |
+  |---|---|---|---|
+  | cheepothrills | 8/28 | 프로모터 | **완전 지원서** — Henry, Tai Seng/Ubi, 월~목 가능 |
+  | xavierwan73 | 8/28 (3건) | 프로모터 | **완전 지원서** — Wan Wee Boon, Ang Mo Kio, 월~금 |
+  | sharbucks | 8/30 | 프로모터 | "관심 있음" + 연락처 제공 (9011 86 25) |
+  | bwyoxx | 8/27 | 프로모터 | "Avail?" — 단문 |
+  | chandani2914855 | 8/27 | 프로모터 | Carousell offer 버튼만 누름(S$15) — 실질 정보 없음 |
+  | rajasadhee65597 | 8/30 | **드라이버** | "인도 국적자 class 3 라이선스도 가능한가?" — **취업 자격 질문** |
+  - 이미 브리핑 발송하고 답 기다리는 건: queeniebunny0268 · sofiyan_eb530f · ipman36 · queenofhearts86 · charlotte.gem (전부 8/26). gulshanmalik07은 거절 완료.
+  - **프로모터 0/15인데 완성된 지원서 2건이 8/28부터 사흘째 방치돼 있었음.** 오픈 주 프로모터 확보의 가장 구체적인 소스가 이 인박스임.
+  - 지원자들이 자발적으로 나이를 적어 보냈으나 **선발 기준으로 쓰지 않는다**(TAFEP). 스크리닝 시트에도 옮기지 않음.
+  - **6건 전부 회신 완료 (8/31 20:42~20:50 SGT, Carousell 채팅)**:
+    - **cheepothrills (Henry)** — Tai Seng/Ubi 확인, 조건 재안내, ① 취업 자격 ② WhatsApp 번호 요청 → 교육 슬롯 배정 예정
+    - **xavierwan73 (Wan Wee Boon)** — 싱가포르인이라 자격은 해결. **Ang Mo Kio는 우리 존이 아님**을 솔직히 알리고 Tai Seng/Ubi 이동 가능한지 질문 + WhatsApp 번호 요청
+    - **sharbucks / bwyoxx / chandani2914855** — 표준 브리핑 + 5개 항목(이름·존·요일·취업자격·WhatsApp) 요청
+    - **rajasadhee65597 (드라이버)** — 국적으로 걸러내지 않는다고 명시. 단 ① 싱가포르 취업 자격은 본인 확인 사항이며 이민·패스 문제는 조언하지 않고 MOM 확인 안내 ② class 3만으로는 부족, 차량+화물배송 보험 필요. 입찰 방식·지갑 정산·커미션 15%(EV 10%, 신규 30일 0%) 안내
+  - 다섯 개 문의 전부 **나이를 회신에 언급하지 않음.** chandani의 Carousell "S$15 offer"는 수락/거절 모두 하지 않고 그대로 둠(실거래가 아님).
+  - **회신이 오면 바로 처리할 것** — 지금 프로모터 파이프라인은 이 6명이 전부.
+  - 드라이버 취업 자격 질문은 **사실 안내만** 하고 개별 비자 판단은 하지 않는다 — 싱가포르 취업 자격 보유 여부는 본인 확인 사항.
+- **Fatty Print(Ginnie) 회신 발송 완료 (8/31 15:4x SGT, 스레드 1a055597444e441f)**. 내용 4가지:
+  1. 링크 문제는 우리 쪽 원인이었고 수정됐다 — 두 링크 재안내
+  2. **A5 전단 157gsm 무라미네이팅 2,000장 $219+GST 발주 진행** (파일 2페이지 = 앞/뒤)
+  3. **롤업 배너 재견적 요청** — Ginnie 견적이 "4 Designs x 1pc"(디자인 4종) 기준인데 우리는 **1종을 4장**. 배너 파일은 **page 1만 사용, page 2(A3 포스터판)는 무시**하라고 명시. 참고: Fatty $548+GST(4종 기준) vs Kiasu $432(4장)
+  4. **인보이스 요청** — 계좌는 전화로 대조 후 입금 (업체 자체 사기 경고 문구에 따름). Fatty Print 전화 +65 6100 1266
+  - 블리드 미포함이라고 밝히고 필요하면 재발행하겠다고 명시.
+  - Fatty Print 원견적 요약: 전단 2,000장 $219+GST(익스프레스, 아트웍 11am → 9/2 오후) / 배너 4장 $548+GST(아트웍 12pm → 9/4 오후) / 랜야드 뱃지 30세트 $185+GST(아트웍 9/4 11am → 9/10). **오늘 마감 두 개는 모두 넘김** — 새 납기 회신 대기.
+  - `public/artwork/TCG-Express-pullup-banner-850x2000.pdf` (배너 1페이지만 추출) 저장해둠. 다음 푸시 때 올라감 — 이후로는 이 링크를 쓰면 페이지 혼동 없음.
+- **Google Play 프로덕션 액세스 반려 (8/31 04:15 심사).** "앱에 더 많은 테스트가 필요함" — **심사일 기준 12명 이상으로 클로즈드 테스트를 14일 더** 진행해야 재신청 가능. 즉 **9/14 이전 안드로이드 정식 출시 불가.** 9/1 오픈은 iOS + 웹으로 간다. 전단·배너·원페이저의 "Google Play coming" 문구는 그대로 유효하나, 스토어 링크 삽입 계획(`app/preview/page.js` PLAY_STORE_URL 등)은 9월 중순 이후로 밀림.
+  - **Play Console 직접 확인 (8/31)**: 테스터 수 문제 아님. beta01 트랙에 이메일 리스트 5개 선택됨 — beta-drivers 36 / Additional Tester 3 / KR Tester 3 / KR1 1 / Scott 2 = **초대 45명**. 콘솔 체크리스트에서 "12명 옵트인" 항목은 **이미 통과(✓)** 표시. 즉 실패한 조건은 **"12명이 연속 14일 유지"** 하나뿐 — 8/28 신청 시점에 그 구간이 완성되지 않았던 것(릴리즈 8/11 게시, 테스터를 여러 차례 나눠 추가한 정황).
+  - **"4 More" 리스트(4명)는 중복 컨택으로 확인됨** — 체크 해제 상태 유지가 맞음. 실제 테스터는 43명(스캇님 계정 2개 제외).
+  - 트랙 상태: Active, 최신 릴리즈 11 (1.0.4), 8/11 07:39 게시, 4개국.
+  - 별건 마감 발견: **Android developer verification 등록 마감 2026-09-30.** 놓치면 배포에 영향.
+  - **테스터 43명에게 유지 요청 메일 발송 완료 (8/31 15:2x SGT, BCC)**. 제목 "TCG Express — please keep the test app installed until 14 September". 내용: 9/14까지 (1) 앱 삭제 금지 (2) 테스트 참여 유지 (3) 가끔 열어보기 — 구글이 참여도도 본다는 점 명시. 중단 원할 시 삭제 대신 회신 요청. 한국 테스터 4명 위해 국문 단락 병기. 발신 admin@techchainglobal.com, 서명 Scott.
+    - 수신: beta-drivers 36 + Additional Tester 3 + KR Tester 3 + KR1 1 = 43명. 스캇님 본인 계정 2개는 제외.
+    - **회신이 오면 반드시 대응할 것** — "앱이 안 된다"는 회신을 방치하면 그 사람이 이탈해 카운트가 깨짐.
+  - 클로즈드 테스트를 **중단하지 말 것** — 14일 카운트가 리셋될 수 있음. 테스터 12명 유지 확인 필요.
+- **전체 플로우 테스트 통과 (스캇님 직접 실행, DB로 교차 확인 완료)**. `TCG-2026-00170`:
+  | 항목 | 값 |
+  |---|---|
+  | status | `confirmed` |
+  | delivered_at | 2026-08-31 06:25:46 UTC |
+  | completed_at | 2026-08-31 06:26:45 UTC (59초 뒤) |
+  | 전자서명 / 배송사진 | 둘 다 저장됨 |
+  | payment_status | **`paid`** (이전 `held`) |
+  | driver_payout / released_at | $12.75 / 06:26:45 |
+  → 배송완료(서명·사진 강제) → 고객확인 → `release_payment` 실행 → 에스크로 해제까지 한 줄로 정상 동작. F-01 수정 후에도 정상 경로가 막히지 않음을 확인.
+  - **미검증**: 드라이버가 스스로 `confirmed`를 시도했을 때 403으로 막히는지는 드라이버 로그인이 필요해 확인하지 못함. 오픈 후 여유 있을 때 확인할 것.
+  - **참고**: 00170은 새로 생성된 주문이므로 등록 드라이버들에게 "새 주문" 푸시가 나갔음. 문의가 오면 테스트 건이라고 안내.
+- **PayNow 수취인명 변경 (DBS 법인명 변경 완료 반영)**: `lib/paynow-qr.js` field('59')와 `lib/walletService.ts` `recipient_name`을 `HHI Solutions Pte Ltd` → **`TECH CHAIN GLOBAL PTE LTD`**로 교체. 정확히 25자로 EMVCo 필드 상한에 딱 맞음. 생성 테스트 통과 — 페이로드에 `5925TECH CHAIN GLOBAL PTE LTD` 정상 출력, CRC 재계산됨. UEN(202005872W)은 원래부터 TCG 것이라 인보이스·약관 등 다른 문서에는 변경 대상 없음(전체 검색 결과 HHI는 이 두 곳뿐이었음).
+  - 참고: `lib/paynow.ts`는 **아무도 import 하지 않는 죽은 파일**(이미 대문자 사명이 들어있음). 실제 QR은 `paynow-qr.js`에서 나옴. 나중에 정리 대상.
+  - **배포 후 확인 필요**: 지갑 충전 QR을 하나 띄워서 DBS 앱에 뜨는 수취인명이 실제로 바뀌었는지 눈으로 볼 것.
+- **F-06 해소 — 실DB 스키마 확인 완료 (Supabase SQL Editor 직접 실행, 읽기 전용)**. 17개 컬럼 / 13개 테이블·뷰 / 6개 DB 함수 확인.
+  - **없는 것은 단 2개**: `express_jobs.zone_surcharge` (false), `service_zones.is_active` (false).
+  - **정정**: `service_zones.country`는 **존재함**(text, 값 `sg`). geo-zones 500의 원인은 `is_active` 하나뿐이었음. 앞선 기록에서 country도 없다고 쓴 것은 틀렸음.
+  - 나머지 전부 존재: `express_users.referral_code/expo_push_token/locale`, `express_jobs.fare_breakdown(jsonb)/external_order_id/external_source/customer_signature_url/signed_at/pickup_photo/delivery_photo`, `express_bids.equipment_charges(jsonb)`, `wallets.bonus_balance(numeric)`, `promo_codes.owner_user_id`, `service_zones.status`.
+  - 테이블·뷰 13개 전부 존재(`broadcasts` `promoters` `promoter_bonuses` `promoter_summary` `zone_campaign_zones` `referral_rewards` `external_api_keys` `processed_webhook_events` `corp_premium_requests` `corp_premium_bids` `payments` `wallet_transactions` `express_transactions`).
+  - DB 함수 6개 전부 존재(`release_payment` `process_bid_acceptance` `process_job_payment` `wallet_credit` `wallet_debit` `check_job_status_transition`).
+  - `service_zones` 실데이터 = 5행, 전부 `zone_type='standard'` / `status='active'` / `country='sg'` / 할증 0.00. **restricted·surcharge 존은 하나도 없음** → geo-zones 수정으로 동작이 달라지는 것은 없음(확인 완료).
+- **★ 지뢰 (미수정·의도적 방치)**: `app/api/jobs/route.js:350`이 `jobData.zone_surcharge`를 쓰는데 **`express_jobs`에 그 컬럼이 없음** → 실행되면 주문 생성이 500으로 실패함. 현재는 (1) 같은 파일의 `service_zones` 쿼리가 `is_active`로 실패해 `zones`가 비고 (2) surcharge 존 자체가 없어서 **도달 불가**. 두 조건 중 하나라도 바뀌면 터진다. **누군가 `app/api/jobs/route.js`의 `is_active` 필터를 "고치면" 그 즉시 위험해짐** — 고칠 거면 컬럼 추가 또는 해당 블록 제거를 함께 할 것. 오픈 전에는 건드리지 않는다.
+- **F-07 (기록)**: `regular_schedules.locations` JSONB는 죽은 컬럼. 크론이 `pickup_address`/`delivery_address`만 읽음 → 정기배송은 1픽업 1배송만 가능.
+- **점검에서 확인된 정상 항목**: 입찰수락·지갑결제는 client 전용 + `process_bid_acceptance` RPC 원자 처리 + 멱등키 / 상태변경 낙관적 잠금(409) / 픽업사진·전자서명 강제 / 배송완료 시 A4 인보이스 PDF 자동 생성 / 출금은 driver 전용 신청 후 관리자 승인 / 커미션 15%(EV 10%), 신규 드라이버 30일 제로커미션.
 - **`npm run dev` 관련**: `✓ Ready in 22.6s` 이후 터미널이 조용한 것은 정상(Next.js 16 Turbopack은 접속한 페이지만 그때그때 컴파일). Sentry `disableLogger` / middleware→proxy 경고는 무해.
 - **배포 완료·검증됨**: 운영 어드민 `/admin/corp-premium`에 **CPR-2026-017 "New Delivery" (Beta Corp Alpha, SUBMITTED)** 정상 표시. 문서번호 트리거·고객명 조회·알림 모두 동작 확인. (그 전까지 어드민이 비어 보였던 마지막 원인은 단순히 **운영 서버에 route.js가 아직 푸시되지 않아 404**였던 것.)
 - **`GET /api/geo-zones` 500 수정**: 라우트가 `.eq('is_active', true).eq('country', country)`로 필터했는데 **`service_zones` 테이블에는 두 컬럼 다 없음**(대신 `status`). → `select('*')` 후 JS에서 status/is_active/country를 있으면 쓰고 없으면 통과하는 방식으로 교체 + 에러 로깅 추가. 영향: 지금까지 **존 서차지와 restricted zone 차단이 전혀 적용되지 않고 있었음**(fetch 실패 시 `.catch(() => {})`로 조용히 빈 배열 → 경고·할증 없음). 주문 자체는 정상 생성되므로 오픈 블로커는 아님. `app/api/geo-zones/route.js` 커밋 필요.

@@ -217,7 +217,11 @@ export async function middleware(request) {
 }
 
 export const config = {
+  // Static public assets must be excluded here or the auth check below sends
+  // them to /login. That is what made every artwork PDF link we emailed to
+  // printers land on a sign-in page — they reported it as "need to register".
+  // .pdf and the /artwork/ folder are excluded for that reason.
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|icons/.*|sw.js|manifest.json|.*\\.png$|.*\\.svg$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|icons/.*|artwork/.*|sw.js|manifest.json|.*\\.png$|.*\\.svg$|.*\\.pdf$).*)',
   ],
 };
