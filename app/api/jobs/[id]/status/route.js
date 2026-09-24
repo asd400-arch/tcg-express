@@ -6,6 +6,7 @@ import { calculateCO2Saved, calculateGreenPoints, SAVE_MODE_GREEN_POINTS } from 
 import { generateInvoice } from '../../../../../lib/generate-invoice';
 import { rateLimiters, applyRateLimit } from '../../../../../lib/rate-limiters';
 import { requireEnum, cleanString } from '../../../../../lib/validate';
+import { notifyPartner, refreshRouteStatus } from '../../../../../lib/partner-webhook';
 
 const VALID_TRANSITIONS = {
   assigned: ['pickup_confirmed', 'picked_up'],
@@ -134,6 +135,15 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: 'Failed to update status' }, { status: 500 });
     }
 
+    // Partner (TCG Fresh etc.) callback + route roll-up — fire-and-forget, never blocks the driver
+    if (data?.external_api_key_id) {
+      notifyPartner(data).catch(() => {});
+      if (data.partner_route_id) refreshRouteStatus(data.partner_route_id).catch(() => {});
+    }
+
+    // Partner fixed-fare jobs get no marketplace perks (bonus, referral, vouchers)
+    const isPartnerJob = data?.fare_mode === 'fixed';
+
     // Fire-and-forget PDF invoice generation on delivery
     if (normalizedStatus === 'delivered' || status === 'delivered') {
       generateInvoice(id).catch(err => console.error('Invoice gen failed:', err));
@@ -206,14 +216,14 @@ export async function POST(request, { params }) {
     }
 
     // Award Green Points on job completion (confirmed/completed)
-    if (normalizedStatus === 'confirmed' || normalizedStatus === 'completed') {
+    if (!isPartnerJob && (normalizedStatus === 'confirmed' || normalizedStatus === 'completed')) {
       try {
         await awardGreenPoints(job, id);
       } catch {}
     }
 
     // Driver Welcome Bonus: $50 after 5 completed deliveries
-    if ((normalizedStatus === 'confirmed' || normalizedStatus === 'completed') && job.assigned_driver_id) {
+    if (!isPartnerJob && (normalizedStatus === 'confirmed' || normalizedStatus === 'completed') && job.assigned_driver_id) {
       try {
         await processWelcomeBonus(job.assigned_driver_id);
       } catch (e) {
@@ -222,7 +232,7 @@ export async function POST(request, { params }) {
     }
 
     // Referral Rewards: credit both parties on first completion
-    if (normalizedStatus === 'confirmed' || normalizedStatus === 'completed') {
+    if (!isPartnerJob && (normalizedStatus === 'confirmed' || normalizedStatus === 'completed')) {
       try {
         // Check driver referral
         if (job.assigned_driver_id) await processReferralReward(job.assigned_driver_id, 'first_delivery');
@@ -234,7 +244,7 @@ export async function POST(request, { params }) {
     }
 
     // Zone Campaign: issue vouchers on first delivery completion
-    if ((normalizedStatus === 'confirmed' || normalizedStatus === 'completed') && job.client_id) {
+    if (!isPartnerJob && (normalizedStatus === 'confirmed' || normalizedStatus === 'completed') && job.client_id) {
       try {
         const { data: v } = await supabaseAdmin.rpc('issue_zone_campaign_vouchers', {
           p_user_id: job.client_id,

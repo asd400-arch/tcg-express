@@ -2,6 +2,7 @@
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../components/AuthContext';
+import GoogleSignInButton from '../components/GoogleSignInButton';
 
 function LoginForm() {
   const { login } = useAuth();
@@ -46,6 +47,11 @@ function LoginForm() {
           <p style={{ color: '#64748b', fontSize: '14px' }}>Sign in to TCG Express</p>
         </div>
 
+        <GoogleSignInButton onError={setError} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '20px 0 16px', color: '#94a3b8', fontSize: '12px' }}>
+          <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }} />or sign in with email<div style={{ flex: 1, height: '1px', background: '#e2e8f0' }} />
+        </div>
+
         <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div>
             <label style={{ fontSize: '13px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>Email</label>
@@ -69,7 +75,10 @@ function LoginForm() {
 
         <div style={{ textAlign: 'center', marginTop: '24px' }}>
           <p style={{ color: '#64748b', fontSize: '14px' }}>
-            Don't have an account? <a href="/signup" style={{ color: '#3b82f6', fontWeight: '600', textDecoration: 'none' }}>Sign Up</a>
+            New business customer? <a href="/signup?role=client" style={{ color: '#3b82f6', fontWeight: '600', textDecoration: 'none' }}>Create account</a>
+          </p>
+          <p style={{ color: '#64748b', fontSize: '14px', marginTop: '8px' }}>
+            Driver? <a href="/signup?role=driver" style={{ color: '#3b82f6', fontWeight: '600', textDecoration: 'none' }}>Register here</a>
           </p>
         </div>
 

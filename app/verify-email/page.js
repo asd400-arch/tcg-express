@@ -99,6 +99,9 @@ export default function VerifyEmail() {
           <p style={{ color: '#64748b', fontSize: '14px' }}>
             Enter the 6-digit code sent to <strong>{user.email}</strong>
           </p>
+          <p style={{ color: '#94a3b8', fontSize: '12px', marginTop: '8px' }}>
+            Not in your inbox? Check <strong>Spam</strong> or <strong>Promotions</strong> — the sender is admin@techchainglobal.com. The code is valid for 30 minutes.
+          </p>
         </div>
 
         {success ? (

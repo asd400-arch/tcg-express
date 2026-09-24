@@ -116,7 +116,7 @@ export async function POST(request) {
 
     // Generate verification code
     const verification_code = String(crypto.randomInt(100000, 999999));
-    const verification_code_expires = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+    const verification_code_expires = new Date(Date.now() + 30 * 60 * 1000).toISOString();
 
     // Generate unique referral code (retry on collision)
     let referral_code;
@@ -179,7 +179,7 @@ export async function POST(request) {
       await sendEmail(
         email,
         'Verify your email - TCG Express',
-        `<h2>Email Verification</h2><p>Your verification code is:</p><div style="font-size:32px;font-weight:700;letter-spacing:6px;text-align:center;padding:20px;background:#f8fafc;border-radius:10px;margin:16px 0">${verification_code}</div><p>This code expires in 15 minutes.</p><p>If you did not sign up for TCG Express, please ignore this email.</p>`
+        `<h2>Email Verification</h2><p>Your verification code is:</p><div style="font-size:32px;font-weight:700;letter-spacing:6px;text-align:center;padding:20px;background:#f8fafc;border-radius:10px;margin:16px 0">${verification_code}</div><p>This code expires in 30 minutes.</p><p>If you did not sign up for TCG Express, please ignore this email.</p>`
       );
     } catch (emailErr) {
       console.error('[signup] Verification email failed:', emailErr.message);

@@ -15,6 +15,7 @@ const PUBLIC_PATHS = [
 
 const PUBLIC_API_PATHS = [
   '/api/auth/login',
+  '/api/auth/google',
   '/api/auth/signup',
   '/api/auth/forgot-password',
   '/api/auth/reset-password',

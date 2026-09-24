@@ -17,7 +17,30 @@ function timeAgo(date) {
 export default function NotificationBell({ userId }) {
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications(userId);
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState({ top: 60, left: 8, width: 320 });
   const ref = useRef(null);
+
+  // Position the panel with fixed coordinates, clamped inside the viewport,
+  // so it is never cut off by the sidebar edge or a narrow screen.
+  useEffect(() => {
+    if (!open) return;
+    const place = () => {
+      const r = ref.current?.getBoundingClientRect();
+      if (!r) return;
+      const vw = window.innerWidth;
+      const width = Math.min(320, vw - 16);
+      let left = r.right - width;              // right-align to the bell by default
+      left = Math.max(8, Math.min(left, vw - width - 8));
+      setPos({ top: r.bottom + 8, left, width });
+    };
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    return () => {
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+    };
+  }, [open]);
 
   useEffect(() => {
     const handleClick = (e) => {
@@ -47,10 +70,10 @@ export default function NotificationBell({ userId }) {
 
       {open && (
         <div style={{
-          position: 'absolute', top: '36px', right: 0, left: 'auto',
-          width: '320px', maxWidth: 'calc(100vw - 16px)', maxHeight: '400px',
+          position: 'fixed', top: pos.top, left: pos.left,
+          width: pos.width, maxHeight: 'min(400px, calc(100vh - 80px))',
           background: 'white', borderRadius: '14px', boxShadow: '0 10px 40px rgba(0,0,0,0.15)',
-          border: '1px solid #e2e8f0', zIndex: 200, overflowY: 'auto',
+          border: '1px solid #e2e8f0', zIndex: 300, overflowY: 'auto',
         }}>
           <div style={{
             padding: '14px 16px', borderBottom: '1px solid #f1f5f9',

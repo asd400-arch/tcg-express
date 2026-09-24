@@ -2,6 +2,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../components/AuthContext';
+import GoogleSignInButton from '../components/GoogleSignInButton';
 import TermsModal from '../components/TermsModal';
 import LiabilityCapModal from '../components/LiabilityCapModal';
 import { VEHICLE_MODES } from '../../lib/fares';
@@ -64,6 +65,7 @@ function SignupForm({ initialLocale = 'sg' }) {
     if (!form.first_name.trim()) errs.first_name = 'First name is required';
     if (!form.last_name.trim()) errs.last_name = 'Last name is required';
     if (!form.phone.trim()) errs.phone = 'Phone number is required';
+    else if (locale !== 'id' && !/^[3689]\d{7}$/.test(form.phone.replace(/\D/g, '').replace(/^65/, ''))) errs.phone = 'Enter an 8-digit Singapore number';
     if (!form.email.trim()) errs.email = 'Email is required';
     else if (!/\S+@\S+\.\S+/.test(form.email)) errs.email = 'Invalid email address';
     if (!form.password) errs.password = 'Password is required';
@@ -95,7 +97,9 @@ function SignupForm({ initialLocale = 'sg' }) {
     setLoading(true);
     try {
       // Phase 1: Create user with text fields
-      const userData = { email: form.email, password: form.password, contact_name: `${form.first_name} ${form.last_name}`.trim(), phone: form.phone, role, locale };
+      const digits = form.phone.replace(/\D/g, '');
+      const phoneE164 = locale === 'id' ? (digits.startsWith('62') ? '+' + digits : '+62' + digits.replace(/^0/, '')) : '+65' + digits.replace(/^65/, '');
+      const userData = { email: form.email, password: form.password, contact_name: `${form.first_name} ${form.last_name}`.trim(), phone: phoneE164, role, locale };
       if (form.referral_code.trim()) userData.referred_by = form.referral_code.trim();
       if (role === 'client') {
         userData.company_name = form.company_name;
@@ -220,6 +224,11 @@ function SignupForm({ initialLocale = 'sg' }) {
                 </div>
               </div>
             ))}
+            <div style={{ marginTop: '18px', textAlign: 'center' }}>
+              <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '8px' }}>Business customer? Skip the form:</div>
+              <GoogleSignInButton text="signup_with" referralCode={form.referral_code} onError={(m) => setErrors({ ...errors, google: m })} />
+              {errors.google && <div style={{ color: '#dc2626', fontSize: '12px', marginTop: '6px' }}>{errors.google}</div>}
+            </div>
           </div>
         )}
 
@@ -268,7 +277,10 @@ function SignupForm({ initialLocale = 'sg' }) {
                 </div>
                 <div>
                   <label style={label}>Phone<span style={req}>*</span></label>
-                  <input style={inputStyle('phone')} value={form.phone} onChange={e => set('phone', e.target.value)} placeholder={locale === 'id' ? '+62 xxx xxxx xxxx' : '+65 xxxx xxxx'} />
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <div style={{ ...inputStyle('phone'), width: '64px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f1f5f9', color: '#475569', fontWeight: '600' }}>{locale === 'id' ? '+62' : '+65'}</div>
+                    <input style={inputStyle('phone')} type="tel" inputMode="numeric" value={form.phone} onChange={e => set('phone', e.target.value.replace(/[^\d ]/g, ''))} placeholder={locale === 'id' ? '8xx xxxx xxxx' : '9123 4567'} maxLength={locale === 'id' ? 14 : 9} />
+                  </div>
                   <div style={errText('phone')}>{errors.phone}</div>
                 </div>
                 {role === 'driver' && (

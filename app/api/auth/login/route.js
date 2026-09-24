@@ -29,6 +29,10 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
     }
 
+    if (!user.password_hash && user.auth_provider === 'google') {
+      return NextResponse.json({ error: 'This account uses Google sign-in. Please continue with Google.' }, { status: 401 });
+    }
+
     // Verify password (bcrypt hash or legacy plain-text with auto-upgrade)
     let passwordValid = false;
     if (user.password_hash && user.password_hash.startsWith('$2')) {
