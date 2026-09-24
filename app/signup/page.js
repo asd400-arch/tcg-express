@@ -224,11 +224,13 @@ function SignupForm({ initialLocale = 'sg' }) {
                 </div>
               </div>
             ))}
+            {process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && (
             <div style={{ marginTop: '18px', textAlign: 'center' }}>
               <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '8px' }}>Business customer? Skip the form:</div>
               <GoogleSignInButton text="signup_with" referralCode={form.referral_code} onError={(m) => setErrors({ ...errors, google: m })} />
               {errors.google && <div style={{ color: '#dc2626', fontSize: '12px', marginTop: '6px' }}>{errors.google}</div>}
             </div>
+            )}
           </div>
         )}
 

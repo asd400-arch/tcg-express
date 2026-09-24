@@ -47,10 +47,14 @@ function LoginForm() {
           <p style={{ color: '#64748b', fontSize: '14px' }}>Sign in to TCG Express</p>
         </div>
 
-        <GoogleSignInButton onError={setError} />
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '20px 0 16px', color: '#94a3b8', fontSize: '12px' }}>
-          <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }} />or sign in with email<div style={{ flex: 1, height: '1px', background: '#e2e8f0' }} />
-        </div>
+        {process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && (
+          <>
+            <GoogleSignInButton onError={setError} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '20px 0 16px', color: '#94a3b8', fontSize: '12px' }}>
+              <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }} />or sign in with email<div style={{ flex: 1, height: '1px', background: '#e2e8f0' }} />
+            </div>
+          </>
+        )}
 
         <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div>
