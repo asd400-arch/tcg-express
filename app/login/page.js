@@ -49,7 +49,10 @@ function LoginForm() {
 
         {process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && (
           <>
-            <GoogleSignInButton onError={setError} />
+            {searchParams.get('app') === '1' && (
+              <p style={{ textAlign: 'center', fontSize: '12px', color: '#64748b', marginBottom: '10px' }}>Sign in below — you'll be sent back to the TCG Express app.</p>
+            )}
+            <GoogleSignInButton onError={setError} appReturn={searchParams.get('app') === '1'} />
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '20px 0 16px', color: '#94a3b8', fontSize: '12px' }}>
               <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }} />or sign in with email<div style={{ flex: 1, height: '1px', background: '#e2e8f0' }} />
             </div>
