@@ -4,6 +4,8 @@ import { getSession } from '../../../../lib/auth';
 import { notify } from '../../../../lib/notify';
 import { rateLimiters, applyRateLimit } from '../../../../lib/rate-limiters';
 import { requireUUID, validateAll, cleanString } from '../../../../lib/validate';
+import { getCommissionRate } from '../../../../lib/zero-commission';
+import { getOrCreateWallet } from '../../../../lib/walletService';
 
 // Pay for a job using wallet balance + optional promo code
 // Uses atomic process_bid_acceptance RPC — all-or-nothing
@@ -64,11 +66,44 @@ export async function POST(request) {
       } catch {}
     }
 
+    // Voucher applied on the job form is stored on the job. The web accept flow does not
+    // resend the code, so honour the stored one here — otherwise the discount was silently
+    // dropped at payment and the RPC reset the job's coupon fields.
+    let couponFromJob = false;
+    if (!couponId && couponDiscount === 0) {
+      try {
+        const { data: jobRow } = await supabaseAdmin
+          .from('express_jobs')
+          .select('coupon_id, coupon_discount, client_id')
+          .eq('id', jobId)
+          .single();
+        const storedDiscount = parseFloat(jobRow?.coupon_discount) || 0;
+        if (jobRow?.coupon_id && storedDiscount > 0 && jobRow.client_id === session.userId) {
+          const { data: bidRow } = await supabaseAdmin.from('express_bids').select('amount').eq('id', bidId).single();
+          const bidAmount = parseFloat(bidRow?.amount) || 0;
+          couponId = jobRow.coupon_id;
+          couponDiscount = bidAmount > 0 ? Math.min(storedDiscount, bidAmount) : storedDiscount;
+          couponFromJob = true;
+        }
+      } catch {}
+    }
+
+    // The RPC raises "Wallet not found" for a payer who never opened the wallet page
+    // (e.g. a voucher-only first job) — make sure the row exists.
+    try { await getOrCreateWallet(session.userId); } catch {}
+
     // Get commission rate
     let rate = 15;
     try {
       const { data: settings } = await supabaseAdmin.from('express_settings').select('value').eq('key', 'commission_rate').single();
       if (settings?.value) rate = parseFloat(settings.value);
+    } catch {}
+
+    // Zero Commission promo: 0% for 30 days after the driver's first completed delivery
+    // (same rule as /api/bids/[id]/accept — this path was skipping it)
+    try {
+      const { data: bidRow } = await supabaseAdmin.from('express_bids').select('driver_id').eq('id', bidId).single();
+      if (bidRow?.driver_id) rate = await getCommissionRate(supabaseAdmin, bidRow.driver_id, rate);
     } catch {}
 
     // Generate idempotency key from job+bid combo
@@ -126,8 +161,8 @@ export async function POST(request) {
       console.error('[wallet/pay] promoteInquiry error:', e);
     }
 
-    // Increment promo code usage (non-critical)
-    if (couponId) {
+    // Increment promo code usage (non-critical) — a job-stored voucher was already counted at job creation
+    if (couponId && !couponFromJob) {
       try {
         const { data: promo } = await supabaseAdmin.from('promo_codes').select('usage_count').eq('id', couponId).single();
         if (promo) await supabaseAdmin.from('promo_codes').update({ usage_count: (promo.usage_count || 0) + 1 }).eq('id', couponId);

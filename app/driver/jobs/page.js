@@ -504,6 +504,7 @@ export default function DriverJobs() {
                     onAccept={instantAccept}
                     onBid={(j) => setSelectedJob(j)}
                     onReBid={(j) => setSelectedJob(j)}
+                    driverVehicle={user?.vehicle_type}
                   />
                 ))}
               </div>

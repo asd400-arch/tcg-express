@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../../../lib/supabase-server';
 import { getSession } from '../../../../../lib/auth';
 import { notify } from '../../../../../lib/notify';
-import { calculateCO2Saved, calculateGreenPoints, SAVE_MODE_GREEN_POINTS } from '../../../../../lib/fares';
+import { calculateCO2Saved, calculateGreenPoints, SAVE_MODE_GREEN_POINTS, DRIVER_LAUNCH_TOPUP, getLaunchTopup } from '../../../../../lib/fares';
 import { generateInvoice } from '../../../../../lib/generate-invoice';
 import { rateLimiters, applyRateLimit } from '../../../../../lib/rate-limiters';
 import { requireEnum, cleanString } from '../../../../../lib/validate';
@@ -209,6 +209,13 @@ export async function POST(request, { params }) {
               url: '/driver/wallet',
             });
           } catch {}
+
+          // TCG launch top-up: platform-funded bonus on top of the fare (non-critical)
+          try {
+            await creditLaunchTopup(job, rpcResult.driver_id || job.assigned_driver_id, id);
+          } catch (topupErr) {
+            console.error('[status] launch top-up failed (non-fatal):', topupErr?.message);
+          }
         }
       } catch (releaseErr) {
         console.error('[status] release_payment exception:', releaseErr);
@@ -522,6 +529,69 @@ async function processReferralReward(userId, triggerEvent) {
     type: 'wallet', category: 'account_alerts',
     title: '🎉 Referral Bonus!',
     message: `$${reward.referred_amount} referral bonus credited to your wallet! Welcome to TCG Express!`,
+    url: '/driver/wallet',
+  });
+}
+
+// ── TCG launch top-up ──
+// Platform-funded bonus credited to the driver's wallet (withdrawable) when the
+// customer confirms delivery. Amount by vehicle (lib/fares DRIVER_LAUNCH_TOPUP);
+// override or switch off via express_settings key 'driver_launch_topup' (JSON, same shape).
+async function creditLaunchTopup(job, driverId, jobId) {
+  if (!driverId) return;
+
+  let config = DRIVER_LAUNCH_TOPUP;
+  try {
+    const { data: s } = await supabaseAdmin.from('express_settings').select('value').eq('key', 'driver_launch_topup').maybeSingle();
+    if (s?.value) {
+      const override = typeof s.value === 'string' ? JSON.parse(s.value) : s.value;
+      config = { ...DRIVER_LAUNCH_TOPUP, ...override, amounts: { ...DRIVER_LAUNCH_TOPUP.amounts, ...(override.amounts || {}) } };
+    }
+  } catch {}
+  if (!config.enabled) return;
+
+  let vehicleKey = job.vehicle_required && job.vehicle_required !== 'any' ? job.vehicle_required : null;
+  if (!vehicleKey) {
+    const { data: drv } = await supabaseAdmin.from('express_users').select('vehicle_type').eq('id', driverId).single();
+    vehicleKey = drv?.vehicle_type || null;
+  }
+  const amount = getLaunchTopup(vehicleKey, config);
+  if (amount <= 0) return;
+
+  // One top-up per job — the confirmed → completed transition runs this block twice
+  const { data: existing } = await supabaseAdmin
+    .from('wallet_transactions')
+    .select('id')
+    .eq('reference_type', 'launch_topup')
+    .eq('reference_id', jobId)
+    .limit(1);
+  if (existing && existing.length > 0) return;
+
+  let { data: wallet } = await supabaseAdmin.from('wallets').select('id').eq('user_id', driverId).single();
+  if (!wallet) {
+    const { data: nw } = await supabaseAdmin.from('wallets').insert([{ user_id: driverId, balance: 0 }]).select().single();
+    wallet = nw;
+  }
+  if (!wallet) return;
+
+  const { error } = await supabaseAdmin.rpc('wallet_credit', {
+    p_wallet_id: wallet.id,
+    p_user_id: driverId,
+    p_amount: amount,
+    p_type: 'bonus',
+    p_reference_type: 'launch_topup',
+    p_reference_id: jobId,
+    p_payment_method: 'system',
+    p_description: `TCG launch bonus +$${amount.toFixed(2)} — job ${job.job_number || ''}`.trim(),
+    p_metadata: { vehicle: vehicleKey, withdrawable: true },
+  });
+  if (error) throw new Error(error.message);
+
+  await notify(driverId, {
+    type: 'wallet', category: 'earnings',
+    title: `🎁 +$${amount.toFixed(2)} TCG launch bonus`,
+    message: `Thanks for delivering ${job.job_number || 'this job'} — we added $${amount.toFixed(2)} on top of your fare.`,
+    referenceId: jobId,
     url: '/driver/wallet',
   });
 }

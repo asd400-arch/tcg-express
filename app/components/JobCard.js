@@ -2,6 +2,7 @@
 import { getAreaName, formatPickupTime, formatBudgetRange, getCountdown, getVehicleLabel, getJobBudget } from '../../lib/job-helpers';
 import useLocale from './useLocale';
 import { formatCurrency } from '../../lib/locale/config';
+import { getLaunchTopup } from '../../lib/fares';
 
 function getJobBadge(job) {
   // SaveMode takes priority
@@ -20,8 +21,10 @@ function getJobBadge(job) {
 /**
  * Shared job card for driver-facing views (dashboard + available jobs).
  */
-export default function JobCard({ job, myBid, accepting, onClick, onAccept, onBid, onReBid, linkMode, linkHref }) {
+export default function JobCard({ job, myBid, accepting, onClick, onAccept, onBid, onReBid, linkMode, linkHref, driverVehicle }) {
   const { locale } = useLocale();
+  // TCG launch bonus paid on top of the fare (by the job's vehicle, else the driver's own)
+  const launchBonus = getLaunchTopup(job.vehicle_required && job.vehicle_required !== 'any' ? job.vehicle_required : driverVehicle);
   const pickupCountdown = getCountdown(job.pickup_by);
   const deliverCountdown = getCountdown(job.deliver_by);
   const vLabel = getVehicleLabel(job.vehicle_required);
@@ -64,7 +67,14 @@ export default function JobCard({ job, myBid, accepting, onClick, onAccept, onBi
           {vLabel && <span style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b' }}>{vLabel}</span>}
           {job.item_weight && <span style={{ fontSize: '13px', color: '#475569', fontWeight: '600' }}>{job.item_weight} kg</span>}
         </div>
-        <div style={{ fontSize: '18px', fontWeight: '800', color: '#10b981', flexShrink: 0, marginLeft: '10px' }}>{formatBudgetRange(job, locale)}</div>
+        <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: '10px' }}>
+          <div style={{ fontSize: '18px', fontWeight: '800', color: '#10b981' }}>{formatBudgetRange(job, locale)}</div>
+          {launchBonus > 0 && (
+            <div style={{ display: 'inline-block', marginTop: '2px', padding: '1px 8px', borderRadius: '10px', background: '#ecfdf5', color: '#047857', fontSize: '11px', fontWeight: '700', border: '1px solid #a7f3d0' }}>
+              +{formatCurrency(launchBonus, locale)} TCG bonus
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Row 2: Pickup time + Deliver time */}

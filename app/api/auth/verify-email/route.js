@@ -60,7 +60,10 @@ export async function POST(request) {
 
     // Reissue session token with isVerified: true
     const newToken = await createSession({ id: user.id, role: user.role, email: user.email, is_verified: true });
-    const response = NextResponse.json({ success: true });
+    // Mobile app authenticates with a Bearer token (no cookie) — hand it the new token
+    // in the body so it can replace the unverified one. Web keeps cookie-only.
+    const usesBearer = (request.headers.get('authorization') || '').startsWith('Bearer ');
+    const response = NextResponse.json(usesBearer ? { success: true, token: newToken } : { success: true });
     setSessionCookie(response, newToken);
     return response;
   } catch (err) {

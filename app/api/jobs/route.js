@@ -150,7 +150,14 @@ export async function POST(request) {
           }
 
           if (perUserOk && newCustomerOk) {
-            const orderAmount = parseFloat(body.budget_min) || parseFloat(body.budget) || parseFloat(body.estimated_fare) || 0;
+            // Cap the voucher against the job's upper budget, not the 80% floor — otherwise a
+            // "S$10 off" voucher on a S$11 fare (budget_min 9) was silently cut to S$9.
+            const orderAmount = Math.max(
+              parseFloat(body.budget_max) || 0,
+              parseFloat(body.budget_min) || 0,
+              parseFloat(body.budget) || 0,
+              parseFloat(body.estimated_fare) || 0,
+            );
             const meetsMinOrder = !promo.min_order_amount || orderAmount >= parseFloat(promo.min_order_amount);
 
             if (meetsMinOrder) {
@@ -230,7 +237,12 @@ export async function POST(request) {
     }
 
     // Check wallet balance before allowing job creation
-    const minBudget = correctedBudgetMin ?? (parseFloat(body.budget_min) || parseFloat(body.budget) || parseFloat(body.estimated_fare) || 0);
+    let minBudget = correctedBudgetMin ?? (parseFloat(body.budget_min) || parseFloat(body.budget) || parseFloat(body.estimated_fare) || 0);
+    // A validated voucher covers part (or all) of the fare — only the remainder must be in the wallet.
+    // (correctedBudgetMin already has the discount taken off.)
+    if (correctedBudgetMin == null && couponDiscount > 0) {
+      minBudget = Math.max(0, minBudget - couponDiscount);
+    }
     if (minBudget > 0) {
       const { data: wallet } = await supabaseAdmin
         .from('wallets')

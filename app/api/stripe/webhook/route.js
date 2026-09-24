@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../../lib/supabase-server';
+import { getCommissionRate } from '../../../../lib/zero-commission';
 import { getStripe } from '../../../../lib/stripe';
 import { notify } from '../../../../lib/notify';
 
@@ -66,7 +67,7 @@ export async function POST(request) {
       // Get bid to check status
       const { data: bid } = await supabaseAdmin
         .from('express_bids')
-        .select('amount, status')
+        .select('amount, status, driver_id')
         .eq('id', bidId)
         .single();
 
@@ -83,6 +84,9 @@ export async function POST(request) {
         .eq('key', 'commission_rate')
         .single();
       if (settingsData?.value) rate = parseFloat(settingsData.value);
+
+      // Zero Commission promo: 0% for 30 days after the driver's first completed delivery
+      if (bid?.driver_id) rate = await getCommissionRate(supabaseAdmin, bid.driver_id, rate);
 
       // Use atomic RPC — wallet debit + bid accept + job assign + escrow
       const idempotencyKey = `stripe_${jobId}_${bidId}`;
