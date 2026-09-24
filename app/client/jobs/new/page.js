@@ -108,6 +108,10 @@ export default function NewJob() {
   const [deliveryMode, setDeliveryMode] = useState('express');
   const [saveModeWindow, setSaveModeWindow] = useState(null);
   const [balanceModal, setBalanceModal] = useState(null); // { available, required, shortfall }
+  const [draftRestored, setDraftRestored] = useState(false); // banner after restoring an unfinished job
+  const draftLoadedRef = useRef(false);
+  const DRAFT_KEY = 'tcg_job_draft_v1';
+  const DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
   const [pickupCoords, setPickupCoords] = useState(null);
   const [deliveryCoords, setDeliveryCoords] = useState(null);
   const [serviceZones, setServiceZones] = useState([]);
@@ -134,6 +138,50 @@ export default function NewJob() {
     recurrence_time: '09:00',
     recurrence_end: '',
   });
+
+  // ── Draft persistence: never lose a half-written job (e.g. when sent to top up the wallet) ──
+  const saveDraft = useCallback(() => {
+    try {
+      const hasContent = form.pickup_address.trim() || form.delivery_address.trim() || form.item_description.trim();
+      if (!hasContent) return;
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({
+        savedAt: Date.now(), userId: user?.id || null,
+        form, jobType, step, deliveryMode, isEvSelected, pickupCoords, deliveryCoords, voucherCode,
+      }));
+    } catch {}
+  }, [form, jobType, step, deliveryMode, isEvSelected, pickupCoords, deliveryCoords, voucherCode, user?.id]);
+
+  const clearDraft = useCallback(() => { try { localStorage.removeItem(DRAFT_KEY); } catch {} }, []);
+
+  // Restore once the user is known
+  useEffect(() => {
+    if (!user || draftLoadedRef.current) return;
+    draftLoadedRef.current = true;
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      const d = JSON.parse(raw);
+      if (!d || !d.form || (Date.now() - (d.savedAt || 0)) > DRAFT_TTL_MS || (d.userId && d.userId !== user.id)) { localStorage.removeItem(DRAFT_KEY); return; }
+      setForm(prev => ({ ...prev, ...d.form }));
+      if (d.jobType) setJobType(d.jobType);
+      if (d.deliveryMode) setDeliveryMode(d.deliveryMode);
+      if (typeof d.isEvSelected === 'boolean') setIsEvSelected(d.isEvSelected);
+      if (d.pickupCoords) setPickupCoords(d.pickupCoords);
+      if (d.deliveryCoords) setDeliveryCoords(d.deliveryCoords);
+      if (d.voucherCode) setVoucherCode(d.voucherCode);
+      const resume = new URLSearchParams(window.location.search).get('resume') === '1';
+      if (resume) { setStep(4); toast.success('Wallet topped up — review and tap Post Job'); }
+      else if (d.step) setStep(d.step);
+      setDraftRestored(true);
+    } catch {}
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Autosave (debounced) while the user is typing
+  useEffect(() => {
+    if (!draftLoadedRef.current || success) return;
+    const t = setTimeout(saveDraft, 600);
+    return () => clearTimeout(t);
+  }, [saveDraft, success]);
 
   const buildAddress = (street, blk, unit) => {
     const prefix = [blk.trim(), unit.trim()].filter(Boolean).join(' ');
@@ -391,6 +439,7 @@ export default function NewJob() {
       if (!job) return;
       setSuccessType('job');
       setSuccess(job);
+      clearDraft();
     } else if (form.schedule_mode === 'once') {
       // One-time scheduled job
       if (!form.schedule_date) {
@@ -404,6 +453,7 @@ export default function NewJob() {
       if (!job) return;
       setSuccessType('job');
       setSuccess(job);
+      clearDraft();
     } else {
       // Recurring — create schedule AND first job
       setSubmitting(true);
@@ -443,10 +493,12 @@ export default function NewJob() {
           toast.info('Schedule created! First job will be posted at the scheduled time.');
           setSuccessType('schedule');
           setSuccess(result.data);
+          clearDraft();
         } else {
           toast.success('Recurring schedule created with first job posted!');
           setSuccessType('job');
           setSuccess(firstJob);
+          clearDraft();
         }
       } catch {
         setSubmitting(false);
@@ -584,6 +636,12 @@ export default function NewJob() {
       <Sidebar active="New Delivery" />
       <div style={{ flex: 1, padding: m ? '20px 16px' : '30px', maxWidth: '720px' }}>
         <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>➕ New Delivery Job</h1>
+        {draftRestored && !success && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '10px 14px', borderRadius: '10px', background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1e40af', fontSize: '13px', marginBottom: '14px' }}>
+            <span>We restored your unfinished job.</span>
+            <button onClick={() => { clearDraft(); setDraftRestored(false); resetForm(); }} style={{ border: 'none', background: 'none', color: '#1d4ed8', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif", fontSize: '13px' }}>Start over</button>
+          </div>
+        )}
 
         {/* Job Type Tabs */}
         <div style={{ display: 'flex', gap: '4px', marginBottom: '20px', background: '#f1f5f9', borderRadius: '12px', padding: '4px' }}>
@@ -1234,6 +1292,9 @@ export default function NewJob() {
               <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '20px' }}>
                 You need at least <strong>${balanceModal.required}</strong> to post this job.
               </p>
+              <p style={{ fontSize: '12px', color: '#0f766e', background: '#f0fdfa', borderRadius: '8px', padding: '8px 10px', marginBottom: '16px' }}>
+                Your job details are saved. After topping up you'll come straight back here to post it.
+              </p>
             </div>
             <div style={{ background: '#f8fafc', borderRadius: '12px', padding: '14px', marginBottom: '20px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
@@ -1253,7 +1314,7 @@ export default function NewJob() {
               <button onClick={() => setBalanceModal(null)} style={{ flex: 1, padding: '13px', borderRadius: '12px', border: '1px solid #e2e8f0', background: 'white', color: '#64748b', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>
                 Cancel
               </button>
-              <button onClick={() => { setBalanceModal(null); router.push(`/client/wallet?topup=${balanceModal.shortfall}`); }} style={{ flex: 1, padding: '13px', borderRadius: '12px', border: 'none', background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: 'white', fontSize: '14px', fontWeight: '700', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>
+              <button onClick={() => { saveDraft(); setBalanceModal(null); router.push(`/client/wallet?topup=${balanceModal.shortfall}&returnTo=${encodeURIComponent('/client/jobs/new?resume=1')}`); }} style={{ flex: 1, padding: '13px', borderRadius: '12px', border: 'none', background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: 'white', fontSize: '14px', fontWeight: '700', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>
                 Top Up Now
               </button>
             </div>

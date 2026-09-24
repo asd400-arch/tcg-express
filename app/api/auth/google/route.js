@@ -98,7 +98,7 @@ export async function POST(request) {
           google_sub: g.sub,
           role: 'client',
           contact_name: g.name || email.split('@')[0],
-          company_name: (company_name || '').trim() || (g.name ? `${g.name}'s business` : 'My business'),
+          company_name: (company_name || '').trim(),
           phone: (phone || '').trim(),
           is_verified: true,
           is_active: true,

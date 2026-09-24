@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import useMobile from '../useMobile';
 import { useWallet } from '@/lib/hooks/useWallet';
 import { formatSGD } from '@/lib/paynow';
@@ -28,6 +28,11 @@ function WalletPageInner() {
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [prefillAmount, setPrefillAmount] = useState<string>('');
+  const [topupDone, setTopupDone] = useState(false);
+  const router = useRouter();
+  // Where to send the user after a successful top-up (e.g. back to the job they were posting). Same-origin paths only.
+  const rawReturnTo = searchParams.get('returnTo') || '';
+  const returnTo = rawReturnTo.startsWith('/') && !rawReturnTo.startsWith('//') ? rawReturnTo : '';
 
   // Auto-open top-up modal when redirected from insufficient balance
   useEffect(() => {
@@ -82,6 +87,13 @@ function WalletPageInner() {
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto' }}>
       {/* Header */}
+      {returnTo && (
+        <div style={{ padding: '10px 14px', borderRadius: '10px', background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1e40af', fontSize: '13px', marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+          <span>{topupDone ? 'Top-up received. Your job is ready to post.' : 'Top up to post your job — your job details are saved.'}</span>
+          <button onClick={() => router.push(returnTo)} style={{ border: 'none', background: '#1d4ed8', color: 'white', borderRadius: '8px', padding: '8px 12px', fontWeight: 600, cursor: 'pointer', fontSize: '13px' }}>Back to job</button>
+        </div>
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <div>
           <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', margin: 0 }}>My Wallet</h1>
@@ -174,8 +186,11 @@ function WalletPageInner() {
       {/* Modals */}
       <TopupModal
         open={showTopup}
-        onClose={() => { setShowTopup(false); setPrefillAmount(''); }}
-        onSuccess={refetch}
+        onClose={() => {
+          setShowTopup(false); setPrefillAmount('');
+          if (topupDone && returnTo) router.push(returnTo);
+        }}
+        onSuccess={() => { refetch(); setTopupDone(true); }}
         initialAmount={prefillAmount}
       />
       <WithdrawalModal

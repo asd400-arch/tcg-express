@@ -18,6 +18,10 @@ export default function ClientSettings() {
   const { config } = useLocale();
 
   const [contactName, setContactName] = useState('');
+  const [needsCompletion, setNeedsCompletion] = useState(false);
+  useEffect(() => {
+    try { setNeedsCompletion(new URLSearchParams(window.location.search).get('complete') === '1'); } catch {}
+  }, []);
   const [phone, setPhone] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [saving, setSaving] = useState(false);
@@ -98,6 +102,11 @@ export default function ClientSettings() {
       <Sidebar active="Settings" />
       <div style={{ flex: 1, padding: m ? '20px 16px' : '30px', maxWidth: '600px' }}>
         <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', marginBottom: '20px' }}>Account Settings</h1>
+        {needsCompletion && (
+          <div style={{ padding: '14px 16px', borderRadius: '12px', background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1e40af', fontSize: '14px', marginBottom: '20px' }}>
+            <strong>Welcome to TCG Express!</strong> Add your company name and mobile number below so drivers can reach you on delivery day. Then head to <a href="/client/jobs/new" style={{ color: '#1d4ed8', fontWeight: '600' }}>Post a job</a>.
+          </div>
+        )}
 
         <div style={card}>
           <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>Profile Information</h3>

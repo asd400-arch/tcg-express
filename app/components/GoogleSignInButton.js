@@ -28,7 +28,7 @@ export default function GoogleSignInButton({ text = 'continue_with', onError, re
             const result = await res.json();
             if (result.error) { onError?.(result.error); return; }
             updateUser?.(result.user);
-            router.push(result.isNew ? '/client/dashboard?welcome=1' : '/client/dashboard');
+            router.push(result.isNew ? '/client/settings?complete=1' : '/client/dashboard');
           } catch {
             onError?.('Google sign-in failed. Please try again.');
           }
