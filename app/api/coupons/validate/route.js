@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../../lib/supabase-server';
 import { getSession } from '../../../../lib/auth';
+import { checkPromoEligibility } from '../../../../lib/promo-guard';
 
 export async function POST(request) {
   try {
@@ -30,6 +31,12 @@ export async function POST(request) {
     }
     if (promo.usage_limit && promo.usage_count >= promo.usage_limit) {
       return NextResponse.json({ error: 'Voucher usage limit reached' }, { status: 400 });
+    }
+
+    // Business verification + cross-account cap (launch promos)
+    const gate = await checkPromoEligibility(promo, session.userId);
+    if (!gate.ok) {
+      return NextResponse.json({ error: gate.error, code: gate.code }, { status: 400 });
     }
 
     // Per-user usage check

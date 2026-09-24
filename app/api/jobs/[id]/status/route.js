@@ -4,6 +4,7 @@ import { getSession } from '../../../../../lib/auth';
 import { notify } from '../../../../../lib/notify';
 import { calculateCO2Saved, calculateGreenPoints, SAVE_MODE_GREEN_POINTS, DRIVER_LAUNCH_TOPUP, getLaunchTopup } from '../../../../../lib/fares';
 import { generateInvoice } from '../../../../../lib/generate-invoice';
+import { normalizePhone } from '../../../../../lib/promo-guard';
 import { rateLimiters, applyRateLimit } from '../../../../../lib/rate-limiters';
 import { requireEnum, cleanString } from '../../../../../lib/validate';
 import { notifyPartner, refreshRouteStatus } from '../../../../../lib/partner-webhook';
@@ -210,11 +211,21 @@ export async function POST(request, { params }) {
             });
           } catch {}
 
-          // TCG launch top-up: platform-funded bonus on top of the fare (non-critical)
+          // Abuse screen (collusion / fake deliveries) → hold the TCG bonus and alert admins
+          let abuseFlags = [];
           try {
-            await creditLaunchTopup(job, rpcResult.driver_id || job.assigned_driver_id, id);
-          } catch (topupErr) {
-            console.error('[status] launch top-up failed (non-fatal):', topupErr?.message);
+            abuseFlags = await screenCompletedJob(job, rpcResult.driver_id || job.assigned_driver_id, id);
+          } catch (screenErr) {
+            console.error('[status] abuse screen failed (non-fatal):', screenErr?.message);
+          }
+
+          // TCG launch top-up: platform-funded bonus on top of the fare (non-critical)
+          if (abuseFlags.length === 0) {
+            try {
+              await creditLaunchTopup(job, rpcResult.driver_id || job.assigned_driver_id, id);
+            } catch (topupErr) {
+              console.error('[status] launch top-up failed (non-fatal):', topupErr?.message);
+            }
           }
         }
       } catch (releaseErr) {
@@ -558,6 +569,28 @@ async function creditLaunchTopup(job, driverId, jobId) {
   const amount = getLaunchTopup(vehicleKey, config);
   if (amount <= 0) return;
 
+  // Cap: at most N subsidised jobs per driver–customer pair (default 3) — blunts collusion
+  const pairCap = Number(config.per_customer_cap ?? 3);
+  if (pairCap > 0 && job.client_id) {
+    const { data: prior } = await supabaseAdmin
+      .from('wallet_transactions')
+      .select('reference_id')
+      .eq('user_id', driverId)
+      .eq('reference_type', 'launch_topup');
+    const priorIds = (prior || []).map((t) => t.reference_id).filter(Boolean);
+    if (priorIds.length >= pairCap) {
+      const { count } = await supabaseAdmin
+        .from('express_jobs')
+        .select('id', { count: 'exact', head: true })
+        .in('id', priorIds)
+        .eq('client_id', job.client_id);
+      if ((count || 0) >= pairCap) {
+        console.log(`[launch-topup] pair cap reached driver=${driverId} client=${job.client_id}`);
+        return;
+      }
+    }
+  }
+
   // One top-up per job — the confirmed → completed transition runs this block twice
   const { data: existing } = await supabaseAdmin
     .from('wallet_transactions')
@@ -594,4 +627,94 @@ async function creditLaunchTopup(job, driverId, jobId) {
     referenceId: jobId,
     url: '/driver/wallet',
   });
+}
+
+// ── Abuse screen for completed jobs ──
+// Cheap heuristics for fake / collusive deliveries. Any hit: TCG bonus is held,
+// a row goes to job_review_flags (if the table exists) and admins are notified.
+// The fare itself still releases — withdrawals are approved manually, so a flagged
+// driver can be reviewed before cash leaves.
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const toRad = (d) => (d * Math.PI) / 180;
+  const R = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+async function screenCompletedJob(job, driverId, jobId) {
+  const flags = [];
+  if (!driverId) return flags;
+
+  // 1. Pickup and drop-off practically the same place
+  let km = parseFloat(job.distance_km) || 0;
+  if (!km && job.pickup_lat && job.pickup_lng && job.delivery_lat && job.delivery_lng) {
+    km = haversineKm(+job.pickup_lat, +job.pickup_lng, +job.delivery_lat, +job.delivery_lng);
+  }
+  if (km > 0 && km < 1) flags.push(`short_distance:${km.toFixed(2)}km`);
+  if (job.pickup_address && job.delivery_address && job.pickup_address.trim().toLowerCase() === job.delivery_address.trim().toLowerCase()) flags.push('same_address');
+
+  // 2. No proof of delivery at all
+  if (!job.delivery_photo && !job.signature_image && !job.customer_signature_url && !job.pickup_photo) flags.push('no_proof');
+
+  // 3. Posted-to-confirmed in under 20 minutes
+  const ageMin = (Date.now() - new Date(job.created_at).getTime()) / 60000;
+  if (ageMin < 20) flags.push(`too_fast:${Math.round(ageMin)}min`);
+
+  // 4. Driver and customer are the same person (phone / email)
+  try {
+    const [{ data: drv }, { data: cli }] = await Promise.all([
+      supabaseAdmin.from('express_users').select('phone, email').eq('id', driverId).single(),
+      supabaseAdmin.from('express_users').select('phone, email').eq('id', job.client_id).single(),
+    ]);
+    const dp = normalizePhone(drv?.phone), cp = normalizePhone(cli?.phone);
+    if (dp && cp && dp === cp) flags.push('same_phone');
+    const de = String(drv?.email || '').toLowerCase().split('+')[0], ce = String(cli?.email || '').toLowerCase().split('+')[0];
+    if (de && ce && de === ce) flags.push('same_email');
+  } catch {}
+
+  // 5. Same driver–customer pair keeps completing jobs (4th+ job)
+  try {
+    const { count } = await supabaseAdmin
+      .from('express_jobs')
+      .select('id', { count: 'exact', head: true })
+      .eq('assigned_driver_id', driverId)
+      .eq('client_id', job.client_id)
+      .in('status', ['confirmed', 'completed']);
+    if ((count || 0) >= 4) flags.push(`pair_repeat:${count}`);
+  } catch {}
+
+  if (flags.length === 0) return flags;
+
+  // Record (table optional — see sql/2026-09-24-job-review-flags.sql)
+  try {
+    await supabaseAdmin.from('job_review_flags').insert([{
+      job_id: jobId,
+      driver_id: driverId,
+      client_id: job.client_id,
+      reasons: flags,
+      bonus_held: true,
+      coupon_discount: parseFloat(job.coupon_discount) || 0,
+    }]);
+  } catch (e) {
+    console.warn('[abuse-screen] job_review_flags insert skipped:', e?.message);
+  }
+
+  // Alert admins
+  try {
+    const { data: admins } = await supabaseAdmin.from('express_users').select('id').eq('role', 'admin').eq('is_active', true);
+    for (const a of admins || []) {
+      await notify(a.id, {
+        type: 'system', category: 'account_alerts',
+        title: `⚠️ Review job ${job.job_number || ''}`,
+        message: `Flagged on completion: ${flags.join(', ')}. TCG bonus held; check before approving the driver's withdrawal.`,
+        referenceId: jobId,
+        url: `/admin/jobs`,
+      });
+    }
+  } catch {}
+
+  console.warn(`[abuse-screen] job ${job.job_number} flagged: ${flags.join(', ')}`);
+  return flags;
 }

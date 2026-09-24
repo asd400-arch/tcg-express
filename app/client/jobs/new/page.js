@@ -1159,7 +1159,7 @@ export default function NewJob() {
                           });
                           const data = await res.json();
                           if (res.ok && data.valid) { setVoucherResult(data); setVoucherError(''); }
-                          else setVoucherError(data.error || 'Invalid voucher code');
+                          else setVoucherError((data.error || 'Invalid voucher code') + (data.code === 'profile_incomplete' ? ' |settings' : ''));
                         } catch { setVoucherError('Failed to validate voucher'); }
                         setVoucherLoading(false);
                       }}
@@ -1169,7 +1169,12 @@ export default function NewJob() {
                       {voucherLoading ? '...' : 'Apply'}
                     </button>
                   </div>
-                  {voucherError && <p style={{ fontSize: '12px', color: '#ef4444', fontWeight: '500', marginTop: '8px', marginBottom: 0 }}>{voucherError}</p>}
+                  {voucherError && (
+                    <p style={{ fontSize: '12px', color: '#ef4444', fontWeight: '500', marginTop: '8px', marginBottom: 0 }}>
+                      {voucherError.replace(' |settings', '')}
+                      {voucherError.endsWith('|settings') && <> <a href="/client/settings" style={{ color: '#1d4ed8', fontWeight: '600' }}>Open Settings →</a></>}
+                    </p>
+                  )}
                 </div>
               )}
             </div>

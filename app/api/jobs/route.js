@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../lib/supabase-server';
+import { checkPromoEligibility } from '../../../lib/promo-guard';
 import { getSession, requireAuth } from '../../../lib/auth';
 import {
   VALID_VEHICLE_KEYS,
@@ -126,6 +127,12 @@ export async function POST(request) {
         const withinUsageLimit = !promo.usage_limit || promo.usage_count < promo.usage_limit;
 
         if (notExpired && isStarted && withinUsageLimit) {
+          // Business verification + cross-account cap — refuse loudly rather than silently dropping the discount
+          const gate = await checkPromoEligibility(promo, session.userId);
+          if (!gate.ok) {
+            return NextResponse.json({ error: gate.error, code: gate.code }, { status: 400 });
+          }
+
           // Per-user usage check
           let perUserOk = true;
           if (promo.per_user_limit) {

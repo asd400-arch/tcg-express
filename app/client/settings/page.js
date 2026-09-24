@@ -24,6 +24,7 @@ export default function ClientSettings() {
   }, []);
   const [phone, setPhone] = useState('');
   const [companyName, setCompanyName] = useState('');
+  const [uen, setUen] = useState('');
   const [saving, setSaving] = useState(false);
 
   const [currentPassword, setCurrentPassword] = useState('');
@@ -41,6 +42,7 @@ export default function ClientSettings() {
       setContactName(user.contact_name || '');
       setPhone(user.phone || '');
       setCompanyName(user.company_name || '');
+      setUen(user.company_registration || '');
       // Load referral stats
       supabase.from('referral_rewards').select('*').eq('referrer_id', user.id).then(({ data }) => {
         const rewards = data || [];
@@ -60,7 +62,7 @@ export default function ClientSettings() {
       const res = await fetch('/api/auth/profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ updates: { contact_name: contactName, phone, company_name: companyName } }),
+        body: JSON.stringify({ updates: { contact_name: contactName, phone, company_name: companyName, company_registration: uen.trim().toUpperCase() } }),
       });
       const result = await res.json();
       if (result.error) { toast.error(result.error); }
@@ -104,7 +106,7 @@ export default function ClientSettings() {
         <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', marginBottom: '20px' }}>Account Settings</h1>
         {needsCompletion && (
           <div style={{ padding: '14px 16px', borderRadius: '12px', background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1e40af', fontSize: '14px', marginBottom: '20px' }}>
-            <strong>Welcome to TCG Express!</strong> Add your company name and mobile number below so drivers can reach you on delivery day. Then head to <a href="/client/jobs/new" style={{ color: '#1d4ed8', fontWeight: '600' }}>Post a job</a>.
+            <strong>Welcome to TCG Express!</strong> Add your company name, UEN and mobile number below — the 10-free-deliveries offer (code FIRST10) needs them, and drivers use the number on delivery day. Then head to <a href="/client/jobs/new" style={{ color: '#1d4ed8', fontWeight: '600' }}>Post a job</a>.
           </div>
         )}
 
@@ -126,6 +128,11 @@ export default function ClientSettings() {
             <div>
               <label style={label}>Company Name</label>
               <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="Your company" style={input} />
+            </div>
+            <div>
+              <label style={label}>UEN (Business Registration No.)</label>
+              <input type="text" value={uen} onChange={e => setUen(e.target.value.toUpperCase())} placeholder="e.g. 202005872W" maxLength={12} style={input} />
+              <p style={{ fontSize: '12px', color: '#64748b', marginTop: '6px', marginBottom: 0 }}>Required for the 10 free deliveries offer (one offer per registered business).</p>
             </div>
           </div>
           <button onClick={saveProfile} disabled={saving} style={{ ...btn('#3b82f6'), marginTop: '16px', opacity: saving ? 0.7 : 1 }}>

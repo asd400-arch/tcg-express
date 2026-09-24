@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../../lib/supabase-server';
 import { getSession } from '../../../../lib/auth';
+import { UEN_REGEX, normalizeUEN } from '../../../../lib/promo-guard';
 
 const ALLOWED_FIELDS = {
-  client: ['contact_name', 'phone', 'company_name', 'billing_address', 'notification_preferences'],
+  client: ['contact_name', 'phone', 'company_name', 'company_registration', 'billing_address', 'notification_preferences'],
   driver: ['contact_name', 'phone', 'vehicle_type', 'vehicle_plate', 'license_number', 'driver_type', 'nric_number', 'business_reg_number', 'nric_front_url', 'nric_back_url', 'license_photo_url', 'business_reg_cert_url', 'vehicle_insurance_url', 'notification_preferences', 'is_ev_vehicle', 'preferred_nav_app', 'auto_navigate', 'nearby_job_alerts'],
   admin: ['contact_name', 'phone', 'notification_preferences'],
 };
@@ -57,6 +58,15 @@ async function handleProfileUpdate(request) {
 
     if (Object.keys(filtered).length === 0) {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
+    }
+
+    // UEN: store normalised, reject junk (blank clears it)
+    if ('company_registration' in filtered) {
+      const uen = normalizeUEN(filtered.company_registration);
+      if (uen && !UEN_REGEX.test(uen)) {
+        return NextResponse.json({ error: 'That does not look like a valid Singapore UEN (e.g. 202005872W or 53053108M)' }, { status: 400 });
+      }
+      filtered.company_registration = uen || null;
     }
 
     // Validate notification_preferences shape
