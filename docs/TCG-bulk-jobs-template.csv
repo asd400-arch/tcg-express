@@ -1,0 +1,3 @@
+external_order_id,pickup_address,pickup_contact,pickup_phone,delivery_address,delivery_contact,delivery_phone,item_description,weight_kg,vehicle_required,pickup_by,deliver_by,budget_min,budget_max,instructions
+PO-10021,"1 Kallang Sector #04-01, Singapore 349276",Alan,91234567,"5 Toh Guan Rd E #02-03, Singapore 608831",Ms Lim,98765432,2 x server chassis,18,van_1_7m,2026-09-28T14:00:00+08:00,2026-09-28T17:00:00+08:00,,,call on arrival - loading bay B
+PO-10022,"1 Kallang Sector #04-01, Singapore 349276",Alan,91234567,"10 Anson Rd #15-01, Singapore 079903",Mr Tan,97654321,Laptop bundle (3 boxes),9,car,2026-09-28T15:00:00+08:00,,,,
