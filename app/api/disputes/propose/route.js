@@ -2,6 +2,7 @@ import { supabaseAdmin } from '../../../../lib/supabase-server';
 import { NextResponse } from 'next/server';
 import { getSession } from '../../../../lib/auth';
 import { notify } from '../../../../lib/notify';
+import { customerPaidAmount, customerRefundAfter } from '../../../../lib/escrow';
 
 // POST: Propose or accept a dispute settlement between customer and driver
 export async function POST(req) {
@@ -23,7 +24,7 @@ export async function POST(req) {
     // Fetch dispute with job details
     const { data: dispute, error: dErr } = await supabaseAdmin
       .from('express_disputes')
-      .select('*, job:job_id(id, client_id, assigned_driver_id, job_number, final_amount, driver_payout, commission_amount, commission_rate)')
+      .select('*, job:job_id(id, client_id, assigned_driver_id, job_number, final_amount, driver_payout, commission_amount, commission_rate, coupon_discount)')
       .eq('id', disputeId)
       .single();
 
@@ -117,7 +118,7 @@ export async function POST(req) {
       let resolvedAmount = 0;
 
       if (resolution === 'full_refund') {
-        customerRefund = txn ? parseFloat(txn.total_amount) : totalAmount;
+        customerRefund = customerPaidAmount(txn, job);
         resolvedAmount = 0;
       } else if (resolution === 'full_release') {
         driverPayout = parseFloat(txn?.driver_payout || job.driver_payout || totalAmount);
@@ -127,7 +128,7 @@ export async function POST(req) {
         const commissionRate = parseFloat(job.commission_rate) || 15;
         const commission = parseFloat((proposedAmt * commissionRate / 100).toFixed(2));
         driverPayout = parseFloat((proposedAmt - commission).toFixed(2));
-        customerRefund = parseFloat((totalAmount - proposedAmt).toFixed(2));
+        customerRefund = customerRefundAfter(txn, job, proposedAmt);
         resolvedAmount = proposedAmt;
       }
 

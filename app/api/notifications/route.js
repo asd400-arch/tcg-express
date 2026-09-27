@@ -1,9 +1,10 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { createNotification } from '../../../lib/notifications';
 import { getSession } from '../../../lib/auth';
 import { supabaseAdmin } from '../../../lib/supabase-server';
 import { rateLimiters, applyRateLimit } from '../../../lib/rate-limiters';
 import { requireString, cleanString } from '../../../lib/validate';
+import { maybeRunDispatchSweep } from '../../../lib/dispatch';
 
 export async function GET(request) {
   try {
@@ -42,6 +43,8 @@ export async function GET(request) {
     }
 
     const items = data || [];
+    // Apps check notifications often — piggyback the dispatch sweep (throttled, after the response)
+    after(() => maybeRunDispatchSweep());
     return NextResponse.json({
       data: items,
       unread_count: unreadCount ?? items.filter((n) => !n.is_read).length,

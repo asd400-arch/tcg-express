@@ -20,6 +20,8 @@ const PUBLIC_API_PATHS = [
   '/api/auth/forgot-password',
   '/api/auth/reset-password',
   '/api/cron/process-schedules',
+  // Dispatch sweep — authenticated inside the route (CRON_SECRET or the pg_cron token)
+  '/api/cron/dispatch',
   '/api/stripe/webhook',
   '/api/external/orders',
   '/api/wallet/paynow-qr',

@@ -9,7 +9,7 @@ import { supabase } from '../../../lib/supabase';
 import useMobile from '../../components/useMobile';
 import { getCategoryByKey, getEquipmentLabel } from '../../../lib/constants';
 import { ADDON_OPTIONS, checkVehicleFit } from '../../../lib/fares';
-import { getAreaName, formatPickupTime, formatBudgetRange, getCountdown, getVehicleLabel, getJobBudget, sortByPickupUrgency } from '../../../lib/job-helpers';
+import { getAreaName, formatPickupTime, formatBudgetRange, getCountdown, getVehicleLabel, getJobBudget, sortByPickupUrgency, isQuoteJob } from '../../../lib/job-helpers';
 import JobCard from '../../components/JobCard';
 import useLocale from '../../components/useLocale';
 
@@ -148,9 +148,9 @@ export default function DriverJobs() {
   };
 
   const instantAccept = async (job) => {
-    const maxBudget = getJobBudget(job);
-    if (!maxBudget) { toast.error('Job has no valid budget'); return; }
-    if (!confirm(`Accept this job at $${maxBudget.toFixed(2)}? The client will be charged immediately from their wallet.`)) return;
+    const price = getJobBudget(job);
+    if (!price) { toast.error('This job takes quotes — use "Send quote"'); return; }
+    if (!confirm(`Take this job for $${price.toFixed(2)}?\n\nFirst driver to accept gets it. Be at the pickup on time and tap "I'm on my way" in My Jobs before pickup.`)) return;
     setAccepting(job.id);
     try {
       const res = await fetch(`/api/jobs/${job.id}/instant-accept`, {
@@ -164,8 +164,9 @@ export default function DriverJobs() {
         setAccepting(null);
         return;
       }
-      toast.success(`Job accepted! You'll earn $${result.payout}`);
+      toast.success(`The job is yours! You'll earn $${result.payout}. Open My Jobs and tap "I'm on my way" before pickup.`);
       setAccepting(null);
+      setDetailJob(null);
       loadData();
     } catch (e) {
       toast.error('Failed to accept job');
@@ -199,13 +200,13 @@ export default function DriverJobs() {
           <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
             <div style={{ background: 'white', borderRadius: '20px', padding: '30px', maxWidth: '480px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>Place Bid</h3>
+                <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>Send quote</h3>
                 <div onClick={() => setSelectedJob(null)} style={{ cursor: 'pointer', fontSize: '20px', color: '#94a3b8' }}>✕</div>
               </div>
               <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '14px', marginBottom: '20px' }}>
                 <div style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b', marginBottom: '4px' }}>{selectedJob.job_number || selectedJob.item_description}</div>
                 <div style={{ fontSize: '12px', color: '#64748b' }}>{getAreaName(selectedJob.pickup_address)} → {getAreaName(selectedJob.delivery_address)}</div>
-                <div style={{ fontSize: '13px', color: '#10b981', fontWeight: '700', marginTop: '6px' }}>Budget: {formatBudgetRange(selectedJob, locale)}</div>
+                <div style={{ fontSize: '13px', color: '#10b981', fontWeight: '700', marginTop: '6px' }}>Quote range: {formatBudgetRange(selectedJob, locale)}</div>
                 {selectedJob.equipment_needed && selectedJob.equipment_needed.length > 0 && (
                   <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                     <span style={{ fontSize: '11px', color: '#64748b' }}>Requested:</span>
@@ -221,7 +222,7 @@ export default function DriverJobs() {
                 )}
               </div>
               <div style={{ marginBottom: '14px' }}>
-                <label style={{ fontSize: '13px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>Your Bid Amount ($)<span style={{ color: '#ef4444', marginLeft: '2px' }}>*</span></label>
+                <label style={{ fontSize: '13px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>Your quote ($)<span style={{ color: '#ef4444', marginLeft: '2px' }}>*</span></label>
                 <input type="number" style={{ ...input, border: bidErrors.bidAmount ? '1.5px solid #ef4444' : '1px solid #e2e8f0' }} value={bidAmount} onChange={e => { setBidAmount(e.target.value); setBidErrors(prev => { const n = { ...prev }; delete n.bidAmount; return n; }); }} placeholder="Enter amount" />
                 {bidErrors.bidAmount && <div style={{ fontSize: '11px', color: '#ef4444', marginTop: '4px' }}>{bidErrors.bidAmount}</div>}
               </div>
@@ -291,7 +292,7 @@ export default function DriverJobs() {
                 )}
               </div>
 
-              <button onClick={submitBid} disabled={bidding} style={{ width: '100%', padding: '13px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontSize: '15px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif", opacity: bidding ? 0.7 : 1 }}>{bidding ? 'Submitting...' : 'Submit Bid'}</button>
+              <button onClick={submitBid} disabled={bidding} style={{ width: '100%', padding: '13px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontSize: '15px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif", opacity: bidding ? 0.7 : 1 }}>{bidding ? 'Sending...' : 'Send quote'}</button>
             </div>
           </div>
         )}
@@ -307,7 +308,10 @@ export default function DriverJobs() {
                   <span style={badgeStyle(detailJob.job_type || 'spot', `${jobTypeColor[detailJob.job_type] || jobTypeColor.spot}15`, jobTypeColor[detailJob.job_type] || jobTypeColor.spot)}>{detailJob.job_type || 'spot'}</span>
                   <span style={badgeStyle(detailJob.urgency || 'standard', `${urgencyColor[detailJob.urgency]}15`, urgencyColor[detailJob.urgency])}>{detailJob.urgency || 'standard'}</span>
                 </div>
-                <div style={{ fontSize: '22px', fontWeight: '800', color: '#10b981' }}>{formatBudgetRange(detailJob, locale)}</div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '22px', fontWeight: '800', color: '#10b981' }}>{formatBudgetRange(detailJob, locale)}</div>
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: isQuoteJob(detailJob) ? '#7c3aed' : '#64748b', textTransform: 'uppercase' }}>{isQuoteJob(detailJob) ? 'Send a quote' : 'Fixed price · first to accept gets it'}</div>
+                </div>
               </div>
             </div>
 
@@ -433,20 +437,23 @@ export default function DriverJobs() {
             </div>
 
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-              {myBids[detailJob.id] ? (
+              {!isQuoteJob(detailJob) ? (
+                myBids[detailJob.id]?.status === 'rejected' ? (
+                  <span style={{ padding: '10px 18px', borderRadius: '8px', background: '#f1f5f9', color: '#64748b', fontSize: '14px', fontWeight: '600' }}>This job isn't available to you</span>
+                ) : (
+                  <button onClick={() => instantAccept(detailJob)} disabled={accepting === detailJob.id} style={{ padding: '12px 24px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif", opacity: accepting === detailJob.id ? 0.7 : 1 }}>{accepting === detailJob.id ? 'Accepting...' : `Accept $${(getJobBudget(detailJob) || 0).toFixed(2)}`}</button>
+                )
+              ) : myBids[detailJob.id] ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{ padding: '10px 18px', borderRadius: '8px', background: myBids[detailJob.id].status === 'accepted' ? '#f0fdf4' : myBids[detailJob.id].status === 'rejected' ? '#fef2f2' : '#f0fdf4', color: myBids[detailJob.id].status === 'accepted' ? '#10b981' : myBids[detailJob.id].status === 'rejected' ? '#ef4444' : '#10b981', fontSize: '14px', fontWeight: '600' }}>
-                    Bid: ${myBids[detailJob.id].amount} ({myBids[detailJob.id].status === 'outbid' ? 'another driver accepted' : myBids[detailJob.id].status})
+                    Your quote: ${myBids[detailJob.id].amount} ({myBids[detailJob.id].status === 'outbid' ? 'another driver was chosen' : myBids[detailJob.id].status})
                   </span>
                   {['rejected', 'outbid'].includes(myBids[detailJob.id].status) && (
-                    <button onClick={() => setSelectedJob(detailJob)} style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid #f59e0b', background: 'white', color: '#f59e0b', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>Re-bid</button>
+                    <button onClick={() => setSelectedJob(detailJob)} style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid #f59e0b', background: 'white', color: '#f59e0b', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>New quote</button>
                   )}
                 </div>
               ) : (
-                <>
-                  {getJobBudget(detailJob) && <button onClick={() => instantAccept(detailJob)} disabled={accepting === detailJob.id} style={{ padding: '12px 24px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif", opacity: accepting === detailJob.id ? 0.7 : 1 }}>{accepting === detailJob.id ? 'Accepting...' : `Accept $${getJobBudget(detailJob).toFixed(2)}`}</button>}
-                  <button onClick={() => setSelectedJob(detailJob)} style={{ padding: '12px 24px', borderRadius: '10px', border: '1px solid #3b82f6', background: 'white', color: '#3b82f6', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>{getJobBudget(detailJob) ? 'Bid Custom' : 'Place Bid'}</button>
-                </>
+                <button onClick={() => setSelectedJob(detailJob)} style={{ padding: '12px 24px', borderRadius: '10px', border: '1px solid #7c3aed', background: 'white', color: '#7c3aed', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>Send quote</button>
               )}
             </div>
           </div>

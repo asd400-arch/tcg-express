@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { supabaseAdmin } from '../../../lib/supabase-server';
 import { checkPromoEligibility } from '../../../lib/promo-guard';
 import { getSession, requireAuth } from '../../../lib/auth';
@@ -16,6 +16,8 @@ import {
 } from '../../../lib/fares';
 import { findMatchingZones, calculateZoneSurcharge, isInRestrictedZone } from '../../../lib/geo';
 import { sendPushToUser } from '../../../lib/web-push';
+import { isQuoteJob } from '../../../lib/pricing-mode';
+import { jobPriceLine, maybeRunDispatchSweep } from '../../../lib/dispatch';
 
 function parseDimensions(dimStr) {
   if (!dimStr) return { l: 0, w: 0, h: 0 };
@@ -95,6 +97,8 @@ export async function GET(request) {
 
     const { data, error } = await query;
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    // Drivers' job boards poll this every 30 s — piggyback the dispatch sweep (throttled, after the response)
+    after(() => maybeRunDispatchSweep());
     return NextResponse.json({ data });
   } catch (err) {
     console.error('GET /api/jobs error:', err);
@@ -243,11 +247,35 @@ export async function POST(request) {
       console.error('[FARE-VALIDATE] Error:', fareErr?.message);
     }
 
-    // Check wallet balance before allowing job creation
-    let minBudget = correctedBudgetMin ?? (parseFloat(body.budget_min) || parseFloat(body.budget) || parseFloat(body.estimated_fare) || 0);
-    // A validated voucher covers part (or all) of the fare — only the remainder must be in the wallet.
-    // (correctedBudgetMin already has the discount taken off.)
-    if (correctedBudgetMin == null && couponDiscount > 0) {
+    // ── Fixed-price model (27 Sep 2026) ──────────────────────────────────────
+    // The fare is what the driver gets (before commission). A voucher is TCG-funded and can't be
+    // worth more than the fare; the customer pays fare − voucher, which is stored in budget_min.
+    // budget_max is only the ceiling for driver quotes (quote jobs). Same rule for app and web.
+    let fareForJob = 0;
+    if (correctedBudgetMin != null && savedFare) {
+      fareForJob = savedFare.total; // client estimate was off → server fare
+    } else {
+      let clientFare = parseFloat(body.estimated_fare) || 0;
+      if (!clientFare && typeof body.special_requirements === 'string') {
+        try { clientFare = parseFloat(JSON.parse(body.special_requirements)?.estimated_fare) || 0; } catch { /* plain text */ }
+      }
+      fareForJob = clientFare || savedFare?.total || 0;
+    }
+    let pricedBudgetMin = null;
+    let pricedBudgetMax = null;
+    if (fareForJob > 0) {
+      const r2p = (v) => Math.round(v * 100) / 100;
+      fareForJob = r2p(fareForJob);
+      if (couponDiscount > 0) couponDiscount = r2p(Math.min(couponDiscount, fareForJob));
+      pricedBudgetMin = r2p(Math.max(0, fareForJob - couponDiscount));
+      const askedMax = correctedBudgetMax ?? (parseFloat(body.budget_max) || 0);
+      pricedBudgetMax = askedMax > fareForJob ? r2p(askedMax) : Math.round(fareForJob * 1.3);
+    }
+
+    // Check wallet balance before allowing job creation (what the customer will pay)
+    let minBudget = pricedBudgetMin ?? correctedBudgetMin ?? (parseFloat(body.budget_min) || parseFloat(body.budget) || parseFloat(body.estimated_fare) || 0);
+    // Legacy path (no fare known): a validated voucher covers part of the budget
+    if (pricedBudgetMin == null && correctedBudgetMin == null && couponDiscount > 0) {
       minBudget = Math.max(0, minBudget - couponDiscount);
     }
     if (minBudget > 0) {
@@ -317,8 +345,8 @@ export async function POST(request) {
       special_requirements: specialReqs || null,
       equipment_needed: body.equipment_needed || [],
       urgency: body.urgency || 'standard',
-      budget_min: correctedBudgetMin ?? (body.budget != null ? parseFloat(body.budget) : (body.budget_min != null ? parseFloat(body.budget_min) : null)),
-      budget_max: correctedBudgetMax ?? (body.budget != null ? parseFloat(body.budget) : (body.budget_max != null ? parseFloat(body.budget_max) : null)),
+      budget_min: pricedBudgetMin ?? correctedBudgetMin ?? (body.budget != null ? parseFloat(body.budget) : (body.budget_min != null ? parseFloat(body.budget_min) : null)),
+      budget_max: pricedBudgetMax ?? correctedBudgetMax ?? (body.budget != null ? parseFloat(body.budget) : (body.budget_max != null ? parseFloat(body.budget_max) : null)),
       pickup_by: body.pickup_date || body.pickup_by || null,
       deliver_by: body.deliver_by || null,
       manpower_count: body.manpower_count || 1,
@@ -444,7 +472,8 @@ export async function POST(request) {
     // Push notifications FIRST (time-critical — must run before anything that could timeout)
     const pickupArea = getAreaFromAddress(jobData.pickup_address);
     const deliveryArea = getAreaFromAddress(jobData.delivery_address);
-    const pushBody = `${data.job_number} | $${jobData.budget_min || 0}-$${jobData.budget_max || 0} | ${pickupArea} → ${deliveryArea}`;
+    const pushBody = `${data.job_number} | ${jobPriceLine(data)} | ${pickupArea} → ${deliveryArea}`;
+    const pushTitle = isQuoteJob(data) ? '🚚 New job — send your quote' : '🚚 New job — first to accept gets it';
 
     // Push notifications (Expo + Web via sendPushToUser) — drivers only
     try {
@@ -467,7 +496,7 @@ export async function POST(request) {
         const results = await Promise.allSettled(
           uniqueUserIds.map(userId =>
             sendPushToUser(userId, {
-              title: '🚚 New Job Available!',
+              title: pushTitle,
               body: pushBody,
               url: '/driver/jobs',
               data: { jobId: data.id, job_id: data.id, type: 'new_job', role: 'driver' },
@@ -499,7 +528,7 @@ export async function POST(request) {
           user_id: d.id,
           type: 'new_job',
           title: `New Job: ${itemDescription.substring(0, 60)}`,
-          body: `New ${jobData.item_category} delivery available. Job #${data.job_number}`,
+          body: `${jobPriceLine(data)} · ${pickupArea} → ${deliveryArea} · Job #${data.job_number}`,
           reference_id: String(data.id),
           is_read: false,
         }));

@@ -5,6 +5,7 @@ import { notify } from '../../../lib/notify';
 import { rateLimiters, applyRateLimit } from '../../../lib/rate-limiters';
 import { requireUUID, requirePositiveNumber, cleanString } from '../../../lib/validate';
 import { checkVehicleFit } from '../../../lib/fares';
+import { isQuoteJob, driverPrice, quoteBounds } from '../../../lib/pricing-mode';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -102,13 +103,31 @@ export async function POST(request) {
     // Check job exists and is open
     const { data: job } = await supabaseAdmin
       .from('express_jobs')
-      .select('id, client_id, status, job_number, vehicle_required')
+      .select('id, client_id, status, job_number, vehicle_required, budget_min, budget_max, coupon_discount, equipment_needed')
       .eq('id', job_id)
       .single();
 
     if (!job) return NextResponse.json({ error: 'Job not found' }, { status: 404 });
     if (!['open', 'bidding'].includes(job.status)) {
       return NextResponse.json({ error: 'Job is no longer accepting bids' }, { status: 400 });
+    }
+
+    // Fixed-price jobs aren't bid on — the first driver to tap Accept gets them (27 Sep 2026)
+    if (!isQuoteJob(job)) {
+      const fixed = driverPrice(job);
+      return NextResponse.json({
+        error: `This job has a fixed price of $${fixed.toFixed(2)} — use "Accept" to take it.`,
+        fixed_price: fixed,
+      }, { status: 400 });
+    }
+
+    // Quote limits: from the job's price (voucher included) up to the customer's ceiling, if any
+    const bounds = quoteBounds(job);
+    if (bounds.min > 0 && amount < bounds.min) {
+      return NextResponse.json({ error: `Your quote must be at least $${bounds.min.toFixed(2)}` }, { status: 400 });
+    }
+    if (bounds.max && amount > bounds.max) {
+      return NextResponse.json({ error: `Your quote must not exceed $${bounds.max.toFixed(2)}` }, { status: 400 });
     }
 
     // Vehicle size validation: driver's vehicle must be big enough

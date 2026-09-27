@@ -5,6 +5,7 @@ import { notify } from '../../../../lib/notify';
 import { getStripe } from '../../../../lib/stripe';
 import { rateLimiters, applyRateLimit } from '../../../../lib/rate-limiters';
 import { requireUUID } from '../../../../lib/validate';
+import { customerPaidAmount } from '../../../../lib/escrow';
 
 export async function POST(req) {
   try {
@@ -24,7 +25,7 @@ export async function POST(req) {
     // Fetch job with client info
     const { data: job, error: jobErr } = await supabaseAdmin
       .from('express_jobs')
-      .select('id, client_id, assigned_driver_id, status, job_number, final_amount')
+      .select('id, client_id, assigned_driver_id, status, job_number, final_amount, coupon_discount')
       .eq('id', jobId)
       .single();
 
@@ -60,9 +61,9 @@ export async function POST(req) {
       return NextResponse.json({ error: 'No held transaction found for this job' }, { status: 404 });
     }
 
-    // Validate amounts
-    const refundAmt = parseFloat(txn.total_amount);
-    if (!refundAmt || !isFinite(refundAmt) || refundAmt <= 0) {
+    // Refund what the customer paid — the voucher part is TCG-funded (0 when a voucher covered it all)
+    const refundAmt = customerPaidAmount(txn, job);
+    if (!isFinite(refundAmt) || refundAmt < 0) {
       return NextResponse.json({ error: 'Invalid refund amount' }, { status: 400 });
     }
 
@@ -101,7 +102,7 @@ export async function POST(req) {
     }
 
     // Credit client wallet back (if wallet payment was made)
-    if (txn.client_id) {
+    if (txn.client_id && refundAmt > 0 && !stripeRefundId) {
       try {
         const { data: clientWallet } = await supabaseAdmin
           .from('wallets').select('id').eq('user_id', txn.client_id).single();
@@ -132,7 +133,7 @@ export async function POST(req) {
     }
 
     // Send notifications
-    const refundAmount = parseFloat(txn.total_amount).toFixed(2);
+    const refundAmount = refundAmt.toFixed(2);
     const cancelledBy = session.role === 'client' ? 'the client' : 'an admin';
     const emailData = { jobNumber: job.job_number, cancelledBy, refundAmount };
 

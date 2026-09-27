@@ -5,9 +5,12 @@ import { notify } from '../../../../../lib/notify';
 import { checkVehicleFit } from '../../../../../lib/fares';
 import { buildPaymentsBreakdown } from '../../../../../lib/bid-breakdown';
 import { getCommissionRate } from '../../../../../lib/zero-commission';
+import { isQuoteJob, driverPrice } from '../../../../../lib/pricing-mode';
+import { hasRecentNoShow } from '../../../../../lib/dispatch';
 
-// POST: Driver instantly accepts job at customer's max budget
-// Uses atomic process_bid_acceptance RPC — all-or-nothing
+// POST: Driver accepts a fixed-price job — first driver to accept gets it (27 Sep 2026).
+// The driver is paid the fixed price (customer price + TCG-funded voucher); the customer is
+// charged the price minus the voucher. Uses the atomic process_bid_acceptance RPC — all-or-nothing.
 export async function POST(request, { params }) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 9000);
@@ -33,7 +36,7 @@ export async function POST(request, { params }) {
     // Fetch job to get budget and client_id
     const { data: job, error: jobErr } = await supabaseAdmin
       .from('express_jobs')
-      .select('id, client_id, status, job_number, budget_max, budget_min, vehicle_required, fare_breakdown, coupon_discount, equipment_needed')
+      .select('id, client_id, status, job_number, budget_max, budget_min, vehicle_required, fare_breakdown, coupon_discount, coupon_id, equipment_needed')
       .eq('id', jobId)
       .single();
 
@@ -54,26 +57,34 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: `Job is no longer accepting bids (status: ${job.status})` }, { status: 400 });
     }
 
-    // Block instant-accept for jobs requiring driver-quoted dismantling/assembly
-    const QUOTED_KEYS = ['dismantlement', 'installation'];
-    const requiresQuote = Array.isArray(job.equipment_needed) &&
-      job.equipment_needed.some(k => QUOTED_KEYS.includes(k));
-    if (requiresQuote) {
-      console.warn(`[instant-accept] Job ${job.job_number} requires quoted bid (dismantling/assembly)`);
+    // Fixed-price jobs only — jobs that need a quote (dismantling, crane, big lorries…) go through bids
+    if (isQuoteJob(job)) {
+      console.warn(`[instant-accept] Job ${job.job_number} takes quotes`);
       return NextResponse.json(
-        { error: 'This job requires a quoted bid for dismantling/assembly services' },
+        { error: 'This job takes quotes — send your price with "Send quote" instead.' },
         { status: 400 }
       );
     }
 
+    const { data: driver } = await supabaseAdmin
+      .from('express_users')
+      .select('vehicle_type, driver_status')
+      .eq('id', session.userId)
+      .single();
+
+    if (driver?.driver_status && driver.driver_status !== 'approved') {
+      return NextResponse.json({ error: 'Your driver account is not approved yet.' }, { status: 403 });
+    }
+
+    // Reliability: a recent no-show blocks instant accepts for 30 days (an admin can clear it)
+    if (await hasRecentNoShow(session.userId)) {
+      return NextResponse.json({
+        error: "After a recent no-show you can't take jobs instantly for 30 days. Contact TCG support if this is a mistake.",
+      }, { status: 403 });
+    }
+
     // Vehicle size validation: driver's vehicle must be big enough
     if (job.vehicle_required && job.vehicle_required !== 'any') {
-      const { data: driver } = await supabaseAdmin
-        .from('express_users')
-        .select('vehicle_type')
-        .eq('id', session.userId)
-        .single();
-
       const fit = checkVehicleFit(driver?.vehicle_type, job.vehicle_required);
       if (!fit.ok) {
         return NextResponse.json({
@@ -82,26 +93,34 @@ export async function POST(request, { params }) {
       }
     }
 
-    const bidAmount = parseFloat(job.budget_min) || parseFloat(job.budget_max);
-    if (!bidAmount || !isFinite(bidAmount) || bidAmount <= 0) {
-      console.error(`[instant-accept] No valid budget for job ${job.job_number}`);
-      return NextResponse.json({ error: 'Job has no valid budget or estimated fare' }, { status: 400 });
+    // Fixed price for the driver = what the customer pays + the TCG-funded voucher
+    const bidAmount = driverPrice(job);
+    if (!(bidAmount > 0)) {
+      console.error(`[instant-accept] No valid price for job ${job.job_number}`);
+      return NextResponse.json({ error: 'Job has no valid price' }, { status: 400 });
     }
+    const couponDiscount = Math.min(Math.max(0, parseFloat(job.coupon_discount) || 0), bidAmount);
 
-    // Create or update bid first (separate from atomic payment)
+    // Create or reuse this driver's bid row (one row per driver per job)
     let bid;
     const { data: existingBid } = await supabaseAdmin
       .from('express_bids')
       .select('id, amount, status, message')
       .eq('job_id', jobId)
       .eq('driver_id', session.userId)
-      .in('status', ['pending'])
-      .single();
+      .maybeSingle();
+
+    if (existingBid?.status === 'accepted') {
+      return NextResponse.json({ error: 'You already have this job' }, { status: 409 });
+    }
+    if (existingBid?.status === 'rejected') {
+      return NextResponse.json({ error: "You were released from this job, so you can't take it again." }, { status: 403 });
+    }
 
     if (existingBid) {
       const { data: updated, error: updateErr } = await supabaseAdmin
         .from('express_bids')
-        .update({ amount: bidAmount, message: 'Instant accept at posted budget' })
+        .update({ amount: bidAmount, message: 'Accepted at fixed price', status: 'pending' })
         .eq('id', existingBid.id)
         .select()
         .single();
@@ -117,7 +136,7 @@ export async function POST(request, { params }) {
           job_id: jobId,
           driver_id: session.userId,
           amount: bidAmount,
-          message: 'Instant accept at posted budget',
+          message: 'Accepted at fixed price',
           status: 'pending',
         }])
         .select()
@@ -150,8 +169,8 @@ export async function POST(request, { params }) {
       p_bid_id: bid.id,
       p_payer_id: job.client_id,
       p_commission_rate: rate,
-      p_coupon_discount: 0,
-      p_coupon_id: null,
+      p_coupon_discount: couponDiscount,
+      p_coupon_id: job.coupon_id || null,
       p_idempotency_key: idempotencyKey,
     });
 
@@ -161,7 +180,7 @@ export async function POST(request, { params }) {
       // Revert bid on payment failure
       if (existingBid) {
         await supabaseAdmin.from('express_bids')
-          .update({ amount: existingBid.amount, message: existingBid.message })
+          .update({ amount: existingBid.amount, message: existingBid.message, status: existingBid.status })
           .eq('id', bid.id);
       } else {
         await supabaseAdmin.from('express_bids').delete().eq('id', bid.id);
@@ -213,8 +232,8 @@ export async function POST(request, { params }) {
         .limit(1)
         .single();
 
-      // instant-accept: no driver breakdown (bid auto-created at budget price)
-      const breakdown = buildPaymentsBreakdown(null, job.fare_breakdown, job.coupon_discount);
+      // instant-accept: no driver breakdown (bid auto-created at the fixed price)
+      const breakdown = buildPaymentsBreakdown(null, job.fare_breakdown, couponDiscount);
 
       await supabaseAdmin.from('payments').insert({
         job_id:               jobId,
@@ -244,8 +263,8 @@ export async function POST(request, { params }) {
 
       await notify(job.client_id, {
         type: 'job', category: 'bid_activity',
-        title: `Driver accepted ${job.job_number} instantly!`,
-        message: `${driver?.contact_name || 'A driver'} accepted your job at $${bidAmount.toFixed(2)}. Payment processed from wallet.`,
+        title: `Driver found for ${job.job_number}!`,
+        message: `${driver?.contact_name || 'A driver'} accepted your job. S$${Math.max(0, bidAmount - couponDiscount).toFixed(2)} was paid from your wallet.`,
         referenceId: jobId,
         data: { job_id: jobId, role: 'client' },
       });
@@ -254,6 +273,7 @@ export async function POST(request, { params }) {
     return NextResponse.json({
       success: true,
       bid: { id: bid.id, amount: bidAmount },
+      price: bidAmount.toFixed(2),
       payout: parseFloat(result.payout).toFixed(2),
     });
   } catch (err) {

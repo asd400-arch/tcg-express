@@ -16,6 +16,7 @@ import {
 } from '../../../../lib/fares';
 import { findMatchingZones, calculateZoneSurcharge, isInRestrictedZone } from '../../../../lib/geo';
 import { toLocalDatetime } from '../../../../lib/job-helpers';
+import { isQuoteJob } from '../../../../lib/pricing-mode';
 import useLocale from '../../../components/useLocale';
 
 function AddressAutocomplete({ value, onChange, onSelect, placeholder, inputStyle }) {
@@ -258,6 +259,12 @@ export default function NewJob() {
     [midWeight, form.dim_l, form.dim_w, form.dim_h]
   );
   const effectiveVehicleMode = form.vehicle_required !== 'any' ? form.vehicle_required : autoVehicleMode;
+  // Fixed price (first driver to accept gets it) unless the job needs a driver's quote (27 Sep 2026)
+  const quoteMode = isQuoteJob({
+    vehicle_required: effectiveVehicleMode,
+    equipment_needed: [...(form.basic_equipment || []), ...(form.special_equipment || [])],
+    budget_min: 1,
+  });
 
   // Reset manual vehicle selection if it's now below auto-selected (upgrade only)
   useEffect(() => {
@@ -617,14 +624,16 @@ export default function NewJob() {
         )}
         <div style={{ height: '1px', background: '#3b82f6', opacity: 0.2, margin: '10px 0' }} />
         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0' }}>
-          <span style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b' }}>Estimated Total</span>
+          <span style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b' }}>{quoteMode ? 'Estimated Total' : 'Fixed Price'}</span>
           <span style={{ fontSize: '22px', fontWeight: '700', color: '#3b82f6' }}>
             ${voucherResult ? (Math.max(fare.total - parseFloat(voucherResult.discount), 0)).toFixed(2) : fare.total.toFixed(2)}
           </span>
         </div>
         <div style={{ background: '#eff6ff', borderRadius: '8px', padding: '10px', marginTop: '8px', textAlign: 'center' }}>
           <span style={{ fontSize: '12px', fontWeight: '600', color: '#3b82f6' }}>
-            Recommended budget: ${fare.budgetMin} – ${fare.budgetMax}
+            {quoteMode
+              ? 'Drivers will send quotes based on this estimate — you choose one.'
+              : 'Fixed price. The first available driver takes your job — charged from your wallet when they accept.'}
           </span>
         </div>
       </div>
@@ -1098,21 +1107,29 @@ export default function NewJob() {
         {step === 3 && (
           <div>
             <div style={card}>
-              <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>💲 Budget</h3>
-              {fare && (
+              <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>💲 {quoteMode ? 'Quote range' : 'Price'}</h3>
+              {fare && !quoteMode && (
+                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '12px 16px', fontSize: '13px', color: '#065f46' }}>
+                  <strong>Fixed price: ${(voucherResult ? Math.max(fare.total - parseFloat(voucherResult.discount), 0) : fare.total).toFixed(2)}</strong>
+                  <div style={{ marginTop: '4px', color: '#047857' }}>No bidding — the first available driver takes the job. If nobody has taken it after 10 minutes you can add $3–$8 to find one faster.</div>
+                </div>
+              )}
+              {fare && quoteMode && (
                 <div style={{ background: '#eff6ff', borderRadius: '10px', padding: '12px 16px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: '13px', color: '#3b82f6', fontWeight: '600' }}>Estimated fare: ${fare.total.toFixed(2)}</span>
                   <span style={{ fontSize: '12px', color: '#64748b' }}>Recommended: ${fare.budgetMin} – ${fare.budgetMax}</span>
                 </div>
               )}
+              {(quoteMode || !fare) && (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
                 <div><label style={label}>Budget Min ($)</label><input type="number" style={{ ...input, ...(fare && parseFloat(form.budget_min) > 0 && parseFloat(form.budget_min) < fare.budgetMin ? { borderColor: '#f59e0b', borderWidth: '2px' } : {}) }} value={form.budget_min} onChange={e => set('budget_min', e.target.value)} placeholder={fare ? String(fare.budgetMin) : '10'} /></div>
                 <div><label style={label}>Budget Max ($)</label><input type="number" style={input} value={form.budget_max} onChange={e => set('budget_max', e.target.value)} placeholder={fare ? String(fare.budgetMax) : '50'} /></div>
               </div>
-              {fare && parseFloat(form.budget_min) > 0 && parseFloat(form.budget_min) < fare.budgetMin && (
+              )}
+              {quoteMode && fare && parseFloat(form.budget_min) > 0 && parseFloat(form.budget_min) < fare.budgetMin && (
                 <p style={{ fontSize: '12px', color: '#f59e0b', fontWeight: '500', margin: '0 0 10px' }}>⚠️ Below recommended minimum. Drivers may not accept.</p>
               )}
-              {fare && !form.budget_min && !form.budget_max && (
+              {quoteMode && fare && !form.budget_min && !form.budget_max && (
                 <button type="button" onClick={() => setForm(prev => ({ ...prev, budget_min: String(fare.budgetMin), budget_max: String(fare.budgetMax) }))} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid #3b82f6', background: '#eff6ff', color: '#3b82f6', fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>
                   Use recommended: ${fare.budgetMin} – ${fare.budgetMax}
                 </button>

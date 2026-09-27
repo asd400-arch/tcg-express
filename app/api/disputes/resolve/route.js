@@ -2,6 +2,7 @@ import { supabaseAdmin } from '../../../../lib/supabase-server';
 import { NextResponse } from 'next/server';
 import { getSession } from '../../../../lib/auth';
 import { notify } from '../../../../lib/notify';
+import { customerPaidAmount } from '../../../../lib/escrow';
 
 export async function POST(req) {
   try {
@@ -22,7 +23,7 @@ export async function POST(req) {
     // Fetch dispute
     const { data: dispute, error: disputeErr } = await supabaseAdmin
       .from('express_disputes')
-      .select('*, job:job_id(id, client_id, assigned_driver_id, job_number, final_amount, driver_payout)')
+      .select('*, job:job_id(id, client_id, assigned_driver_id, job_number, final_amount, driver_payout, coupon_discount)')
       .eq('id', disputeId)
       .single();
 
@@ -80,8 +81,9 @@ export async function POST(req) {
         .eq('id', job.id);
       if (jobErr) console.error('Job cancel update error:', jobErr.message);
 
-      // Credit client wallet if txn exists
-      if (txn) {
+      // Credit client wallet with what they paid (the voucher part is TCG-funded)
+      const paidBack = txn ? customerPaidAmount(txn, job) : 0;
+      if (txn && paidBack > 0) {
         try {
           const { data: wallet } = await supabaseAdmin
             .from('wallets')
@@ -92,7 +94,7 @@ export async function POST(req) {
             const { error: creditErr } = await supabaseAdmin.rpc('wallet_credit', {
               p_wallet_id: wallet.id,
               p_user_id: job.client_id,
-              p_amount: parseFloat(txn.total_amount),
+              p_amount: paidBack,
               p_type: 'refund',
               p_reference_type: 'dispute',
               p_reference_id: disputeId,
@@ -105,7 +107,7 @@ export async function POST(req) {
         }
       }
 
-      const refundAmount = txn ? parseFloat(txn.total_amount).toFixed(2) : job.final_amount;
+      const refundAmount = txn ? paidBack.toFixed(2) : job.final_amount;
 
       // Notifications (wrapped to not break resolution)
       try {

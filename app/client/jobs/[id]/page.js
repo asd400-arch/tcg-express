@@ -18,6 +18,7 @@ import { useUnreadMessages } from '../../../components/UnreadMessagesContext';
 import { use } from 'react';
 import { getCategoryByKey, getEquipmentLabel } from '../../../../lib/constants';
 import useLocale from '../../../components/useLocale';
+import { isQuoteJob, driverPrice, customerPrice, BOOST_OPTIONS, BOOST_CAP } from '../../../../lib/pricing-mode';
 
 export default function ClientJobDetail({ params }) {
   const resolvedParams = use(params);
@@ -43,6 +44,8 @@ export default function ClientJobDetail({ params }) {
   const [assignedDriver, setAssignedDriver] = useState(null);
   const [acceptingBid, setAcceptingBid] = useState(null);
   const [confirming, setConfirming] = useState(false);
+  const [releasing, setReleasing] = useState(false);
+  const [boosting, setBoosting] = useState(false);
   const [topUpModal, setTopUpModal] = useState(null); // { available, required, shortfall, bid }
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -223,8 +226,68 @@ export default function ClientJobDetail({ params }) {
     loadData();
   };
 
+  // No driver yet on a fixed-price job → the customer can add a little so drivers are alerted again
+  const boostPrice = async (amount) => {
+    if (boosting) return;
+    if (!confirm(`Add $${amount} to your price? Drivers will be alerted again. You're only charged when a driver accepts.`)) return;
+    setBoosting(true);
+    try {
+      const res = await fetch(`/api/jobs/${jobId}/boost`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount }),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        if (result.available != null) {
+          const shortfall = Math.ceil((parseFloat(result.required) - parseFloat(result.available)) * 100) / 100;
+          toast.error(`Top up $${shortfall.toFixed(2)} first to raise the price`);
+        } else {
+          toast.error(result.error || 'Could not raise the price');
+        }
+        return;
+      }
+      toast.success(`Price raised by $${amount} — drivers have been alerted again.`);
+      loadData();
+    } catch {
+      toast.error('Could not raise the price');
+    } finally {
+      setBoosting(false);
+    }
+  };
+
+  const findAnotherDriver = async () => {
+    const hrs = window.prompt('Your current driver will be removed and your payment refunded to your wallet. The job opens for drivers again and they are alerted.\n\nNew pickup in how many hours from now?', '3');
+    if (hrs === null) return;
+    const h = Number(hrs);
+    if (!Number.isFinite(h) || h < 0.5 || h > 48) {
+      toast.error('Enter a number of hours between 0.5 and 48');
+      return;
+    }
+    setReleasing(true);
+    try {
+      const res = await fetch(`/api/jobs/${jobId}/release`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reopen', reason: 'no_show', pickup_by: new Date(Date.now() + h * 3600000).toISOString() }),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        toast.error(result.error || 'Could not release the driver');
+        return;
+      }
+      const amt = Number(result.data?.refundAmount || 0);
+      toast.success(`Driver released${amt > 0 ? ` — $${amt.toFixed(2)} back in your wallet` : ''}. Drivers have been alerted again.`);
+      loadData();
+    } catch {
+      toast.error('Could not release the driver');
+    } finally {
+      setReleasing(false);
+    }
+  };
+
   const cancelJobWithEscrow = async () => {
-    const amount = heldTxn ? `$${parseFloat(heldTxn.total_amount).toFixed(2)}` : '';
+    const amount = heldTxn ? `$${Math.max(0, parseFloat(heldTxn.total_amount) - (parseFloat(job?.coupon_discount) || 0)).toFixed(2)}` : '';
     if (!confirm(`Cancel this job and refund escrow${amount ? ` of ${amount}` : ''}? This cannot be undone.`)) return;
     try {
       const res = await fetch('/api/transactions/refund', {
@@ -250,6 +313,10 @@ export default function ClientJobDetail({ params }) {
   const statusColor = { open: '#3b82f6', bidding: '#8b5cf6', assigned: '#f59e0b', pickup_confirmed: '#f59e0b', in_transit: '#06b6d4', delivered: '#10b981', confirmed: '#10b981', completed: '#059669', cancelled: '#ef4444', disputed: '#e11d48' };
   const showMap = ['assigned', 'pickup_confirmed', 'in_transit'].includes(job.status);
   const showChat = job.assigned_driver_id;
+  const quoteJob = isQuoteJob(job);
+  const boostAdded = Math.max(0, parseFloat(job.boost_total) || 0);
+  const voucher = Math.max(0, parseFloat(job.coupon_discount) || 0);
+  const paidAmount = job.final_amount != null ? Math.max(0, parseFloat(job.final_amount) - voucher) : null;
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>
@@ -278,7 +345,7 @@ export default function ClientJobDetail({ params }) {
           const pendingBids = bids.filter(b => b.status === 'pending').length;
           return (
             <div style={{ display: 'flex', gap: '4px', marginBottom: '20px', background: '#f1f5f9', borderRadius: '10px', padding: '4px', flexWrap: 'wrap' }}>
-              {['details', 'bids', ...(showMap ? ['tracking'] : []), ...(showChat ? ['messages'] : [])].map(t => (
+              {['details', ...(quoteJob || bids.length > 0 ? ['bids'] : []), ...(showMap ? ['tracking'] : []), ...(showChat ? ['messages'] : [])].map(t => (
                 <button key={t} onClick={() => { setTab(t); if (t === 'messages') markJobRead(jobId); }} style={{
                   flex: 1, minWidth: '70px', padding: '10px', borderRadius: '8px', border: 'none', cursor: 'pointer',
                   background: tab === t ? 'white' : t === 'bids' && pendingBids > 0 ? '#fff7ed' : 'transparent',
@@ -289,7 +356,7 @@ export default function ClientJobDetail({ params }) {
                   position: 'relative',
                   animation: t === 'bids' && pendingBids > 0 && tab !== 'bids' ? 'bidPulse 2s ease-in-out infinite' : 'none',
                 }}>
-                  {t === 'bids' ? (pendingBids > 0 ? `🔔 Bids (${pendingBids} new)` : `Bids (${bids.length})`) : t}
+                  {t === 'bids' ? (pendingBids > 0 ? `🔔 Quotes (${pendingBids} new)` : `Quotes (${bids.length})`) : t}
                   {t === 'bids' && pendingBids > 0 && (
                     <span style={{
                       position: 'absolute', top: '2px', right: '2px',
@@ -314,6 +381,31 @@ export default function ClientJobDetail({ params }) {
         {/* Details Tab */}
         {tab === 'details' && (
           <>
+            {/* Fixed price: finding a driver + optional boost (27 Sep 2026) */}
+            {['open', 'bidding'].includes(job.status) && !quoteJob && (
+              <div style={{ ...card, background: '#eff6ff', border: '1px solid #bfdbfe' }}>
+                <div style={{ fontSize: '15px', fontWeight: '700', color: '#1e3a8a', marginBottom: '6px' }}>🔎 Finding a driver</div>
+                <div style={{ fontSize: '13px', color: '#1e40af', marginBottom: boostAdded < BOOST_CAP ? '12px' : 0 }}>
+                  Your price is fixed at ${customerPrice(job).toFixed(2)}{boostAdded > 0 ? ` (incl. $${boostAdded.toFixed(2)} you added)` : ''}. The first available driver takes the job — you don't need to choose anyone.
+                </div>
+                {boostAdded < BOOST_CAP && (
+                  <>
+                    <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '6px' }}>No driver yet? Add a little and we'll alert drivers again:</div>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      {BOOST_OPTIONS.filter(a => boostAdded + a <= BOOST_CAP).map(a => (
+                        <button key={a} onClick={() => boostPrice(a)} disabled={boosting} style={{ padding: '10px 18px', borderRadius: '10px', border: '1px solid #2563eb', background: 'white', color: '#2563eb', fontSize: '14px', fontWeight: '700', cursor: boosting ? 'not-allowed' : 'pointer', fontFamily: "'Inter', sans-serif", opacity: boosting ? 0.6 : 1 }}>+${a}</button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+            {['open', 'bidding'].includes(job.status) && quoteJob && (
+              <div style={{ ...card, background: '#f5f3ff', border: '1px solid #ddd6fe' }}>
+                <div style={{ fontSize: '15px', fontWeight: '700', color: '#5b21b6', marginBottom: '6px' }}>📝 Waiting for quotes</div>
+                <div style={{ fontSize: '13px', color: '#6d28d9' }}>This job needs a driver's quote (special handling, equipment or a large lorry). Compare quotes in the Quotes tab and accept the one you want.</div>
+              </div>
+            )}
             <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr' : '1fr 1fr', gap: '16px' }}>
               <div style={card}>
                 <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b', marginBottom: '14px' }}>📍 Pickup</h3>
@@ -336,7 +428,7 @@ export default function ClientJobDetail({ params }) {
                 <div><span style={{ fontSize: '12px', color: '#94a3b8' }}>Description</span><div style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b' }}>{job.item_description}</div></div>
                 <div><span style={{ fontSize: '12px', color: '#94a3b8' }}>Category</span><div style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b' }}>{getCategoryByKey(job.item_category).icon} {getCategoryByKey(job.item_category).label}</div></div>
                 <div><span style={{ fontSize: '12px', color: '#94a3b8' }}>Urgency</span><div style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b', textTransform: 'capitalize' }}>{job.urgency}</div></div>
-                <div><span style={{ fontSize: '12px', color: '#94a3b8' }}>Budget</span><div style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b' }}>${job.budget_min} - ${job.budget_max}</div></div>
+                <div><span style={{ fontSize: '12px', color: '#94a3b8' }}>{quoteJob ? 'Estimate' : 'Price'}</span><div style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b' }}>{quoteJob ? `Quotes from $${driverPrice(job).toFixed(2)}` : `$${customerPrice(job).toFixed(2)} (fixed)`}</div></div>
                 <div><span style={{ fontSize: '12px', color: '#94a3b8' }}>Vehicle</span><div style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b', textTransform: 'capitalize' }}>{job.vehicle_required}</div></div>
                 {job.item_weight && <div><span style={{ fontSize: '12px', color: '#94a3b8' }}>Weight</span><div style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b' }}>{job.item_weight} kg</div></div>}
                 {job.manpower_count > 1 && <div><span style={{ fontSize: '12px', color: '#94a3b8' }}>Workers</span><div style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b' }}>{job.manpower_count} workers</div></div>}
@@ -353,14 +445,15 @@ export default function ClientJobDetail({ params }) {
               )}
               {job.final_amount && (
                 <div style={{ marginTop: '16px', padding: '14px', background: '#f0fdf4', borderRadius: '10px' }}>
-                  <div style={{ fontSize: '13px', color: '#64748b' }}>Final Amount</div>
-                  <div style={{ fontSize: '22px', fontWeight: '800', color: '#059669' }}>${job.final_amount}</div>
+                  <div style={{ fontSize: '13px', color: '#64748b' }}>You pay</div>
+                  <div style={{ fontSize: '22px', fontWeight: '800', color: '#059669' }}>${(paidAmount ?? 0).toFixed(2)}</div>
+                  {voucher > 0 && <div style={{ fontSize: '12px', color: '#64748b' }}>Job price ${parseFloat(job.final_amount).toFixed(2)} − voucher ${voucher.toFixed(2)}</div>}
                 </div>
               )}
               {heldTxn && ['assigned', 'pickup_confirmed', 'in_transit', 'delivered'].includes(job.status) && (
                 <div style={{ marginTop: '12px', padding: '12px 14px', background: '#fffbeb', borderRadius: '10px', border: '1px solid #fde68a', display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <span style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '700', background: '#f59e0b20', color: '#d97706' }}>HELD</span>
-                  <span style={{ fontSize: '14px', fontWeight: '600', color: '#92400e' }}>Payment held in escrow: ${parseFloat(heldTxn.total_amount).toFixed(2)}</span>
+                  <span style={{ fontSize: '14px', fontWeight: '600', color: '#92400e' }}>Payment held in escrow: ${Math.max(0, parseFloat(heldTxn.total_amount) - voucher).toFixed(2)}</span>
                 </div>
               )}
             </div>
@@ -480,6 +573,13 @@ export default function ClientJobDetail({ params }) {
                   <div>
                     <div style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b' }}>{assignedDriver.contact_name}</div>
                     <div style={{ fontSize: '12px', color: '#64748b' }}>Assigned Driver</div>
+                    {job.status === 'assigned' && (
+                      <div style={{ fontSize: '12px', fontWeight: '600', marginTop: '2px', color: job.driver_checkin_at ? '#059669' : '#b45309' }}>
+                        {job.driver_checkin_at
+                          ? "✅ On the way to pickup"
+                          : `⏳ Hasn't confirmed yet${job.pickup_by ? ` — if not by ${new Date(new Date(job.pickup_by).getTime() + 10 * 60000).toLocaleTimeString(dateLocale, { hour: 'numeric', minute: '2-digit' })}, we'll find you another driver` : ''}`}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <CallButtons phone={assignedDriver.phone} name={assignedDriver.contact_name} compact />
@@ -503,6 +603,9 @@ export default function ClientJobDetail({ params }) {
               )}
               {['open', 'bidding'].includes(job.status) && (
                 <button onClick={cancelJob} style={{ padding: '12px 24px', borderRadius: '10px', border: '1px solid #ef4444', background: 'white', color: '#ef4444', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>Cancel Job</button>
+              )}
+              {job.status === 'assigned' && (
+                <button onClick={findAnotherDriver} disabled={releasing} style={{ padding: '12px 24px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: 'white', fontSize: '14px', fontWeight: '600', cursor: releasing ? 'not-allowed' : 'pointer', fontFamily: "'Inter', sans-serif", opacity: releasing ? 0.7 : 1 }}>{releasing ? 'Releasing...' : '🔄 Driver no-show? Find another'}</button>
               )}
               {['assigned', 'pickup_confirmed'].includes(job.status) && (
                 <button onClick={cancelJobWithEscrow} style={{ padding: '12px 24px', borderRadius: '10px', border: '1px solid #ef4444', background: 'white', color: '#ef4444', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>Cancel Job & Refund</button>

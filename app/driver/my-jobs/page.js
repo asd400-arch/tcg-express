@@ -42,6 +42,7 @@ export default function DriverMyJobs() {
   const [queue, setQueue] = useState([]);
   const [queueLoading, setQueueLoading] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
+  const [checkingIn, setCheckingIn] = useState(false);
   const [navModal, setNavModal] = useState(null);
   const { unreadByJob, markJobRead } = useUnreadMessages();
   const gps = useGpsTracking(user?.id, selected?.id, pickupCoords, deliveryCoords);
@@ -245,6 +246,34 @@ export default function DriverMyJobs() {
     }
   };
 
+  // "I'm on my way" — required before pickup; unconfirmed drivers are released 10 min after pickup time
+  const checkIn = async () => {
+    if (!selected || checkingIn) return;
+    setCheckingIn(true);
+    try {
+      const res = await fetch(`/api/jobs/${selected.id}/checkin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        toast.error(result.error || 'Could not confirm');
+        return;
+      }
+      toast.success("Thanks — the customer knows you're on the way.");
+      setSelected({ ...selected, driver_checkin_at: result.data?.driver_checkin_at || new Date().toISOString() });
+      loadJobs();
+      if (gps.startTracking) gps.startTracking();
+    } catch {
+      toast.error('Could not confirm');
+    } finally {
+      setCheckingIn(false);
+    }
+  };
+
+  const fmtSgTime = (ms) => new Date(ms).toLocaleString('en-SG', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+
   const handleFileUpload = async (e, type) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -426,6 +455,29 @@ export default function DriverMyJobs() {
                 <span style={{ padding: '6px 14px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', background: `${statusColor[selected.status]}15`, color: statusColor[selected.status], textTransform: 'uppercase' }}>{selected.status.replace(/_/g, ' ')}</span>
               </div>
             </div>
+
+            {/* On my way — confirm before pickup or the job goes to another driver (27 Sep 2026) */}
+            {selected.status === 'assigned' && (
+              selected.driver_checkin_at ? (
+                <div style={{ padding: '12px 16px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', marginBottom: '10px', fontSize: '14px', fontWeight: '600', color: '#059669' }}>
+                  ✅ You confirmed you're on the way — the customer has been told.
+                </div>
+              ) : (
+                <div style={{ marginBottom: '10px' }}>
+                  <button onClick={checkIn} disabled={checkingIn} style={{
+                    padding: '16px 28px', borderRadius: '12px', border: 'none', width: '100%',
+                    background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', color: 'white', fontSize: '18px', fontWeight: '700',
+                    cursor: checkingIn ? 'not-allowed' : 'pointer', fontFamily: "'Inter', sans-serif", opacity: checkingIn ? 0.7 : 1,
+                    boxShadow: '0 4px 14px rgba(37,99,235,0.3)',
+                  }}>{checkingIn ? 'Confirming...' : "🚗 I'm on my way"}</button>
+                  <div style={{ textAlign: 'center', fontSize: '12px', color: '#92400e', fontWeight: '600', marginTop: '6px' }}>
+                    {selected.pickup_by
+                      ? `Tap from ${fmtSgTime(new Date(selected.pickup_by).getTime() - 2 * 3600000)}. Not confirmed by ${fmtSgTime(new Date(selected.pickup_by).getTime() + 10 * 60000)}? The job goes to another driver.`
+                      : 'Tap when you set off to the pickup.'}
+                  </div>
+                </div>
+              )
+            )}
 
             {/* Status Action - Top Priority */}
             {statusFlow[selected.status] && (() => {

@@ -1,5 +1,5 @@
 'use client';
-import { getAreaName, formatPickupTime, formatBudgetRange, getCountdown, getVehicleLabel, getJobBudget } from '../../lib/job-helpers';
+import { getAreaName, formatPickupTime, formatBudgetRange, getCountdown, getVehicleLabel, getJobBudget, isQuoteJob } from '../../lib/job-helpers';
 import useLocale from './useLocale';
 import { formatCurrency } from '../../lib/locale/config';
 import { getLaunchTopup } from '../../lib/fares';
@@ -29,6 +29,7 @@ export default function JobCard({ job, myBid, accepting, onClick, onAccept, onBi
   const deliverCountdown = getCountdown(job.deliver_by);
   const vLabel = getVehicleLabel(job.vehicle_required);
   const budget = getJobBudget(job);
+  const isQuote = isQuoteJob(job);
   const badge = getJobBadge(job);
 
   const cardStyle = {
@@ -69,6 +70,7 @@ export default function JobCard({ job, myBid, accepting, onClick, onAccept, onBi
         </div>
         <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: '10px' }}>
           <div style={{ fontSize: '18px', fontWeight: '800', color: '#10b981' }}>{formatBudgetRange(job, locale)}</div>
+          <div style={{ fontSize: '10px', fontWeight: '700', color: isQuote ? '#7c3aed' : '#64748b', textTransform: 'uppercase', letterSpacing: '0.3px' }}>{isQuote ? 'Send a quote' : 'Fixed price'}</div>
           {launchBonus > 0 && (
             <div style={{ display: 'inline-block', marginTop: '2px', padding: '1px 8px', borderRadius: '10px', background: '#ecfdf5', color: '#047857', fontSize: '11px', fontWeight: '700', border: '1px solid #a7f3d0' }}>
               +{formatCurrency(launchBonus, locale)} TCG bonus
@@ -103,29 +105,31 @@ export default function JobCard({ job, myBid, accepting, onClick, onAccept, onBi
       {/* Row 4: Job ID + buttons */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} onClick={e => { if (!linkMode) e.stopPropagation(); }}>
         <span style={{ fontSize: '11px', color: '#b0b8c4' }}>{job.job_number || '\u2014'}</span>
-        {myBid ? (
+        {!isQuote ? (
+          myBid?.status === 'rejected' ? (
+            <span style={{ fontSize: '12px', fontWeight: '600', color: '#94a3b8' }}>Not available to you</span>
+          ) : onAccept ? (
+            <button onClick={e => { e.preventDefault(); e.stopPropagation(); onAccept(job); }} disabled={accepting === job.id || !budget} style={{ padding: '6px 14px', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontSize: '12px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif", opacity: accepting === job.id ? 0.7 : 1 }}>
+              {accepting === job.id ? '...' : `Accept ${budget ? formatCurrency(budget, locale) : ''}`}
+            </button>
+          ) : (
+            <span style={{ padding: '6px 14px', borderRadius: '8px', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontSize: '12px', fontWeight: '600' }}>Accept {budget ? formatCurrency(budget, locale) : ''}</span>
+          )
+        ) : myBid ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '12px', fontWeight: '600', color: myBid.status === 'accepted' ? '#10b981' : myBid.status === 'rejected' ? '#ef4444' : '#f59e0b' }}>
-              {formatCurrency(myBid.amount, locale)} ({myBid.status === 'outbid' ? 'not selected' : myBid.status})
+              Quote {formatCurrency(myBid.amount, locale)} ({myBid.status === 'outbid' ? 'not selected' : myBid.status})
             </span>
             {['rejected', 'outbid'].includes(myBid.status) && onReBid && (
-              <button onClick={e => { e.preventDefault(); e.stopPropagation(); onReBid(job); }} style={{ padding: '5px 12px', borderRadius: '8px', border: '1px solid #f59e0b', background: 'white', color: '#f59e0b', fontSize: '11px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>Re-bid</button>
+              <button onClick={e => { e.preventDefault(); e.stopPropagation(); onReBid(job); }} style={{ padding: '5px 12px', borderRadius: '8px', border: '1px solid #f59e0b', background: 'white', color: '#f59e0b', fontSize: '11px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>New quote</button>
             )}
           </div>
         ) : (
           <div style={{ display: 'flex', gap: '8px' }}>
-            {budget && onAccept && (
-              <button onClick={e => { e.preventDefault(); e.stopPropagation(); onAccept(job); }} disabled={accepting === job.id} style={{ padding: '6px 14px', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontSize: '12px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif", opacity: accepting === job.id ? 0.7 : 1 }}>
-                {accepting === job.id ? '...' : `Accept ${formatCurrency(budget, locale)}`}
-              </button>
-            )}
-            {!onAccept && budget && (
-              <span style={{ padding: '6px 14px', borderRadius: '8px', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontSize: '12px', fontWeight: '600' }}>Accept {formatCurrency(budget, locale)}</span>
-            )}
             {onBid ? (
-              <button onClick={e => { e.preventDefault(); e.stopPropagation(); onBid(job); }} style={{ padding: '6px 14px', borderRadius: '8px', border: '1px solid #3b82f6', background: 'white', color: '#3b82f6', fontSize: '12px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>{budget ? 'Bid' : 'Place Bid'}</button>
+              <button onClick={e => { e.preventDefault(); e.stopPropagation(); onBid(job); }} style={{ padding: '6px 14px', borderRadius: '8px', border: '1px solid #7c3aed', background: 'white', color: '#7c3aed', fontSize: '12px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>Send quote</button>
             ) : (
-              <span style={{ padding: '6px 14px', borderRadius: '8px', border: '1px solid #3b82f6', background: 'white', color: '#3b82f6', fontSize: '12px', fontWeight: '600' }}>{budget ? 'Bid' : 'Place Bid'}</span>
+              <span style={{ padding: '6px 14px', borderRadius: '8px', border: '1px solid #7c3aed', background: 'white', color: '#7c3aed', fontSize: '12px', fontWeight: '600' }}>Send quote</span>
             )}
           </div>
         )}

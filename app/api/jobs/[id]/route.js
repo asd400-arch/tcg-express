@@ -1,10 +1,11 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { supabaseAdmin } from '../../../../lib/supabase-server';
 import { getSession } from '../../../../lib/auth';
 import {
   autoSelectVehicle, calculateFare, getSizeTierFromWeight, getSizeTierFromVolume,
   getHigherSizeTier, getVehicleModeIndex, WEIGHT_RANGES,
 } from '../../../../lib/fares';
+import { maybeRunDispatchSweep } from '../../../../lib/dispatch';
 
 export async function GET(request, { params }) {
   const session = getSession(request);
@@ -56,6 +57,8 @@ export async function GET(request, { params }) {
     }
   }
 
+  // Job screens poll this — piggyback the dispatch sweep (throttled, runs after the response)
+  after(() => maybeRunDispatchSweep());
   return NextResponse.json({ data });
 }
 
@@ -219,8 +222,20 @@ export async function PUT(request, { params }) {
     // Update fare-related fields on the job
     if (fareChanged || vehicleChanged) {
       updates.vehicle_required = newCalc.vehicleMode;
-      updates.budget_min = newCalc.fare?.budgetMin ?? job.budget_min;
-      updates.budget_max = newCalc.fare?.budgetMax ?? job.budget_max;
+      // Fixed-price model (27 Sep 2026): the customer pays fare − voucher (+ any boost they added);
+      // budget_max is the quote ceiling.
+      if (newCalc.fare?.total > 0) {
+        const r2e = (v) => Math.round(v * 100) / 100;
+        const oldCoupon = Math.max(0, parseFloat(job.coupon_discount) || 0);
+        const coupon = Math.min(oldCoupon, newCalc.fare.total);
+        const boost = Math.max(0, parseFloat(job.boost_total) || 0);
+        updates.budget_min = r2e(Math.max(0, newCalc.fare.total - coupon) + boost);
+        updates.budget_max = Math.round(newCalc.fare.total * 1.3) + boost;
+        if (coupon !== oldCoupon) updates.coupon_discount = coupon;
+      } else {
+        updates.budget_min = job.budget_min;
+        updates.budget_max = job.budget_max;
+      }
 
       // If customer already paid (wallet_paid + has transaction), adjust wallet
       if (job.wallet_paid && job.final_amount) {

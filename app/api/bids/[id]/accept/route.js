@@ -33,7 +33,7 @@ export async function POST(request, { params }) {
     // Verify job belongs to this client
     const { data: job, error: jobErr } = await supabaseAdmin
       .from('express_jobs')
-      .select('id, client_id, job_number, status, fare_breakdown, coupon_discount')
+      .select('id, client_id, job_number, status, fare_breakdown, coupon_discount, coupon_id')
       .eq('id', bid.job_id)
       .single();
 
@@ -60,6 +60,9 @@ export async function POST(request, { params }) {
     // Zero Commission: 0% for 30 days after driver's first completed delivery
     rate = await getCommissionRate(supabaseAdmin, bid.driver_id, rate);
 
+    // The voucher is TCG-funded: the customer pays quote − voucher, the driver gets the full quote
+    const couponForBid = Math.min(Math.max(0, parseFloat(job.coupon_discount) || 0), parseFloat(bid.amount) || 0);
+
     // Idempotency key
     const idempotencyKey = `accept_${job.id}_${bid.id}`;
 
@@ -69,8 +72,8 @@ export async function POST(request, { params }) {
       p_bid_id: bid.id,
       p_payer_id: session.userId,
       p_commission_rate: rate,
-      p_coupon_discount: 0,
-      p_coupon_id: null,
+      p_coupon_discount: couponForBid,
+      p_coupon_id: job.coupon_id || null,
       p_idempotency_key: idempotencyKey,
     });
 
@@ -121,7 +124,7 @@ export async function POST(request, { params }) {
       const breakdown = buildPaymentsBreakdown(
         bid.equipment_charges,
         job.fare_breakdown,
-        job.coupon_discount,
+        couponForBid,
       );
 
       await supabaseAdmin.from('payments').insert({
