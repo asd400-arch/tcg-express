@@ -224,7 +224,8 @@ export const config = {
   // them to /login. That is what made every artwork PDF link we emailed to
   // printers land on a sign-in page — they reported it as "need to register".
   // .pdf and the /artwork/ folder are excluded for that reason.
+  // .jpg/.jpeg/.webp and /og/ too — link-preview images (og:image) must load without a login.
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|icons/.*|artwork/.*|sw.js|manifest.json|.*\\.png$|.*\\.svg$|.*\\.pdf$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|icons/.*|artwork/.*|og/.*|sw.js|manifest.json|.*\\.png$|.*\\.jpg$|.*\\.jpeg$|.*\\.webp$|.*\\.svg$|.*\\.pdf$).*)',
   ],
 };
