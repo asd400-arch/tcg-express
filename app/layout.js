@@ -7,8 +7,8 @@ import ChatWidget from './components/help/ChatWidget';
 import PushPromptBanner from './components/PushPromptBanner';
 
 export const metadata = {
-  title: 'TCG Express | B2B Express Delivery Platform',
-  description: 'On-demand B2B delivery platform. Post jobs, get bids, track deliveries in real-time.',
+  title: 'TCG Express | Fixed-Price Business Delivery in Singapore',
+  description: 'Fixed-price B2B delivery in Singapore. See the price before you book, the first available verified driver takes the job, and you track it live.',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
@@ -16,17 +16,19 @@ export const metadata = {
     title: 'TCG Express',
   },
   openGraph: {
-    title: 'TCG Express - B2B Tech Equipment Delivery',
-    description: 'Singapore premier B2B technology equipment delivery platform. Fast, reliable, insured.',
-    url: 'https://express.techchainglobal.com',
+    title: 'TCG Express — Fixed-price business delivery in Singapore',
+    description: 'See the price before you book. The first available verified driver takes the job. 10 free deliveries for new businesses with code FIRST10.',
+    url: 'https://app.techchainglobal.com',
     siteName: 'TCG Express',
     type: 'website',
     locale: 'en_SG',
+    images: [{ url: 'https://app.techchainglobal.com/og/tcg-fixed-price-1200x630.jpg', width: 1200, height: 630, alt: 'TCG Express — fixed-price business delivery in Singapore' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'TCG Express',
-    description: 'B2B tech equipment delivery in Singapore',
+    title: 'TCG Express — Fixed-price business delivery',
+    description: 'Singapore B2B delivery: see the price before you book, a verified driver takes the job.',
+    images: ['https://app.techchainglobal.com/og/tcg-fixed-price-1200x630.jpg'],
   },
 };
 

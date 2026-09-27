@@ -2,7 +2,7 @@
 
 > **이 파일의 목적**: 새 채팅창을 열었을 때 이 파일 하나만 읽으면 바로 이어서 작업할 수 있게 하는 것.
 > **갱신 규칙**: 매일 작업 종료 시 `## 날짜별 기록` 맨 위에 그날 항목을 추가한다. 상단 요약(현재 상태·열린 결정)은 변경된 것만 덮어쓴다.
-> 마지막 갱신: **2026-09-27 (일) 17:30 SGT** (고정가 즉시수락·부스트·체크인/자동해제 전환 — 배포 대기)
+> 마지막 갱신: **2026-09-27 (일) 18:40 SGT** (고정가 즉시수락 전환 배포 완료 · 광고 문구 v3 교체 · 웹 문구 고정가로 수정)
 
 ---
 
@@ -183,7 +183,7 @@
 
 ## 4. 날짜별 기록
 
-### 2026-09-27 (일) — **비딩 → 고정가 즉시수락 전환(코드 완료, 배포 대기)** · 노쇼 대응 · 앱 알림 전용
+### 2026-09-27 (일) — **비딩 → 고정가 즉시수락 전환 (배포 완료 17:37 SGT)** · 노쇼 대응 · 앱 알림 전용
 - **분석 결론**: 런칭 후 7건(전부 TCG 자체 계정)·입찰 4건(기사 2명, 완료 0)·첫 입찰 80/96/403분·입찰가 전부 상한(+25~33%)·유일한 수락(00006)은 노쇼. 알림 켜진 승인 기사 10명(65명 중). 비딩은 기본값에서 빼고 특수 작업 견적용으로만 유지.
 - **고정가(기본)**: 일반 잡은 "Accept S$X" — 먼저 수락한 기사가 가져감(`/api/jobs/[id]/instant-accept`). 기존 두 입찰 API는 고정가 잡 입찰을 거부(구버전 앱엔 "앱을 다시 열어 업데이트" 안내).
 - **견적(예외)**: 14ft+ 로리·트레일러·special 차량, 분해/설치·크레인·리프트트럭·기타요청 → 기사 견적, 고객 선택. 하한 = 기사가격, 상한 = budget_max(분해/설치/기타요청·special은 상한 없음). 규칙은 `lib/pricing-mode.js` ↔ 앱 `lib/job-helpers.ts` 동일.
@@ -191,9 +191,10 @@
 - **부스트**: 고정가 잡이 10분간 미수락이면 고객에게 앱 알림(1회) → +S$3/5/8 (잡당 최대 S$20, `POST /api/jobs/[id]/boost`) → 기사 재알림.
 - **노쇼 방지**: 기사 "I'm on my way" 체크인(`POST /api/jobs/[id]/checkin`, 픽업 2시간 전부터) → 고객 알림. 픽업 60분 전 미체크인 시 기사 리마인드(1회). 픽업 +10분까지 미체크인 → 자동 해제·환불·재오픈(새 픽업 = 지금+60분)·노쇼 기록·재알림(수락 20분 이내는 유예, 앱 위치 공유 중이면 +45분까지 유예). 최근 30일 노쇼 기록(관리자 decision 'ok' 아니면)이 있는 기사는 즉시수락 불가.
 - **스케줄러**: `lib/dispatch.js` runDispatchSweep — `/api/cron/dispatch`(Supabase pg_cron 5분마다, 헤더 x-dispatch-token = express_settings 'dispatch_cron_token') + 바쁜 GET(`/api/jobs`, `/api/jobs/[id]`, `/api/notifications`)에서 `after()`로 1분 스로틀 실행. `/api/jobs/[id]/release`는 같은 해제 로직 사용.
-- **배포 순서**: ① `sql/2026-09-27-dispatch.sql` Part A(컬럼 4개 + 토큰) → Part B(pg_net·pg_cron 스케줄) ② 웹 git push ③ 앱 `eas update --channel production --platform ios`. SQL 전에 푸시해도 기존 흐름은 안 깨지고 부스트·체크인만 "잠시 후 다시" 응답.
+- **배포 (R1 ③까지 확인)**: 웹 push — 라이브에서 `/boost`·`/checkin`·`/release` GET 405(라우트 존재), `/api/cron/dispatch` 401, 잡 목록·알림 200. SQL Part A+B는 스캇님 요청으로 Claude가 새 탭에서 실행 — 컬럼 4개, 토큰 64자, pg_net·pg_cron 설치, cron job 1 `tcg-dispatch-sweep` */5 active, 09:35 UTC 호출 200 `errors:[]`. 앱 OTA iOS: update group 56a952c7-2619-4c4d-8a72-336fd1028db3 (runtime 1.0.4, 앱을 두 번 껐다 켜면 반영). ④ 실사용 검증(테스트 잡 게시 → 기사 Accept → 체크인)은 아직.
 - 알림은 앱 전용(푸시+인앱). 이메일 템플릿 발송은 `NOTIFICATION_EMAILS=on`일 때만.
-- **광고 문구 교체 필요(배포 후)**: "drivers bid, you pick the price" → 고정가·빠른 매칭 + 특수 작업 견적. 배너 v4·릴스 v2 캡션·LinkedIn 광고·기사용 "Keep 100% of your bid".
+- **광고 교체 완료(18:00 SGT)**: 배너 v5 7종(`marketing/banners-v5/`, "Fixed price · No bidding" / "FIXED PRICE DELIVERY" / 기사용 "See the fare · Tap Accept"), 릴스 v3 3종(`marketing/reels/TCG-reel-{sellers,tech,furniture}-v3.mp4`, 3번째 장면만 교체 — v2는 더 이상 게시 금지), 캡션·프로필 소개·App Store 문구 초안 `marketing/reels/TCG-reel-captions-v3.txt`, 생성기 `marketing/generators/banners_v5.py`·`reel_v3.py`. 적용: LinkedIn 광고 1628806886 이미지 → TCG-10free-linkedin-v5.jpg + 소개문 "Fixed price upfront, no top-up needed"(저장 완료, Active). Carousell 1463623910·1463672521 커버 v5 + 차량 필드 "Motorcycle, car, van and lorry - fixed price shown upfront" + HOW IT WORKS 2단계 + "FIXED PRICE, NO BIDDING" 섹션, 1463639988 제목 "Van / Lorry Driver Partner - Fixed-Price Jobs, Tap to Accept" + 커버 v5 + HOW IT WORKS(탭 수락·견적 예외·"I'm on my way"). 옛 기사 리스팅 1458115268("Bid Own Price")은 오늘 만료라 미수정.
+- **웹 문구 고정가로 수정(18:40 SGT, 스캇님 "지금 고치자")**: 가입 화면 역할 카드(기사 "See the fare, tap Accept, get paid"), 기사 대시보드 빈 상태, `/services`(오픈 비드 문구 → 고정가, **근거 없는 수치 500+·4.9★·<60분·0건 삭제 → 사실 타일(10 FREE·Fixed·Live·Escrow)**, 검증 안 된 약속 문구(anti-static·certified handlers·insurance·uptime·5분 배차) 정리, WELCOME → FIRST10), `/preview`(고정가 문구, 라이브 이후엔 대기 등록 폼 대신 가입 버튼(ref 유지), 혜택 FIRST10, "Android? Use the web app", App Store 링크 오타 수정), 루트/프리뷰 메타데이터(설명 "Post jobs, get bids" 삭제, OG url express.→app.techchainglobal.com, 새 링크 미리보기 이미지 `public/og/tcg-fixed-price-1200x630.jpg`), 도움말 챗봇 지식(`lib/chatbotService.ts`: 입찰→고정가·견적 예외·체크인, TCGLAUNCH/베타 보상 → FIRST10·현 기사 프로모). 남은 것: 이용약관(`app/terms/page.js`, `lib/terms-content.js` — 입찰 기준 계약 성립, 스캇님 결정), App Store 설명(App Store Connect), 옛 launch-email 템플릿, 앱의 "Bidding" 상태 라벨·"Bid Activity" 알림 설정, 챗봇의 출금 최소 $50 문구(정책 확인 필요).
 
 ### 2026-09-25 (금) — 평일 아침 점검. **Raffles 홀드 확인 회신 72시간째 미발송(임시보관함에 그대로) · Fatty 수령 당일인데 시각 미통보 · 교육 2일차 확정 인원 0**
 

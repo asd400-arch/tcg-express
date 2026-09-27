@@ -227,7 +227,7 @@ export default function DriverDashboard() {
         <div style={card}>
           <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>📦 My Active Jobs</h3>
           {myJobs.filter(j => !['confirmed','completed','cancelled'].includes(j.status)).length === 0 ? (
-            <p style={{ color: '#64748b', fontSize: '14px', textAlign: 'center', padding: '20px' }}>No active jobs. Browse available jobs to start bidding!</p>
+            <p style={{ color: '#64748b', fontSize: '14px', textAlign: 'center', padding: '20px' }}>No active jobs. Browse available jobs and tap Accept to take one.</p>
           ) : (
             myJobs.filter(j => !['confirmed','completed','cancelled'].includes(j.status)).map(job => (
               <a key={job.id} href={`/driver/my-jobs?id=${job.id}`} style={{ textDecoration: 'none', display: 'block', padding: '14px 0', borderBottom: '1px solid #f1f5f9' }}>

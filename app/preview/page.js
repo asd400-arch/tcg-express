@@ -2,8 +2,8 @@
 import { useEffect, useState } from 'react';
 
 // Set when store listings are live. Leave empty to hide the badge.
-const APP_STORE_URL = 'https://apps.apple.com/sg/app/tcg-exress/id6785920144';
-const PLAY_STORE_URL = ''; // pending — closed testing ends late Aug
+const APP_STORE_URL = 'https://apps.apple.com/sg/app/id6785920144';
+const PLAY_STORE_URL = ''; // not on Google Play yet — Android users use the web app
 
 const NAVY = '#070D1A';
 const NAVY2 = '#0C1B35';
@@ -78,7 +78,7 @@ export default function PreviewPage() {
         </h1>
 
         <p style={{ marginTop: 14, fontSize: 16, lineHeight: 1.55, color: '#cbd5e1' }}>
-          Servers, displays, POS, networking gear — post a job, get driver bids in minutes, track door to door, invoices handled.
+          Servers, displays, POS, networking gear — see a fixed price before you book, a verified driver takes the job, track it door to door, invoices handled.
         </p>
 
         {!live && (
@@ -92,11 +92,25 @@ export default function PreviewPage() {
           </div>
         )}
 
-        {status === 'done' ? (
+        {live ? (
+          <div style={{ marginTop: 28, width: '100%', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <a href={`/signup?role=client${ref ? `&ref=${encodeURIComponent(ref)}` : ''}`}
+              style={{ display: 'block', padding: '14px 0', borderRadius: 10, background: BLUE_GRAD, color: '#fff', fontSize: 16, fontWeight: 800, textDecoration: 'none' }}>
+              Create a business account
+            </a>
+            <a href={`/signup?role=driver${ref ? `&ref=${encodeURIComponent(ref)}` : ''}`}
+              style={{ display: 'block', padding: '13px 0', borderRadius: 10, border: '1px solid rgba(255,255,255,0.2)', color: LIGHT_BLUE, fontSize: 15, fontWeight: 700, textDecoration: 'none' }}>
+              Sign up as a driver
+            </a>
+            <div style={{ fontSize: 12, color: '#64748b', lineHeight: 1.5 }}>
+              Already signed up? <a href="/login" style={{ color: '#94a3b8' }}>Log in</a>
+            </div>
+          </div>
+        ) : status === 'done' ? (
           <div style={{ marginTop: 28, width: '100%', background: 'rgba(35,152,236,0.12)', border: `1px solid ${BLUE}`, borderRadius: 16, padding: '26px 22px' }}>
             <div style={{ fontSize: 20, fontWeight: 800 }}>You&apos;re on the list 🎉</div>
             <p style={{ marginTop: 8, fontSize: 14.5, lineHeight: 1.6, color: '#cbd5e1' }}>
-              We&apos;ll email you on launch day with your download link{role === 'customer' ? ' and your S$10 starting credit' : ' and your 0% commission activation'}.
+              We&apos;ll email you with your download link{role === 'customer' ? ' and your FIRST10 code' : ' and your 0% commission activation'}.
             </p>
           </div>
         ) : (
@@ -129,11 +143,11 @@ export default function PreviewPage() {
         <div style={{ marginTop: 26, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, width: '100%' }}>
           <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: '16px 14px', textAlign: 'left' }}>
             <div style={{ fontWeight: 800, fontSize: 15, color: LIGHT_BLUE }}>For businesses</div>
-            <div style={{ marginTop: 6, fontSize: 13.5, lineHeight: 1.55, color: '#cbd5e1' }}>S$10 credit on sign-up · loyalty credits at your 3rd &amp; 10th delivery · refer a business, both get S$20</div>
+            <div style={{ marginTop: 6, fontSize: 13.5, lineHeight: 1.55, color: '#cbd5e1' }}>10 free deliveries: up to S$10 off each of your first 10 (max S$100) · code FIRST10 · no top-up</div>
           </div>
           <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: '16px 14px', textAlign: 'left' }}>
             <div style={{ fontWeight: 800, fontSize: 15, color: LIGHT_BLUE }}>For drivers</div>
-            <div style={{ marginTop: 6, fontSize: 13.5, lineHeight: 1.55, color: '#cbd5e1' }}>0% commission for your first 30 days · S$50 bonus after 5 deliveries · first 100 drivers only</div>
+            <div style={{ marginTop: 6, fontSize: 13.5, lineHeight: 1.55, color: '#cbd5e1' }}>Fixed-price jobs: see the fare, tap Accept · 0% commission for your first 30 days · S$50 bonus after 5 deliveries</div>
           </div>
         </div>
 
@@ -149,7 +163,7 @@ export default function PreviewPage() {
                 ▶ Get it on Google Play
               </a>
             ) : (
-              <span style={{ fontSize: 13, color: '#94a3b8' }}>Google Play — coming this week</span>
+              <a href="/signup" style={{ fontSize: 13, color: '#94a3b8' }}>Android? Use the web app</a>
             )}
           </div>
         )}

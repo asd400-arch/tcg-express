@@ -3,6 +3,22 @@ import { useRouter } from 'next/navigation';
 import useMobile from '../components/useMobile';
 import useLocale from '../components/useLocale';
 
+const TECH_FEATURES = [
+  'Fixed price shown before you book',
+  'Verified drivers — motorcycle, car, van or lorry',
+  'Add manpower, wrapping or white-glove handling',
+  'Live tracking and photo proof of delivery',
+  'An invoice for every job',
+];
+
+// Plain facts about how the service works — no performance numbers until we have real ones.
+const HIGHLIGHTS = [
+  { value: '10 FREE', label: 'deliveries for new businesses · code FIRST10' },
+  { value: 'Fixed', label: 'price shown before you book' },
+  { value: 'Live', label: 'GPS tracking + photo proof' },
+  { value: 'Escrow', label: 'driver paid after you confirm' },
+];
+
 const SERVICES = [
   {
     key: 'tech_delivery',
@@ -10,14 +26,8 @@ const SERVICES = [
     title: 'Tech Delivery',
     subtitle: 'B2B Technology Equipment Logistics',
     description:
-      'Purpose-built delivery for IT hardware, servers, rack equipment, and sensitive electronics. Trained handlers, anti-static packaging, and real-time tracking — from data centre to office floor.',
-    features: [
-      'Rack & server transport with anti-static handling',
-      'White-glove unboxing and placement',
-      'Delivery + installation / commission testing',
-      'Site-survey & access coordination',
-      'Chain-of-custody documentation',
-    ],
+      'Delivery for IT hardware, servers, displays, POS and networking gear. See a fixed price before you book, a verified driver takes the job, and you track it live — from warehouse to office floor.',
+    features: TECH_FEATURES,
     color: '#3b82f6',
     gradient: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
     tag: 'FEATURED',
@@ -30,12 +40,12 @@ const SERVICES = [
     title: 'White Glove Delivery',
     subtitle: 'Premium Care for High-Value Items',
     description:
-      'Concierge-level delivery for fragile, high-value, or executive equipment. Full wrap, careful transit, and on-site placement by certified handlers.',
+      'For fragile or high-value items: add white-glove handling, wrapping and extra manpower to any job, and the driver places it where you need it.',
     features: [
-      'Full bubble-wrap & foam packaging',
-      'Dedicated 2-man team',
-      'Indoor placement & debris removal',
-      'Insurance coverage available',
+      'White-glove handling add-on',
+      'Wrapping add-on',
+      'Extra manpower for heavy items',
+      'Stairs carry when there is no lift',
     ],
     color: '#8b5cf6',
     gradient: 'linear-gradient(135deg, #8b5cf6, #6d28d9)',
@@ -49,13 +59,13 @@ const SERVICES = [
     title: 'Corp Premium',
     subtitle: 'Dedicated Fleet for Enterprise Clients',
     description:
-      'Tailored logistics contracts for enterprises with recurring, high-volume, or time-sensitive delivery needs. Dedicated drivers, SLA agreements, and a dedicated account manager.',
+      'For businesses with recurring or high-volume deliveries. Tell us your routes and volumes, and qualified transport partners send you quotes for a contract.',
     features: [
-      'Dedicated driver pool',
+      'Quotes from qualified transport partners',
       'Volume-based pricing',
-      'SLA & uptime guarantees',
-      'NDA & data-security compliance',
-      'Monthly reporting & analytics',
+      'Dedicated drivers for your routes',
+      'Service levels agreed in the contract',
+      'NDA on request',
     ],
     color: '#f59e0b',
     gradient: 'linear-gradient(135deg, #f59e0b, #d97706)',
@@ -69,11 +79,11 @@ const SERVICES = [
     title: 'Express Delivery',
     subtitle: 'Same-Day & On-Demand Dispatch',
     description:
-      'Urgent deliveries dispatched within minutes. Competitive open-bid marketplace connects you to the nearest available driver — transparent pricing, no hidden fees.',
+      'Same-day and scheduled deliveries at a fixed price you see before you book. The first available verified driver takes the job — no bidding, no hidden fees.',
     features: [
-      'Dispatch in under 5 minutes',
+      'Fixed price, shown upfront',
+      'First available driver accepts',
       'Live GPS tracking',
-      'Open-bid or instant-accept',
       'Photo proof of delivery',
     ],
     color: '#10b981',
@@ -128,7 +138,7 @@ export default function ServicesPage() {
           Delivery Services
         </h1>
         <p style={{ fontSize: m ? '15px' : '18px', color: '#94a3b8', maxWidth: '540px', margin: '0 auto 32px', lineHeight: 1.6 }}>
-          From sensitive IT hardware to enterprise fleet contracts — purpose-built logistics for {country}'s businesses.
+          Fixed-price delivery for {country}'s businesses — from sensitive IT hardware to regular contract runs.
         </p>
         <a href="/signup" style={{
           display: 'inline-block', padding: '14px 36px', borderRadius: '12px', border: 'none',
@@ -162,17 +172,11 @@ export default function ServicesPage() {
               B2B Technology Equipment Logistics
             </p>
             <p style={{ fontSize: '15px', color: '#bfdbfe', lineHeight: 1.7, margin: '0 0 28px' }}>
-              Purpose-built for IT hardware, servers, rack equipment, and sensitive electronics.
-              Trained handlers, anti-static packaging, and real-time tracking — from data centre to office floor.
+              For IT hardware, servers, displays, POS and networking gear.
+              See a fixed price before you book, a verified driver takes the job, and you track it live — from warehouse to office floor.
             </p>
             <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 32px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {[
-                'Rack & server transport with anti-static handling',
-                'White-glove unboxing and placement',
-                'Delivery + installation / commission testing',
-                'Chain-of-custody documentation',
-                'Site-survey & access coordination',
-              ].map((f, i) => (
+              {TECH_FEATURES.map((f, i) => (
                 <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '14px', color: '#dbeafe' }}>
                   <span style={{ color: '#60a5fa', fontWeight: '700', flexShrink: 0, marginTop: '1px' }}>✓</span>
                   {f}
@@ -189,15 +193,10 @@ export default function ServicesPage() {
             </div>
           </div>
 
-          {/* Stats */}
+          {/* Highlights */}
           {!m && (
             <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              {[
-                { value: '500+', label: 'Tech Deliveries Completed' },
-                { value: '4.9★', label: 'Average Rating' },
-                { value: '< 60 min', label: 'Average Dispatch Time' },
-                { value: '0', label: 'Equipment Damage Claims' },
-              ].map((s, i) => (
+              {HIGHLIGHTS.map((s, i) => (
                 <div key={i} style={{ background: 'rgba(255,255,255,0.08)', borderRadius: '14px', padding: '18px 24px', minWidth: '180px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.12)' }}>
                   <div style={{ fontSize: '26px', fontWeight: '800', color: 'white', marginBottom: '4px' }}>{s.value}</div>
                   <div style={{ fontSize: '12px', color: '#93c5fd', fontWeight: '500' }}>{s.label}</div>
@@ -252,7 +251,7 @@ export default function ServicesPage() {
             Ready to get started?
           </h2>
           <p style={{ fontSize: '16px', color: '#94a3b8', margin: '0 0 28px' }}>
-            Sign up free — first delivery on us with code <strong style={{ color: '#60a5fa' }}>WELCOME</strong>
+            10 free deliveries for new businesses — up to S$10 off each of your first 10 (max S$100) with code <strong style={{ color: '#60a5fa' }}>FIRST10</strong>. No top-up needed.
           </p>
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
             <a href="/signup" style={{ padding: '13px 32px', borderRadius: '10px', background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: 'white', fontSize: '15px', fontWeight: '700', textDecoration: 'none' }}>Create Account</a>

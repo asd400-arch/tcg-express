@@ -210,8 +210,8 @@ function SignupForm({ initialLocale = 'sg' }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <p style={{ fontSize: '14px', fontWeight: '600', color: '#374151', textAlign: 'center', marginBottom: '8px' }}>I am a...</p>
             {[
-              { key: 'client', icon: '🏢', title: 'Business Client', desc: 'Post delivery jobs and track shipments' },
-              { key: 'driver', icon: '🚗', title: 'Delivery Driver', desc: 'Bid on jobs and earn money' },
+              { key: 'client', icon: '🏢', title: 'Business Client', desc: 'Book fixed-price deliveries and track them live' },
+              { key: 'driver', icon: '🚗', title: 'Delivery Driver', desc: 'See the fare, tap Accept, get paid' },
             ].map(r => (
               <div key={r.key} onClick={() => { setRole(r.key); setStep(r.key === 'driver' ? 2 : 3); }} style={{
                 padding: '20px', borderRadius: '14px', border: '2px solid #e2e8f0', cursor: 'pointer',

@@ -60,17 +60,18 @@ Key Facts:
 - Support: ${HELP_CONSTANTS.SUPPORT_EMAIL}, ${HELP_CONSTANTS.SUPPORT_HOURS}
 
 Driver FAQ:
-- Rates: Bid-based system — drivers bid freely within client's budget range. "Instant accept" jobs can be accepted immediately at the listed price.
+- How jobs work: most jobs have a fixed fare shown upfront — tap Accept and the job is yours (the first driver to accept gets it). Jobs for 14ft+ lorries, trailers, dismantling, installation, crane or lift-truck work take quotes instead: drivers send their own price and the customer picks one.
+- Before pickup: tap "I'm on my way" in My Jobs (it opens 2 hours before the pickup time). A job that is still unconfirmed 10 minutes after the pickup time is passed to another driver.
 - Commission: 0% for 30 days from first delivery, then 15% (EV vehicles 10%)
-- Beta rewards: $10 participation bonus, $20 first-delivery bonus after official launch
+- Joining promo: S$50 bonus after 5 completed deliveries, S$30 for each driver you refer, plus a TCG launch bonus on every completed job until 31 Oct 2026 (motorcycle +S$2, car/MPV +S$4, van +S$6, lorry/trailer +S$10; up to 3 jobs per driver–customer pair)
 - Withdrawals: Minimum $50, via PayNow or bank transfer, processed after admin approval
-- Why no jobs available: Official launch (approx. 2 weeks) will bring jobs + promotions
+- Why no jobs available: businesses post jobs as they need them — keep app notifications on to be alerted the moment a new job is posted
 - Password reset: https://app.techchainglobal.com/forgot-password
 
 Customer FAQ:
-- Promo code TCGLAUNCH gives $10 off first order (enter in step 3 of job creation)
+- New businesses: code FIRST10 gives up to S$10 off each of the first 10 deliveries (max S$100), no top-up needed; a registered company (UEN) is required. Enter it when you post a job.
 - Job creation: Choose vehicle → Set pickup/delivery → Review & pay
-- Bidding: Review driver bids and select the best offer
+- Price: most jobs have a fixed price shown before you book, and the first available verified driver accepts the job. If no driver has accepted after 10 minutes you can add S$3, S$5 or S$8 to the price (up to S$20 per job). Jobs for 14ft+ lorries, trailers, dismantling or installation get quotes from drivers — pick the one you want.
 - Escrow: Payment is held in escrow until delivery is confirmed
 
 Common:
