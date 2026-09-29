@@ -18,6 +18,16 @@ import { supabase } from '../../../lib/supabase';
 import useMobile from '../../components/useMobile';
 import { useUnreadMessages } from '../../components/UnreadMessagesContext';
 
+// Which jobs share the driver's live location (same rule as the iOS app's lib/useLiveLocation.ts)
+function shouldShareLocation(job) {
+  if (!job) return false;
+  if (['pickup_confirmed', 'picked_up', 'in_transit'].includes(job.status)) return true;
+  if (job.status !== 'assigned') return false;
+  if (job.driver_checkin_at || !job.pickup_by) return true;
+  const pickupAt = new Date(job.pickup_by).getTime();
+  return Number.isNaN(pickupAt) || pickupAt - Date.now() <= 2 * 60 * 60 * 1000;
+}
+
 export default function DriverMyJobs() {
   const { user, loading } = useAuth();
   const { locale } = useLocale();
@@ -115,12 +125,13 @@ export default function DriverMyJobs() {
     }
   }, [activeTab, selected?.id, unreadByJob, markJobRead]);
 
-  // Auto-start GPS when viewing an in_transit job (handles page refresh)
+  // Share live location while this job is open: from "I'm on my way" (or 2 h before pickup)
+  // until delivery. Same rule as the iOS app (lib/useLiveLocation.ts). Handles page refresh too.
   useEffect(() => {
-    if (selected?.status === 'in_transit' && !gps.tracking) {
+    if (shouldShareLocation(selected) && !gps.tracking) {
       gps.startTracking();
     }
-  }, [selected?.id, selected?.status]);
+  }, [selected?.id, selected?.status, selected?.driver_checkin_at]);
 
   const handleSignatureSubmit = async (dataUrl, signerName) => {
     setShowSignature(false);
@@ -532,7 +543,10 @@ export default function DriverMyJobs() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', marginBottom: '10px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10b981', display: 'inline-block', animation: 'pulse 2s infinite' }}></span>
-                  <span style={{ fontSize: '13px', fontWeight: '600', color: '#059669' }}>GPS Tracking Active</span>
+                  <span style={{ fontSize: '13px', fontWeight: '600', color: '#059669' }}>
+                    Sharing live location{gps.lastSentAt ? ` · ${new Date(gps.lastSentAt).toLocaleTimeString('en-SG', { hour: 'numeric', minute: '2-digit' })}` : ''}
+                    <span style={{ display: 'block', fontSize: '11px', fontWeight: '500', color: '#64748b' }}>Keep this page open while you drive — your phone pauses sharing when you switch apps.</span>
+                  </span>
                 </div>
                 <button onClick={gps.stopTracking} style={{
                   padding: '4px 12px', borderRadius: '6px', border: '1px solid #ef4444', background: 'white',

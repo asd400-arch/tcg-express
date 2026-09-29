@@ -7,6 +7,11 @@ import { rateLimiters, applyRateLimit } from '../../../../../lib/rate-limiters';
 
 const TRACKABLE_STATUSES = ['assigned', 'pickup_confirmed', 'picked_up', 'in_transit'];
 
+function nonNegative(value) {
+  const n = parseFloat(value);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
 function validateCoords(lat, lng) {
   const la = parseFloat(lat);
   const lo = parseFloat(lng);
@@ -74,8 +79,9 @@ async function _handleWrite(request, params) {
           driver_id: session.userId,
           latitude: coords.latitude,
           longitude: coords.longitude,
-          heading: parseFloat(body.heading) || 0,
-          speed: parseFloat(body.speed) || 0,
+          // iPhones report -1 when heading/speed are unknown; store 0 instead
+          heading: nonNegative(body.heading),
+          speed: nonNegative(body.speed),
           accuracy: parseFloat(body.accuracy) || null,
           updated_at: new Date().toISOString(),
         },
@@ -97,7 +103,7 @@ async function _handleWrite(request, params) {
 // ─── GET /api/jobs/[id]/location ─────────────────────────────────────────────
 // Returns driver's current location.  Only the job's client or assigned driver
 // may call this.
-// Response: { data: { latitude, longitude, updated_at, pickup_lat, pickup_lng,
+// Response: { data: { latitude, longitude, heading, speed, updated_at, pickup_lat, pickup_lng,
 //                      delivery_lat, delivery_lng } | null }
 
 export async function GET(request, { params }) {
@@ -125,7 +131,7 @@ export async function GET(request, { params }) {
 
     const { data: loc, error: locErr } = await supabaseAdmin
       .from('express_driver_locations')
-      .select('latitude, longitude, updated_at')
+      .select('latitude, longitude, heading, speed, updated_at')
       .eq('job_id', id)
       .single();
 
@@ -135,6 +141,8 @@ export async function GET(request, { params }) {
       data: {
         latitude: Number(loc.latitude),
         longitude: Number(loc.longitude),
+        heading: Math.max(Number(loc.heading) || 0, 0),
+        speed: Math.max(Number(loc.speed) || 0, 0),
         updated_at: loc.updated_at,
         pickup_lat: job.pickup_lat != null ? Number(job.pickup_lat) : null,
         pickup_lng: job.pickup_lng != null ? Number(job.pickup_lng) : null,

@@ -346,61 +346,44 @@ export default function LiveMap({
     });
   }, [driverId]);
 
-  // Client mode: load history + subscribe to real-time location
+  // Client mode: poll the driver's position every 10 s.
+  // The driver's phone keeps ONE row per job up to date (PATCH /api/jobs/[id]/location), so there
+  // are no new INSERTs to listen for — the old realtime INSERT subscription never fired after the
+  // first position, and "last updated" showed the first time instead of the latest.
   useEffect(() => {
-    if (isDriver || !driverId || !jobId) return;
+    if (isDriver || !jobId) return;
+    let cancelled = false;
+    let lastStamp = null;
 
-    // Load full location history for trail
-    const loadHistory = async () => {
-      const { data } = await supabase
-        .from('express_driver_locations')
-        .select('latitude, longitude, heading, speed, created_at')
-        .eq('driver_id', driverId)
-        .eq('job_id', jobId)
-        .order('created_at', { ascending: true });
-
-      if (data && data.length > 0) {
-        const hist = data.map(d => ({
-          lat: parseFloat(d.latitude),
-          lng: parseFloat(d.longitude),
-          heading: d.heading,
-          speed: d.speed,
-          created_at: d.created_at,
-        }));
-        setClientHistory(hist);
-        const last = data[data.length - 1];
-        updateMarker(last.latitude, last.longitude, last.heading);
-        setSpeed(last.speed || 0);
-        setLastUpdatedTime(last.created_at);
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/jobs/${jobId}/location`);
+        if (!res.ok) return;
+        const { data } = await res.json();
+        if (cancelled || !data || data.updated_at === lastStamp) return;
+        lastStamp = data.updated_at;
+        updateMarker(data.latitude, data.longitude, data.heading || 0);
+        setSpeed(data.speed || 0);
+        setLastUpdatedTime(data.updated_at);
+        setClientHistory(prev => [...prev.slice(-500), {
+          lat: Number(data.latitude),
+          lng: Number(data.longitude),
+          heading: data.heading || 0,
+          speed: data.speed || 0,
+          created_at: data.updated_at,
+        }]);
+      } catch {
+        // network blip — try again on the next tick
       }
     };
-    loadHistory();
 
-    // Subscribe to new location inserts
-    const channel = supabase
-      .channel(`location-${jobId}`)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'express_driver_locations',
-        filter: `job_id=eq.${jobId}`,
-      }, (payload) => {
-        const { latitude, longitude, speed: spd, heading } = payload.new;
-        updateMarker(latitude, longitude, heading);
-        setSpeed(spd || 0);
-        setLastUpdatedTime(payload.new.created_at);
-        setClientHistory(prev => [...prev, {
-          lat: parseFloat(latitude),
-          lng: parseFloat(longitude),
-          heading: heading,
-          speed: spd,
-          created_at: payload.new.created_at,
-        }]);
-      })
-      .subscribe();
-
-    return () => supabase.removeChannel(channel);
-  }, [driverId, jobId, isDriver]);
+    poll();
+    const timer = setInterval(poll, 10000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [jobId, isDriver]);
 
   // Add pickup/delivery markers when job loads
   useEffect(() => {

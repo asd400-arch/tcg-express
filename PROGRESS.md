@@ -2,7 +2,7 @@
 
 > **이 파일의 목적**: 새 채팅창을 열었을 때 이 파일 하나만 읽으면 바로 이어서 작업할 수 있게 하는 것.
 > **갱신 규칙**: 매일 작업 종료 시 `## 날짜별 기록` 맨 위에 그날 항목을 추가한다. 상단 요약(현재 상태·열린 결정)은 변경된 것만 덮어쓴다.
-> 마지막 갱신: **2026-09-27 (일) 18:40 SGT** (고정가 즉시수락 전환 배포 완료 · 광고 문구 v3 교체 · 웹 문구 고정가로 수정)
+> 마지막 갱신: **2026-09-29 (화) 16:10 SGT** (실시간 추적 버그 수정 — 코드 PC 반영, 웹 push·앱 OTA 대기 · Fatty 전단은 자체 배송 잡 00009로 수령 완료)
 
 ---
 
@@ -13,7 +13,7 @@
 | 회사 | Tech Chain Global Pte Ltd (UEN 202005872W) |
 | 서비스 | TCG Express — 싱가포르 B2B IT 장비 배송 마켓플레이스 |
 | **런칭일** | **2026년 9월 1일 (화)** |
-| 오늘 기준 | **2026-09-25 (금)** — 오픈 후 D+24 |
+| 오늘 기준 | **2026-09-29 (화)** — 오픈 후 D+28 |
 | 대표 | Scott (대외 발송물은 성 없이 "Scott". 법인/은행/계약 문서만 "Scott Park") |
 | 스캇님 소재 | **UAE 체류 중 (2026-09-01 기준).** 은행·계정 로그인 위치 경고는 이 소재지와 대조한 뒤에만 보고. 소재지 바뀌면 이 줄 갱신. |
 | 웹 | https://app.techchainglobal.com · https://techchainglobal.com |
@@ -183,6 +183,48 @@
 
 ## 4. 날짜별 기록
 
+### 2026-09-29 (화) — 평일 아침 점검. **Fatty 배송 가부 회신 미발송(전단 업체 체류 4일차) · Raffles 회신 5일 미발송 · ContactOne 등기 완료(종결)**
+
+- **★ 오후(16:10 SGT): 실시간 추적 버그 수정 — 코드 PC 반영, 배포 대기.** 첫 실사용 잡 **TCG-2026-00009**(Fatty 전단 2팩, 87 Defu Lane 10 → 480 Siglap Road, 1.7m 밴, 기사 Viswanathan Rathinam, iOS 앱) — 14:07 수락·출발 확인 직후 위치가 **14:07:35에서 멈춤**(픽업 14:50, 배송 완료 15:37, 고객 확인 15:38). 스캇님 "실시간 추적이 안 된다".
+  - 원인 ① 앱은 화면이 열려 있을 때만 위치 전송(백그라운드 위치 없음). ② expo-location 19 iOS watch는 GPS 오류(터널·지하주차장) 한 번에 스트림이 영구 종료되는데, 앱은 오류 핸들러도 재시작도 없음 → 기사가 앱으로 돌아와도(14:43 채팅, 14:50 픽업, 15:37 완료) 전송 0건. ③ 웹 기사 화면은 in_transit에서만 시작 + `express_driver_locations`에 직접 INSERT → `job_id` 유니크 인덱스 때문에 두 번째부터 전부 실패. ④ 웹 고객 지도는 INSERT 이벤트만 구독 → 위치가 갱신돼도 안 보임, "마지막 갱신"도 created_at 표시.
+  - 수정(앱): `lib/useLiveLocation.ts` 신규 — 오류 시 5초 뒤 watch 재시작, 앱 복귀 시 재시작 + 즉시 전송, 30초 하트비트, 5초 스로틀, 위치 권한 꺼짐 감지. assigned는 출발 확인 후 또는 픽업 2시간 전부터만. 기사 My Jobs 상단 배너("Sharing live location · 시각 — 운전 중 앱을 열어두세요" / 권한 꺼짐 시 Settings 버튼). 고객 job-detail에 "· N min ago".
+  - 수정(웹): `useGpsTracking.js` → `PATCH /api/jobs/[id]/location`로 전환, 탭 복귀 시 재시작, 하트비트, Wake Lock. 기사 화면 자동 시작 규칙을 앱과 동일하게. `LiveMap.js` 고객 모드 10초 폴링(API). location API: iPhone의 heading/speed -1 → 0, GET에 heading/speed 추가.
+  - 검증: 앱 훅 동작 테스트 **27/27**(가짜 expo-location: 오류 후 재시작·복귀 재시작·스로틀·하트비트·권한·잡 전환), 웹 훅 **17/17**, location API 모의 실행, strict tsc(RN 0.81.5 + expo-location 19.0.8 실제 타입) 통과, 7개 파일 esbuild 구문 OK, PC 반영본 md5 일치. **실기기 미검증** → 다음 실사용 잡에서 `express_driver_locations.updated_at`이 계속 갱신되는지 확인.
+  - 배포: 웹 git push → 앱 `eas update --channel production --platform ios` (스캇님 PowerShell).
+  - **남은 한계**: iOS는 기사가 Waze·구글맵으로 넘어가면(앱 백그라운드) 전송 불가. 진짜 실시간은 네이티브 빌드 필요 — `UIBackgroundModes: location` + `startLocationUpdatesAsync` + expo-task-manager, 새 바이너리(1.0.5, runtimeVersion 변경) + App Store 심사. **스캇님 결정 대기.**
+  - 보안 메모: `express_driver_locations` RLS `anon_all_express_locations`(anon 키로 모든 기사 위치 읽기·쓰기 가능). 웹 추적·고객 지도는 API로 옮겼으니, 다른 anon 사용처 확인 후 정책 제거 예정.
+- **Fatty 전단 — 수령 완료.** 11:11 SGT 배송 요청(S$21.80) → Ginnie "내일(9/30) 배송, 오늘 16:30까지 결제" → 14:09 스캇님 "자체 배송" → Ginnie 배송 취소 확인(14:30). 전단은 TCG-2026-00009로 **15:37 Siglap 도착.** 아침 점검에서 만든 Fatty 회신 초안(임시보관함)은 폐기 대상.
+
+- **★ Fatty(Ginnie) 배송 가부 회신이 오늘의 유일한 시한부 결정.** 9/28 18:03 SGT Ginnie "배송 추가 **$20 / $21.80(GST후)**, 단 **내일(9/29) 배송만 가능**, 1일 전 통보 필요" → **15시간 무회신.** 같은 날 16:48 SGT 스캇님이 480 Siglap Road #03-82 배송 요청을 보낸 데 대한 답. 전단 2,000장은 **9/25부터 업체에 체류 = 오늘 4일차.** 물량 확정: **2팩 × 약 6.2kg = 약 12.4kg**, 인보이스 **FTI-2609-107**, 수령 시 인보이스 번호 제시 필요, 마감 18:00.
+  - → **자체 수령 권고**: 12.4kg는 오토바이·승용차로 가능, 승인 기사 65명 보유. $21.80 절약 + 하루 단축. **회신 초안 작성 완료(임시보관함, 수신 cso1@fattyprint.com.sg)** — "배송 불필요, 오늘 18시 전 자체 택배 수령, 인보이스 FTI-2609-107 제시". 유료 배송을 택하면 초안을 수정해 발송.
+- **★ Raffles(Ahmad) 홀드 확인 회신 — 초안 작성 후 5일(120시간) 미발송, 스레드 침묵 7일.** 초안 `r-4959279156898192565`(9/24 01:10Z) 임시보관함 그대로. 스레드 최종 = 9/22 03:43Z Ahmad "진행 여부 알려달라". 배지30·랜야드30 생산 착수 리스크 계속. 9/10·9/21·9/24·9/25·9/28에 이은 **6회째 방치.**
+- **★ CustomPrint(Loghini) 탈락 통보 초안도 5일째 미발송.** `r1679263728040096962`. **견적 만료 9/30 = 내일.** 오늘 보내지 않으면 통보 없이 자동 만료.
+- **ContactOne(Vanessa) — 종결.** 9/28 13:54 SGT "ACRA 반영 완료, 첨부 확인". **박주언 이사 선임(효력일 9/23) + 신주 100,000주(S$1.00/주) 전량 배정 등기 완료.** 은행 입금 증빙 9/28 09:00 SGT "sufficient" 확인. 연락 주소 480 Siglap Road #03-82 S454855로 확정. **남은 것: S$185 납부(기한 10/7) + 선임 ad-hoc $40.**
+- **ACRA 이메일 인증 48시간 — 기한 9/30 13:41 SGT.** 9/28 13:41 SGT 수신(T261277445, TECH CHAIN GLOBAL PTE. LTD.). 미처리 시 등록 이메일 반영 실패.
+- **Android**: Play 발신 메일 **9/15 거부 통지 이후 14일간 0건.** **개발자 인증 마감 9/30 = D-1.** 콘솔 상태는 내가 볼 수 없음(R7) → 스캇님이 Play Console > 개발자 인증에서 "조치 필요" 없음 육안 확인. 프로덕션 재신청 최속 9/30.
+- **프로모터**: 확정 **0/15 변동 없음.** 9/23 이후 프로모터 관련 신규 메일 0건 — Yuki(9/24 13:00)·Rachel(9/23 12:30) 면접 **결과 메일 여전히 0건.** Henry(cheepothrills)·Xavier(xavierwan73) 메일 0건 유지(18일+), Xavier WhatsApp 번호 미확보. **MCF-2026-1509996는 9/27 만료 — 재게시 여부 미결.** 첫 근무일(9/28)은 인원 0으로 무산. Android 공개 ~10/12 기준 재일정 필요.
+- **신규 견적 1건**: Fatty 배송 추가요금 **S$20 / S$21.80(GST후)**. 그 외 신규 단가 0건.
+- **침묵 유지**: Lim Sign · Kiasu Print · ADV(Cindy) — 메일 0건(각 4주+). Dekawrap(Betty) 9/21 이후 8일 무신규.
+- **인쇄 수량**: 전단 2,000장만 확정(결제·생산 완료, 미수령). 배지30·티셔츠50·배너2 홀드 — 인원 확정 후 재산정(이월).
+- **드라이버**: 승인 기사 65명(푸시 알림 10명) — 신규 데이터 없음. 차량 데칼 홀드 유지(Dekawrap 단독 견적).
+- **등기 주소**: 21 Tan Quee Lan Street #02-04 Heritage Place S188108 — 확정·사용 중(미결 아님).
+- **창고 트랙·Store Hand 채용**: 별도 세션 소관 — 미열람·미보고.
+
+### 2026-09-28 (월) — 평일 아침 점검. **Fatty 전단 2,000장 미수령(준비 완료 통지 미개봉 3일) · Raffles 홀드 확인 회신 4일째 미발송 · 첫 근무일인데 프로모터 0/15**
+
+- **★ Fatty 전단 2,000장이 9/25부터 업체에 그대로 있다.** Ginnie 9/25 16:50 SGT "The flyers are ready for collection. You may collect by 6pm today" — **미개봉·무회신.** 통지가 마감 70분 전이어서 당일 수령 불가였고 이후 **3일간 신규 메일 0건.** 267101-2(A5 2,000장, 양면 매트라미) **S$359.70 GST포함 결제 완료(9/22)**, 택스 인보이스 9/24 수령. 남은 것은 **수령 하나뿐.** → 오늘 +65 6100 1266 전화로 수령 시각 확정 (87 Defu Lane 10 #04-01, 9–18시).
+- **★ Raffles(Ahmad) 홀드 확인 회신이 아직도 안 나갔다 — 초안 작성 후 4일(96시간), 스레드 침묵 6일.** 초안 `r-4959279156898192565`(9/24 01:10Z) 임시보관함 그대로. 스레드 최종 = 9/22 03:43Z Ahmad "진행 여부 알려달라". Ahmad는 아트웍 PDF 수령 + 프루프 발송 예고 상태 → **배지30·랜야드30 생산 착수 리스크 계속.** 9/10·9/21·9/24·9/25에 이은 5회째 방치.
+- **★ 오늘이 프로모터 첫 근무일인데 확정 0/15.** 9/24–25 교육 실시 여부·결과 메일 0건. Yuki(9/24 13:00)·Rachel(9/23 12:30) 면접 **후속 메일 여전히 0건** = 결과 미기록. Henry(cheepothrills)·Xavier(xavierwan73) 메일 0건 유지(17일+), Xavier WhatsApp 번호 미확보. Peter(lvm@rocketmail) 무회신 10일. **MCF 프로모터 공고 MCF-2026-1509996는 9/27 자동 만료.** MCF 신규 지원 2건(9/25·9/26)은 **전부 MCF-2026-1601288 Store Hand — 별도 세션 소관, 미처리.** Android 공개 ~10/12 → **첫 근무 공식 연기 + 공고 재게시 여부 오늘 결정.**
+- **Android**: Play 발신 메일은 9/15 거부 통지 이후 **13일간 0건.** **개발자 인증 마감 9/30 = D-2.** 콘솔 상태는 내가 볼 수 없음(R7) → 스캇님이 Play Console > 개발자 인증에서 "조치 필요" 없음 육안 확인. 프로덕션 재신청 최속 9/30.
+- **CustomPrint(Loghini)**: 마무리(탈락) 회신 초안 `r1679263728040096962` **4일째 미발송**, 9/22 독촉 이후 무회신 6일. **견적 9/30 만료 = D-2** — 통보만 하면 종결.
+- **ContactOne(Vanessa)**: 9/25 서명본 반송 후 **은행 입금 증빙 2회 반려** — "매출/원장이 아니라 자본금이 입금된 내역(스크린샷) 필요". 스캇님 9/25 18:29 SGT 재제출 이후 **3일 무회신.** S$185 납부 기한 10/7 유지(선임 ad-hoc $40 별도).
+- **침묵 유지**: Lim Sign · Kiasu Print · ADV(Cindy) — 14일+ 메일 0건. Dekawrap(Betty) 9/21 이후 7일 무신규.
+- **인쇄 수량**: 전단 2,000장 확정(결제·생산 완료, 미수령). 배지30·티셔츠50·배너2는 홀드 — 인원 확정 후 재산정(이월).
+- **드라이버**: 승인 기사 65명(푸시 알림 켜짐 10명, 9/27 기준). 차량 데칼은 홀드 유지 — Dekawrap 단독 견적 상태.
+- **등기 주소**: 21 Tan Quee Lan Street #02-04 Heritage Place S188108 — 확정·사용 중(미결 아님).
+- **신규 견적 0건** (이번 점검에서 새로 확인된 견적·단가 없음).
+- **창고 트랙(Air Sea·Mentor·Air Market)·Store Hand 채용**: 별도 세션 소관 — 미열람·미보고.
+
 ### 2026-09-27 (일) — **비딩 → 고정가 즉시수락 전환 (배포 완료 17:37 SGT)** · 노쇼 대응 · 앱 알림 전용
 - **분석 결론**: 런칭 후 7건(전부 TCG 자체 계정)·입찰 4건(기사 2명, 완료 0)·첫 입찰 80/96/403분·입찰가 전부 상한(+25~33%)·유일한 수락(00006)은 노쇼. 알림 켜진 승인 기사 10명(65명 중). 비딩은 기본값에서 빼고 특수 작업 견적용으로만 유지.
 - **고정가(기본)**: 일반 잡은 "Accept S$X" — 먼저 수락한 기사가 가져감(`/api/jobs/[id]/instant-accept`). 기존 두 입찰 API는 고정가 잡 입찰을 거부(구버전 앱엔 "앱을 다시 열어 업데이트" 안내).
@@ -195,6 +237,7 @@
 - 알림은 앱 전용(푸시+인앱). 이메일 템플릿 발송은 `NOTIFICATION_EMAILS=on`일 때만.
 - **광고 교체 완료(18:00 SGT)**: 배너 v5 7종(`marketing/banners-v5/`, "Fixed price · No bidding" / "FIXED PRICE DELIVERY" / 기사용 "See the fare · Tap Accept"), 릴스 v3 3종(`marketing/reels/TCG-reel-{sellers,tech,furniture}-v3.mp4`, 3번째 장면만 교체 — v2는 더 이상 게시 금지), 캡션·프로필 소개·App Store 문구 초안 `marketing/reels/TCG-reel-captions-v3.txt`, 생성기 `marketing/generators/banners_v5.py`·`reel_v3.py`. 적용: LinkedIn 광고 1628806886 이미지 → TCG-10free-linkedin-v5.jpg + 소개문 "Fixed price upfront, no top-up needed"(저장 완료, Active). Carousell 1463623910·1463672521 커버 v5 + 차량 필드 "Motorcycle, car, van and lorry - fixed price shown upfront" + HOW IT WORKS 2단계 + "FIXED PRICE, NO BIDDING" 섹션, 1463639988 제목 "Van / Lorry Driver Partner - Fixed-Price Jobs, Tap to Accept" + 커버 v5 + HOW IT WORKS(탭 수락·견적 예외·"I'm on my way"). 옛 기사 리스팅 1458115268("Bid Own Price")은 오늘 만료라 미수정.
 - **웹 문구 고정가로 수정(18:40 SGT, 스캇님 "지금 고치자")**: 가입 화면 역할 카드(기사 "See the fare, tap Accept, get paid"), 기사 대시보드 빈 상태, `/services`(오픈 비드 문구 → 고정가, **근거 없는 수치 500+·4.9★·<60분·0건 삭제 → 사실 타일(10 FREE·Fixed·Live·Escrow)**, 검증 안 된 약속 문구(anti-static·certified handlers·insurance·uptime·5분 배차) 정리, WELCOME → FIRST10), `/preview`(고정가 문구, 라이브 이후엔 대기 등록 폼 대신 가입 버튼(ref 유지), 혜택 FIRST10, "Android? Use the web app", App Store 링크 오타 수정), 루트/프리뷰 메타데이터(설명 "Post jobs, get bids" 삭제, OG url express.→app.techchainglobal.com, 새 링크 미리보기 이미지 `public/og/tcg-fixed-price-1200x630.jpg`), 도움말 챗봇 지식(`lib/chatbotService.ts`: 입찰→고정가·견적 예외·체크인, TCGLAUNCH/베타 보상 → FIRST10·현 기사 프로모). 남은 것: 이용약관(`app/terms/page.js`, `lib/terms-content.js` — 입찰 기준 계약 성립, 스캇님 결정), App Store 설명(App Store Connect), 옛 launch-email 템플릿, 앱의 "Bidding" 상태 라벨·"Bid Activity" 알림 설정, 챗봇의 출금 최소 $50 문구(정책 확인 필요).
+- **웹 문구 배포 확인(20:35 SGT, R1 ③)**: push 2회 — ① 문구·메타·챗봇·OG 이미지 ② `middleware.js` matcher에 `og/`·`.jpg/.jpeg/.webp` 예외 추가(그동안 public의 jpg는 전부 /login으로 리다이렉트됐음 — launch-banner.jpg·driver-poster.jpg 링크도 로그인 화면이었음). 라이브 확인: /services·/preview·/signup 새 문구, 입찰·500+·WELCOME·오타 링크 없음, 사이트 제목 "Fixed-Price Business Delivery", og:image `/og/tcg-fixed-price-1200x630.jpg` 200 image/jpeg, /client/dashboard는 여전히 로그인 리다이렉트. 도움말 FAQ(DB faq_articles 6건)에는 bid 문구 없음.
 
 ### 2026-09-25 (금) — 평일 아침 점검. **Raffles 홀드 확인 회신 72시간째 미발송(임시보관함에 그대로) · Fatty 수령 당일인데 시각 미통보 · 교육 2일차 확정 인원 0**
 
