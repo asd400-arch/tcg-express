@@ -5,7 +5,7 @@ import { notify } from '../../../../../lib/notify';
 import { rateLimiters, applyRateLimit } from '../../../../../lib/rate-limiters';
 import { requirePositiveNumber, cleanString } from '../../../../../lib/validate';
 import { checkVehicleFit } from '../../../../../lib/fares';
-import { isQuoteJob, driverPrice, quoteBounds } from '../../../../../lib/pricing-mode';
+import { isQuoteJob, driverPrice, quoteBounds, isCrossBorder } from '../../../../../lib/pricing-mode';
 
 const DISMANTLE_KEYS = new Set(['dismantlement', 'installation']);
 
@@ -85,13 +85,28 @@ export async function POST(request, { params }) {
 
     const { data: job } = await supabaseAdmin
       .from('express_jobs')
-      .select('id, client_id, status, job_number, vehicle_required, budget_min, budget_max, coupon_discount, equipment_needed')
+      .select('*')
       .eq('id', job_id)
       .single();
 
     if (!job) return NextResponse.json({ error: 'Job not found' }, { status: 404 });
     if (!['open', 'bidding'].includes(job.status)) {
       return NextResponse.json({ error: 'Job is no longer accepting bids' }, { status: 400 });
+    }
+
+    // Cross-border (Malaysia) runs: only drivers TCG has verified (VEP RFID, Malaysia cover, passport)
+    if (isCrossBorder(job)) {
+      const { data: xbDriver } = await supabaseAdmin
+        .from('express_users')
+        .select('cross_border_ready')
+        .eq('id', session.userId)
+        .maybeSingle();
+      if (xbDriver?.cross_border_ready !== true) {
+        return NextResponse.json({
+          error: 'This is a cross-border job. Turn on "Cross-border runs" in Settings — once we have verified your VEP and Malaysia insurance you can quote.',
+          code: 'cross_border_not_verified',
+        }, { status: 403 });
+      }
     }
 
     // Fixed-price jobs aren't bid on — the first driver to tap Accept gets them (27 Sep 2026)

@@ -3,7 +3,7 @@ import { supabaseAdmin } from '../../../../../lib/supabase-server';
 import { getSession } from '../../../../../lib/auth';
 import { notify } from '../../../../../lib/notify';
 
-const ALLOWED_FIELDS = ['driver_status', 'is_active'];
+const ALLOWED_FIELDS = ['driver_status', 'is_active', 'cross_border_ready'];
 const ALLOWED_DRIVER_STATUSES = ['approved', 'rejected', 'suspended', 'pending'];
 
 export async function POST(request) {
@@ -46,6 +46,14 @@ export async function POST(request) {
       safeUpdates.is_verified = true;
     }
 
+    // Cross-border (Malaysia) verification: admin checked VEP RFID, Malaysia insurance cover, passport
+    if ('cross_border_ready' in safeUpdates) {
+      if (typeof safeUpdates.cross_border_ready !== 'boolean') {
+        return NextResponse.json({ error: 'cross_border_ready must be boolean' }, { status: 400 });
+      }
+      safeUpdates.cross_border_verified_at = safeUpdates.cross_border_ready ? new Date().toISOString() : null;
+    }
+
     const { error } = await supabaseAdmin
       .from('express_users')
       .update(safeUpdates)
@@ -74,6 +82,17 @@ export async function POST(request) {
           url: '/',
         }).catch(() => {});
       }
+    }
+
+    // Tell the driver when cross-border quoting is switched on (app only)
+    if (safeUpdates.cross_border_ready === true) {
+      await notify(userId, {
+        type: 'account', category: 'account_alerts',
+        title: 'Cross-border runs unlocked 🇲🇾',
+        message: 'You can now see and quote Singapore → Johor Bahru / Kuala Lumpur jobs. Keep your VEP RFID, Malaysia insurance and passport valid.',
+        url: '/driver/jobs',
+        data: { type: 'account', role: 'driver' },
+      }).catch(() => {});
     }
 
     return NextResponse.json({ success: true });

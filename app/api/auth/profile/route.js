@@ -5,7 +5,7 @@ import { UEN_REGEX, normalizeUEN } from '../../../../lib/promo-guard';
 
 const ALLOWED_FIELDS = {
   client: ['contact_name', 'phone', 'company_name', 'company_registration', 'billing_address', 'notification_preferences'],
-  driver: ['contact_name', 'phone', 'vehicle_type', 'vehicle_plate', 'license_number', 'driver_type', 'nric_number', 'business_reg_number', 'nric_front_url', 'nric_back_url', 'license_photo_url', 'business_reg_cert_url', 'vehicle_insurance_url', 'notification_preferences', 'is_ev_vehicle', 'preferred_nav_app', 'auto_navigate', 'nearby_job_alerts'],
+  driver: ['contact_name', 'phone', 'vehicle_type', 'vehicle_plate', 'license_number', 'driver_type', 'nric_number', 'business_reg_number', 'nric_front_url', 'nric_back_url', 'license_photo_url', 'business_reg_cert_url', 'vehicle_insurance_url', 'notification_preferences', 'is_ev_vehicle', 'preferred_nav_app', 'auto_navigate', 'nearby_job_alerts', 'cross_border_requested', 'cross_border_notes'],
   admin: ['contact_name', 'phone', 'notification_preferences'],
 };
 
@@ -74,6 +74,17 @@ async function handleProfileUpdate(request) {
       if (!validateNotificationPreferences(filtered.notification_preferences)) {
         return NextResponse.json({ error: 'Invalid notification preferences format' }, { status: 400 });
       }
+    }
+
+    // Cross-border (Malaysia) self-declaration: a boolean; verification (cross_border_ready) is admin-only
+    if ('cross_border_requested' in filtered) {
+      filtered.cross_border_requested = filtered.cross_border_requested === true;
+      filtered.cross_border_requested_at = filtered.cross_border_requested ? new Date().toISOString() : null;
+      if (!filtered.cross_border_requested) filtered.cross_border_ready = false;
+    }
+    if ('cross_border_notes' in filtered) {
+      const note = typeof filtered.cross_border_notes === 'string' ? filtered.cross_border_notes.replace(/<[^>]*>/g, '').trim().slice(0, 500) : '';
+      filtered.cross_border_notes = note || null;
     }
 
     const { data: updated, error: updateErr } = await supabaseAdmin

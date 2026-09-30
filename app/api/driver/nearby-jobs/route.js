@@ -17,12 +17,15 @@ export async function GET(request) {
 
     if (!lat || !lng) return NextResponse.json({ error: 'lat and lng required' }, { status: 400 });
 
-    // Get driver's current vehicle info
-    const { data: driver } = await supabaseAdmin
+    // Get driver's current vehicle info (+ cross-border verification)
+    let { data: driver, error: driverErr } = await supabaseAdmin
       .from('express_users')
-      .select('vehicle_type')
+      .select('vehicle_type, cross_border_ready')
       .eq('id', session.userId)
       .single();
+    if (driverErr) {
+      ({ data: driver } = await supabaseAdmin.from('express_users').select('vehicle_type').eq('id', session.userId).single());
+    }
 
     // Get driver's current queue count
     const { data: queueItems } = await supabaseAdmin
@@ -50,6 +53,9 @@ export async function GET(request) {
     const filtered = (openJobs || []).filter(job => {
       // Exclude corp_premium/RFQ jobs — admin-assigned only
       if (job.is_corp_premium) return false;
+
+      // Cross-border (Malaysia) jobs: verified cross-border drivers only
+      if (job.cross_border && driver?.cross_border_ready !== true) return false;
 
       // Must have a minimum budget
       const minBudget = parseFloat(job.budget_min) || 0;

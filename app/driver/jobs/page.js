@@ -9,7 +9,7 @@ import { supabase } from '../../../lib/supabase';
 import useMobile from '../../components/useMobile';
 import { getCategoryByKey, getEquipmentLabel } from '../../../lib/constants';
 import { ADDON_OPTIONS, checkVehicleFit } from '../../../lib/fares';
-import { getAreaName, formatPickupTime, formatBudgetRange, getCountdown, getVehicleLabel, getJobBudget, sortByPickupUrgency, isQuoteJob } from '../../../lib/job-helpers';
+import { getRouteLabel, formatPickupTime, formatBudgetRange, getCountdown, getVehicleLabel, getJobBudget, sortByPickupUrgency, isQuoteJob, isCrossBorder, crossBorderCity } from '../../../lib/job-helpers';
 import JobCard from '../../components/JobCard';
 import useLocale from '../../components/useLocale';
 
@@ -205,8 +205,13 @@ export default function DriverJobs() {
               </div>
               <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '14px', marginBottom: '20px' }}>
                 <div style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b', marginBottom: '4px' }}>{selectedJob.job_number || selectedJob.item_description}</div>
-                <div style={{ fontSize: '12px', color: '#64748b' }}>{getAreaName(selectedJob.pickup_address)} → {getAreaName(selectedJob.delivery_address)}</div>
+                <div style={{ fontSize: '12px', color: '#64748b' }}>{getRouteLabel(selectedJob)}</div>
                 <div style={{ fontSize: '13px', color: '#10b981', fontWeight: '700', marginTop: '6px' }}>Quote range: {formatBudgetRange(selectedJob, locale)}</div>
+                {isCrossBorder(selectedJob) && (
+                  <div style={{ fontSize: '12px', color: '#854d0e', background: '#fefce8', border: '1px solid #fde68a', borderRadius: '8px', padding: '8px 10px', marginTop: '8px' }}>
+                    🇲🇾 Quote the whole run to {crossBorderCity(selectedJob)}: fuel, tolls, road charge, levy and your time. Customs fees are not part of your quote.
+                  </div>
+                )}
                 {selectedJob.equipment_needed && selectedJob.equipment_needed.length > 0 && (
                   <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                     <span style={{ fontSize: '11px', color: '#64748b' }}>Requested:</span>
@@ -362,6 +367,18 @@ export default function DriverJobs() {
                 {detailJob.delivery_instructions && <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '6px' }}>{detailJob.delivery_instructions}</div>}
               </div>
             </div>
+
+            {isCrossBorder(detailJob) && (
+              <div style={{ ...card, marginBottom: '16px', background: '#fefce8', border: '1px solid #fde68a' }}>
+                <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#854d0e', marginBottom: '10px' }}>🇲🇾 CROSS-BORDER RUN — {crossBorderCity(detailJob).toUpperCase()}</h3>
+                <div style={{ fontSize: '13px', color: '#78350f', lineHeight: 1.6 }}>
+                  <div><strong>Quote the whole run:</strong> fuel, Causeway/Second Link tolls, Malaysia road charge (RM20), any levy and your time. Customs agent fees are billed to the customer separately, not from your quote.</div>
+                  <div><strong>Customs:</strong> {detailJob.cross_border_details?.customs_agent === 'own' ? `the customer's agent (${detailJob.cross_border_details?.customs_agent_name || '—'})` : "TCG's declaring agent"} files the SG export permit and the Malaysian K1 — you carry the copies we send you.</div>
+                  <div><strong>Consignee:</strong> {detailJob.cross_border_details?.consignee_company || '—'} · <strong>Goods:</strong> {detailJob.cross_border_details?.goods_description || '—'}{detailJob.cross_border_details?.packages ? ` (${detailJob.cross_border_details.packages} pkg)` : ''}</div>
+                  <div style={{ marginTop: '4px', fontSize: '12px', color: '#a16207' }}>You need: VEP RFID, Malaysia insurance cover for the vehicle and goods, passport (6+ months), Touch 'n Go, 3/4 tank at the SG checkpoint.</div>
+                </div>
+              </div>
+            )}
 
             <div style={{ ...card, marginBottom: '16px' }}>
               <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b', marginBottom: '14px' }}>Package Details</h3>

@@ -16,8 +16,56 @@ import {
 } from '../../../lib/fares';
 import { findMatchingZones, calculateZoneSurcharge, isInRestrictedZone } from '../../../lib/geo';
 import { sendPushToUser } from '../../../lib/web-push';
-import { isQuoteJob } from '../../../lib/pricing-mode';
-import { jobPriceLine, maybeRunDispatchSweep } from '../../../lib/dispatch';
+import { isQuoteJob, isCrossBorder, MY_CITIES, CUSTOMS_AGENT_OPTIONS, CROSS_BORDER_BLOCKED_VEHICLES } from '../../../lib/pricing-mode';
+import { jobPriceLine, maybeRunDispatchSweep, listActiveDrivers, isSchemaMissing } from '../../../lib/dispatch';
+import { getRouteLabel } from '../../../lib/job-helpers';
+import { cleanString } from '../../../lib/validate';
+
+/**
+ * Cross-border (Malaysia) job details from the request body — Phase 1, 30 Sep 2026.
+ * Returns { error } or { details } (null when the job is a normal Singapore delivery).
+ */
+function parseCrossBorder(body) {
+  const country = String(body.destination_country || '').toUpperCase();
+  const wanted = body.cross_border === true || country === 'MY';
+  if (!wanted) return { details: null };
+  if (country && country !== 'MY') return { error: 'Only deliveries to Malaysia are supported for now' };
+
+  const d = body.cross_border_details && typeof body.cross_border_details === 'object' ? body.cross_border_details : {};
+  const city = MY_CITIES.find((c) => c.key === d.city);
+  if (!city) return { error: 'Choose the Malaysian city (Johor Bahru, Kuala Lumpur or Other)' };
+  const cityOther = cleanString(d.city_other, 80);
+  if (city.key === 'other' && !cityOther) return { error: 'Tell us the Malaysian city or town' };
+  const consignee = cleanString(d.consignee_company, 120);
+  if (!consignee) return { error: 'Consignee company name is required for customs' };
+  const goods = cleanString(d.goods_description, 500);
+  if (!goods) return { error: 'Describe the goods for the customs declaration' };
+  const declared = parseFloat(d.declared_value_sgd);
+  if (!Number.isFinite(declared) || declared < 0) return { error: 'Declared value (S$) is required for customs' };
+  const agent = CUSTOMS_AGENT_OPTIONS.find((a) => a.key === d.customs_agent) ? d.customs_agent : 'tcg';
+  const agentName = agent === 'own' ? cleanString(d.customs_agent_name, 120) : null;
+  if (agent === 'own' && !agentName) return { error: 'Name your customs agent, or let TCG handle the paperwork' };
+  const packages = parseInt(d.packages, 10);
+  const postcode = cleanString(d.postcode, 10);
+  const vehicle = String(body.vehicle_required || 'any');
+  if (CROSS_BORDER_BLOCKED_VEHICLES.includes(vehicle)) return { error: 'Cross-border runs need a car, van or lorry' };
+
+  return {
+    details: {
+      city: city.key,
+      city_other: city.key === 'other' ? cityOther : null,
+      state: city.key === 'other' ? (cleanString(d.state, 40) || null) : city.state,
+      postcode: postcode || null,
+      consignee_company: consignee,
+      goods_description: goods,
+      declared_value_sgd: Math.round(declared * 100) / 100,
+      packages: Number.isFinite(packages) && packages > 0 ? packages : null,
+      hs_code: cleanString(d.hs_code, 20) || null,
+      customs_agent: agent,
+      customs_agent_name: agentName,
+    },
+  };
+}
 
 function parseDimensions(dimStr) {
   if (!dimStr) return { l: 0, w: 0, h: 0 };
@@ -61,6 +109,18 @@ export async function GET(request) {
         .from('express_jobs')
         .select('*')
         .in('status', browseStatuses);
+      // Cross-border (Malaysia) jobs are shown only to verified cross-border drivers
+      if (session.role === 'driver') {
+        const { data: me, error: meErr } = await supabaseAdmin
+          .from('express_users')
+          .select('cross_border_ready')
+          .eq('id', session.userId)
+          .maybeSingle();
+        if (!meErr && me && me.cross_border_ready !== true) {
+          query = query.eq('cross_border', false);
+        }
+        // meErr = migration not run yet → no cross-border jobs exist, nothing to hide
+      }
       query = query.order('created_at', { ascending: false });
     } else {
       const isClientUser = session.role === 'client' || clientIdParam === 'me';
@@ -114,10 +174,15 @@ export async function POST(request) {
 
     const body = await request.json();
 
+    // Cross-border (Malaysia) delivery? Always a quote job; no voucher, no formula fare.
+    const xb = parseCrossBorder(body);
+    if (xb.error) return NextResponse.json({ error: xb.error }, { status: 400 });
+    const crossBorderDetails = xb.details;
+
     // Validate and calculate voucher discount (if provided)
     let couponDiscount = 0;
     let validatedCouponId = null;
-    if (body.coupon_id) {
+    if (body.coupon_id && !crossBorderDetails) {
       const { data: promo } = await supabaseAdmin
         .from('promo_codes')
         .select('*')
@@ -191,7 +256,7 @@ export async function POST(request) {
     let correctedBudgetMin = null;
     let correctedBudgetMax = null;
     let savedFare = null; // captured for fare_breakdown persistence
-    try {
+    if (!crossBorderDetails) try {
       const fareWeight = parseFloat(body.item_weight) || 0;
       const dims = parseDimensions(body.item_dimensions);
       const fareVehicle = normalizeVehicleKey(body.vehicle_required);
@@ -252,7 +317,9 @@ export async function POST(request) {
     // worth more than the fare; the customer pays fare − voucher, which is stored in budget_min.
     // budget_max is only the ceiling for driver quotes (quote jobs). Same rule for app and web.
     let fareForJob = 0;
-    if (correctedBudgetMin != null && savedFare) {
+    if (crossBorderDetails) {
+      fareForJob = 0; // no formula price: drivers quote the whole run
+    } else if (correctedBudgetMin != null && savedFare) {
       fareForJob = savedFare.total; // client estimate was off → server fare
     } else {
       let clientFare = parseFloat(body.estimated_fare) || 0;
@@ -263,7 +330,12 @@ export async function POST(request) {
     }
     let pricedBudgetMin = null;
     let pricedBudgetMax = null;
-    if (fareForJob > 0) {
+    if (crossBorderDetails) {
+      // Open quote: budget_min 0 (nothing charged until a quote is accepted); optional ceiling from the customer
+      pricedBudgetMin = 0;
+      const ceiling = parseFloat(body.budget_max) || 0;
+      pricedBudgetMax = ceiling > 0 ? Math.round(ceiling * 100) / 100 : null;
+    } else if (fareForJob > 0) {
       const r2p = (v) => Math.round(v * 100) / 100;
       fareForJob = r2p(fareForJob);
       if (couponDiscount > 0) couponDiscount = r2p(Math.min(couponDiscount, fareForJob));
@@ -368,6 +440,20 @@ export async function POST(request) {
       jobData.coupon_discount = couponDiscount;
     }
 
+    // Cross-border (Malaysia): quote-only, verified drivers, customs details kept with the job
+    if (crossBorderDetails) {
+      jobData.cross_border = true;
+      jobData.destination_country = 'MY';
+      jobData.cross_border_details = crossBorderDetails;
+      jobData.cross_border_events = [];
+      jobData.budget_min = 0;
+      jobData.budget_max = pricedBudgetMax;
+      jobData.delivery_mode = 'express';
+      jobData.save_mode_window = null;
+      jobData.save_mode_deadline = null;
+      jobData.is_ev_selected = false;
+    }
+
     // Geo-fencing validation
     const hasCoords = body.pickup_lat != null || body.delivery_lat != null;
     if (hasCoords) {
@@ -452,7 +538,12 @@ export async function POST(request) {
       .select()
       .single();
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+      if (crossBorderDetails && isSchemaMissing(error)) {
+        return NextResponse.json({ error: 'Cross-border deliveries are being switched on — please try again shortly.' }, { status: 503 });
+      }
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
 
     // Increment voucher usage count
     if (validatedCouponId) {
@@ -470,20 +561,22 @@ export async function POST(request) {
     }
 
     // Push notifications FIRST (time-critical — must run before anything that could timeout)
+    const crossBorderJob = isCrossBorder(data);
     const pickupArea = getAreaFromAddress(jobData.pickup_address);
     const deliveryArea = getAreaFromAddress(jobData.delivery_address);
-    const pushBody = `${data.job_number} | ${jobPriceLine(data)} | ${pickupArea} → ${deliveryArea}`;
-    const pushTitle = isQuoteJob(data) ? '🚚 New job — send your quote' : '🚚 New job — first to accept gets it';
+    const routeLine = crossBorderJob ? getRouteLabel(data) : `${pickupArea} → ${deliveryArea}`;
+    const pushBody = `${data.job_number} | ${jobPriceLine(data)} | ${routeLine}`;
+    const pushTitle = crossBorderJob
+      ? '🇲🇾 Cross-border job — send your quote'
+      : isQuoteJob(data) ? '🚚 New job — send your quote' : '🚚 New job — first to accept gets it';
+
+    // Who hears about it: active drivers; Malaysia runs → verified cross-border drivers only
+    const activeDrivers = await listActiveDrivers();
+    const alertDrivers = activeDrivers.filter(d => !crossBorderJob || d.cross_border_ready === true);
 
     // Push notifications (Expo + Web via sendPushToUser) — drivers only
     try {
-      const { data: driverUsers } = await supabaseAdmin
-        .from('express_users')
-        .select('id')
-        .eq('role', 'driver')
-        .eq('is_active', true);
-
-      const driverIdSet = new Set((driverUsers || []).map(u => u.id));
+      const driverIdSet = new Set(alertDrivers.map(u => u.id));
 
       const { data: subs } = await supabaseAdmin
         .from('express_push_subscriptions')
@@ -516,19 +609,14 @@ export async function POST(request) {
       console.error('[JOB-PUSH] Web push error:', pushError?.message);
     }
 
-    // In-app notifications for all drivers
+    // In-app notifications for the same drivers
     try {
-      const { data: drivers } = await supabaseAdmin
-        .from('express_users')
-        .select('id')
-        .eq('role', 'driver');
-
-      if (drivers && drivers.length > 0) {
-        const notifications = drivers.map(d => ({
+      if (alertDrivers.length > 0) {
+        const notifications = alertDrivers.map(d => ({
           user_id: d.id,
           type: 'new_job',
-          title: `New Job: ${itemDescription.substring(0, 60)}`,
-          body: `${jobPriceLine(data)} · ${pickupArea} → ${deliveryArea} · Job #${data.job_number}`,
+          title: `${crossBorderJob ? 'Cross-border job' : 'New Job'}: ${itemDescription.substring(0, 60)}`,
+          body: `${jobPriceLine(data)} · ${routeLine} · Job #${data.job_number}`,
           reference_id: String(data.id),
           is_read: false,
         }));

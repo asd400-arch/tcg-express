@@ -28,6 +28,8 @@ export default function DriverSettings() {
   const [preferredNavApp, setPreferredNavApp] = useState('google_maps');
   const [autoNavigate, setAutoNavigate] = useState(true);
   const [nearbyJobAlerts, setNearbyJobAlerts] = useState(true);
+  const [crossBorderRequested, setCrossBorderRequested] = useState(false);
+  const [crossBorderNotes, setCrossBorderNotes] = useState('');
   const [saving, setSaving] = useState(false);
 
   const [currentPassword, setCurrentPassword] = useState('');
@@ -54,6 +56,8 @@ export default function DriverSettings() {
       setPreferredNavApp(user.preferred_nav_app || 'google_maps');
       setAutoNavigate(user.auto_navigate !== false);
       setNearbyJobAlerts(user.nearby_job_alerts !== false);
+      setCrossBorderRequested(user.cross_border_requested === true);
+      setCrossBorderNotes(user.cross_border_notes || '');
       // Load referral stats
       supabase.from('referral_rewards').select('*').eq('referrer_id', user.id).then(({ data }) => {
         const rewards = data || [];
@@ -70,7 +74,7 @@ export default function DriverSettings() {
   const saveProfile = async () => {
     setSaving(true);
     try {
-      const updates = { contact_name: contactName, phone, vehicle_type: vehicleType, vehicle_plate: vehiclePlate, license_number: licenseNumber, nric_number: nricNumber, is_ev_vehicle: isEvVehicle, preferred_nav_app: preferredNavApp, auto_navigate: autoNavigate, nearby_job_alerts: nearbyJobAlerts };
+      const updates = { contact_name: contactName, phone, vehicle_type: vehicleType, vehicle_plate: vehiclePlate, license_number: licenseNumber, nric_number: nricNumber, is_ev_vehicle: isEvVehicle, preferred_nav_app: preferredNavApp, auto_navigate: autoNavigate, nearby_job_alerts: nearbyJobAlerts, cross_border_requested: crossBorderRequested, cross_border_notes: crossBorderNotes };
       if (user.driver_type === 'company') {
         updates.business_reg_number = businessRegNumber;
       }
@@ -284,6 +288,40 @@ export default function DriverSettings() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Cross-border (Malaysia) runs — Phase 1, 30 Sep 2026 */}
+        <div style={{ ...card, background: '#fefce8', border: '1px solid #fde68a' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#854d0e', marginBottom: '6px' }}>🇲🇾 Cross-border runs (Singapore → Johor Bahru / Kuala Lumpur)</h3>
+          <p style={{ fontSize: '12px', color: '#a16207', marginBottom: '14px', lineHeight: 1.5 }}>
+            Quote-based jobs to Malaysia. You need a valid VEP RFID tag, insurance covering West Malaysia and the goods, a passport with 6+ months left, Touch 'n Go and a car, van or lorry. Customs paperwork is done by TCG's declaring agents — never by you.
+          </p>
+          <div style={{ padding: '14px', borderRadius: '10px', background: 'white', border: '1px solid #fde68a', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <div>
+              <div style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>I can do cross-border runs</div>
+              <div style={{ fontSize: '11px', color: '#64748b' }}>
+                {user.cross_border_ready
+                  ? '✅ Verified — you see and can quote Malaysia jobs.'
+                  : crossBorderRequested ? '⏳ Waiting for TCG to verify your VEP and insurance (usually 1 working day).' : 'Turn on, save, and we will verify your documents.'}
+              </div>
+            </div>
+            <div onClick={() => setCrossBorderRequested(!crossBorderRequested)} style={{
+              width: '44px', height: '24px', borderRadius: '12px', cursor: 'pointer', position: 'relative',
+              background: crossBorderRequested ? '#d97706' : '#cbd5e1', transition: 'background 0.2s',
+            }}>
+              <div style={{
+                width: '20px', height: '20px', borderRadius: '10px', background: 'white', position: 'absolute', top: '2px',
+                left: crossBorderRequested ? '22px' : '2px', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+              }} />
+            </div>
+          </div>
+          {crossBorderRequested && (
+            <div>
+              <label style={{ fontSize: '13px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>For verification: VEP validity, insurer, vehicle</label>
+              <textarea value={crossBorderNotes} onChange={e => setCrossBorderNotes(e.target.value)} maxLength={500} placeholder="e.g. VEP RFID valid to Mar 2027, insurer AXA (West Malaysia + goods in transit), 2.4 m van GBA1234X" style={{ width: '100%', padding: '12px 16px', borderRadius: '10px', fontSize: '14px', background: 'white', border: '1px solid #fde68a', color: '#1e293b', outline: 'none', fontFamily: "'Inter', sans-serif", boxSizing: 'border-box', height: '70px', resize: 'vertical' }} />
+              <p style={{ fontSize: '11px', color: '#a16207', marginTop: '6px' }}>Upload the VEP tag and insurance certificate as your vehicle insurance document below if you have not already.</p>
+            </div>
+          )}
         </div>
 
         <button onClick={saveProfile} disabled={saving} style={{ ...btn('#10b981'), marginBottom: '20px', opacity: saving ? 0.7 : 1 }}>

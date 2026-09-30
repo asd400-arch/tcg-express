@@ -18,7 +18,7 @@ import { useUnreadMessages } from '../../../components/UnreadMessagesContext';
 import { use } from 'react';
 import { getCategoryByKey, getEquipmentLabel } from '../../../../lib/constants';
 import useLocale from '../../../components/useLocale';
-import { isQuoteJob, driverPrice, customerPrice, BOOST_OPTIONS, BOOST_CAP } from '../../../../lib/pricing-mode';
+import { isQuoteJob, driverPrice, customerPrice, BOOST_OPTIONS, BOOST_CAP, isCrossBorder, crossBorderCity, CROSS_BORDER_EVENTS } from '../../../../lib/pricing-mode';
 
 export default function ClientJobDetail({ params }) {
   const resolvedParams = use(params);
@@ -314,6 +314,7 @@ export default function ClientJobDetail({ params }) {
   const showMap = ['assigned', 'pickup_confirmed', 'in_transit'].includes(job.status);
   const showChat = job.assigned_driver_id;
   const quoteJob = isQuoteJob(job);
+  const crossBorderJob = isCrossBorder(job);
   const boostAdded = Math.max(0, parseFloat(job.boost_total) || 0);
   const voucher = Math.max(0, parseFloat(job.coupon_discount) || 0);
   const paidAmount = job.final_amount != null ? Math.max(0, parseFloat(job.final_amount) - voucher) : null;
@@ -403,7 +404,38 @@ export default function ClientJobDetail({ params }) {
             {['open', 'bidding'].includes(job.status) && quoteJob && (
               <div style={{ ...card, background: '#f5f3ff', border: '1px solid #ddd6fe' }}>
                 <div style={{ fontSize: '15px', fontWeight: '700', color: '#5b21b6', marginBottom: '6px' }}>📝 Waiting for quotes</div>
-                <div style={{ fontSize: '13px', color: '#6d28d9' }}>This job needs a driver's quote (special handling, equipment or a large lorry). Compare quotes in the Quotes tab and accept the one you want.</div>
+                <div style={{ fontSize: '13px', color: '#6d28d9' }}>
+                  {crossBorderJob
+                    ? `Verified cross-border drivers are quoting the full run to ${crossBorderCity(job)} (fuel, tolls, road charge, levy). Compare quotes in the Quotes tab and accept one — nothing is charged until you do.`
+                    : "This job needs a driver's quote (special handling, equipment or a large lorry). Compare quotes in the Quotes tab and accept the one you want."}
+                </div>
+              </div>
+            )}
+            {crossBorderJob && (
+              <div style={{ ...card, background: '#fefce8', border: '1px solid #fde68a' }}>
+                <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#854d0e', marginBottom: '12px' }}>🇲🇾 Cross-border delivery — {crossBorderCity(job)}</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr' : '1fr 1fr', gap: '10px', fontSize: '13px', color: '#78350f' }}>
+                  <div><span style={{ fontSize: '12px', color: '#a16207' }}>Consignee</span><div style={{ fontWeight: '600' }}>{job.cross_border_details?.consignee_company || '—'}</div></div>
+                  <div><span style={{ fontSize: '12px', color: '#a16207' }}>Declared value</span><div style={{ fontWeight: '600' }}>S${parseFloat(job.cross_border_details?.declared_value_sgd || 0).toFixed(2)}{job.cross_border_details?.packages ? ` · ${job.cross_border_details.packages} pkg` : ''}{job.cross_border_details?.hs_code ? ` · HS ${job.cross_border_details.hs_code}` : ''}</div></div>
+                  <div style={{ gridColumn: m ? 'auto' : '1 / -1' }}><span style={{ fontSize: '12px', color: '#a16207' }}>Goods (customs)</span><div style={{ fontWeight: '600' }}>{job.cross_border_details?.goods_description || '—'}</div></div>
+                  <div style={{ gridColumn: m ? 'auto' : '1 / -1' }}><span style={{ fontSize: '12px', color: '#a16207' }}>Customs paperwork</span><div style={{ fontWeight: '600' }}>{job.cross_border_details?.customs_agent === 'own' ? `Your agent: ${job.cross_border_details?.customs_agent_name || '—'}` : "TCG's declaring agent (SG export permit + Malaysian K1) — fees invoiced separately"}</div></div>
+                </div>
+                {['pickup_confirmed', 'in_transit', 'delivered', 'confirmed', 'completed'].includes(job.status) && (
+                  <div style={{ marginTop: '14px' }}>
+                    <div style={{ fontSize: '12px', color: '#a16207', marginBottom: '6px' }}>Border progress</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr 1fr' : 'repeat(4, 1fr)', gap: '8px' }}>
+                      {CROSS_BORDER_EVENTS.map(ev => {
+                        const hit = (Array.isArray(job.cross_border_events) ? job.cross_border_events : []).find(e => e?.event === ev.key);
+                        return (
+                          <div key={ev.key} style={{ padding: '8px 10px', borderRadius: '8px', background: hit ? '#dcfce7' : 'white', border: `1px solid ${hit ? '#86efac' : '#fde68a'}` }}>
+                            <div style={{ fontSize: '12px', fontWeight: '700', color: hit ? '#166534' : '#a16207' }}>{ev.icon} {ev.label}</div>
+                            <div style={{ fontSize: '11px', color: hit ? '#15803d' : '#ca8a04' }}>{hit ? new Date(hit.at).toLocaleString(dateLocale, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : 'pending'}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
             <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr' : '1fr 1fr', gap: '16px' }}>

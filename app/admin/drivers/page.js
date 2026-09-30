@@ -57,6 +57,19 @@ export default function AdminDrivers() {
     loadData();
   };
 
+  // Cross-border (Malaysia) verification: VEP RFID + Malaysia insurance cover + passport checked by admin
+  const setCrossBorder = async (id, ready) => {
+    const res = await fetch('/api/admin/users/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: id, updates: { cross_border_ready: ready } }),
+    });
+    const result = await res.json().catch(() => ({}));
+    if (!res.ok) { toast.error(result.error || 'Update failed'); return; }
+    toast.success(ready ? 'Cross-border unlocked — driver notified' : 'Cross-border switched off');
+    loadData();
+  };
+
   const isPdf = (url) => url && url.toLowerCase().endsWith('.pdf');
 
   const DocThumbnail = ({ url, label }) => {
@@ -116,6 +129,12 @@ export default function AdminDrivers() {
                     <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>{d.vehicle_type} • {d.vehicle_plate} • License: {d.license_number}</div>
                     {d.nric_number && <div style={{ fontSize: '12px', color: '#94a3b8' }}>NRIC: {d.nric_number}{d.business_reg_number ? ` • BRN: ${d.business_reg_number}` : ''}</div>}
                     <div style={{ fontSize: '12px', color: '#94a3b8' }}>⭐ {d.driver_rating || '—'} • {d.total_deliveries || 0} deliveries • Joined {new Date(d.created_at).toLocaleDateString()}</div>
+                    {(d.cross_border_requested || d.cross_border_ready) && (
+                      <div style={{ fontSize: '12px', color: d.cross_border_ready ? '#166534' : '#a16207', marginTop: '2px' }}>
+                        🇲🇾 {d.cross_border_ready ? `Cross-border verified${d.cross_border_verified_at ? ` ${new Date(d.cross_border_verified_at).toLocaleDateString()}` : ''}` : `Cross-border requested${d.cross_border_requested_at ? ` ${new Date(d.cross_border_requested_at).toLocaleDateString()}` : ''} — verify VEP + insurance`}
+                        {d.cross_border_notes ? <span style={{ color: '#64748b' }}> · {d.cross_border_notes}</span> : null}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
@@ -130,6 +149,11 @@ export default function AdminDrivers() {
                     {d.driver_status === 'approved' && <button onClick={() => updateStatus(d.id, 'suspended')} style={{ padding: '5px 12px', borderRadius: '6px', border: 'none', background: '#f59e0b', color: 'white', fontSize: '11px', fontWeight: '600', cursor: 'pointer' }}>Suspend</button>}
                     {d.driver_status !== 'rejected' && <button onClick={() => updateStatus(d.id, 'rejected')} style={{ padding: '5px 12px', borderRadius: '6px', border: 'none', background: '#ef4444', color: 'white', fontSize: '11px', fontWeight: '600', cursor: 'pointer' }}>Reject</button>}
                   </div>
+                  {(d.cross_border_requested || d.cross_border_ready) && d.driver_status === 'approved' && (
+                    <button onClick={() => setCrossBorder(d.id, !d.cross_border_ready)} style={{ padding: '5px 12px', borderRadius: '6px', border: d.cross_border_ready ? '1px solid #f59e0b' : 'none', background: d.cross_border_ready ? 'white' : '#d97706', color: d.cross_border_ready ? '#b45309' : 'white', fontSize: '11px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>
+                      {d.cross_border_ready ? '🇲🇾 Revoke cross-border' : '🇲🇾 Verify cross-border'}
+                    </button>
+                  )}
                 </div>
               </div>
               <div style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>

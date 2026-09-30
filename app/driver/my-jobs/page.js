@@ -17,6 +17,7 @@ import CallButtons from '../../components/CallButtons';
 import { supabase } from '../../../lib/supabase';
 import useMobile from '../../components/useMobile';
 import { useUnreadMessages } from '../../components/UnreadMessagesContext';
+import { isCrossBorder, crossBorderCity, crossBorderEventInfo, CROSS_BORDER_EVENTS } from '../../../lib/pricing-mode';
 
 // Which jobs share the driver's live location (same rule as the iOS app's lib/useLiveLocation.ts)
 function shouldShareLocation(job) {
@@ -285,6 +286,29 @@ export default function DriverMyJobs() {
 
   const fmtSgTime = (ms) => new Date(ms).toLocaleString('en-SG', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
 
+  // Cross-border (Malaysia) runs: log the border steps so the customer can follow the load
+  const [checkpointing, setCheckpointing] = useState(null);
+  const logCheckpoint = async (event) => {
+    if (!selected || checkpointing) return;
+    setCheckpointing(event);
+    try {
+      const res = await fetch(`/api/jobs/${selected.id}/checkpoint`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event }),
+      });
+      const result = await res.json();
+      if (!res.ok) { toast.error(result.error || 'Could not log the checkpoint'); return; }
+      toast.success(`${crossBorderEventInfo(event).label} — customer notified`);
+      setSelected({ ...selected, cross_border_events: result.data?.events || selected.cross_border_events });
+      loadJobs();
+    } catch {
+      toast.error('Could not log the checkpoint');
+    } finally {
+      setCheckpointing(null);
+    }
+  };
+
   const handleFileUpload = async (e, type) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -441,7 +465,7 @@ export default function DriverMyJobs() {
                       <span style={{ padding: '3px 8px', borderRadius: '5px', fontSize: '10px', fontWeight: '700', background: `${statusColor[job.status]}15`, color: statusColor[job.status], textTransform: 'uppercase' }}>{job.status.replace(/_/g, ' ')}</span>
                     </div>
                     <div style={{ fontSize: '13px', color: '#374151' }}>{job.item_description}</div>
-                    <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>📍 {job.pickup_address} → {job.delivery_address}</div>
+                    <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>{isCrossBorder(job) ? '🇲🇾' : '📍'} {job.pickup_address} → {job.delivery_address}</div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     {unreadByJob[job.id] > 0 && (
@@ -536,6 +560,39 @@ export default function DriverMyJobs() {
                 boxShadow: '0 4px 14px rgba(16,185,129,0.3)', marginBottom: '10px',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
               }}>🧭 Navigate to Delivery</button>
+            )}
+
+            {/* Cross-border (Malaysia): customs details + border checkpoints */}
+            {isCrossBorder(selected) && (
+              <div style={{ ...card, background: '#fefce8', border: '1px solid #fde68a' }}>
+                <div style={{ fontSize: '15px', fontWeight: '700', color: '#854d0e', marginBottom: '8px' }}>🇲🇾 Cross-border run — {crossBorderCity(selected)}</div>
+                <div style={{ fontSize: '13px', color: '#78350f', lineHeight: 1.5 }}>
+                  <div><strong>Consignee:</strong> {selected.cross_border_details?.consignee_company || '—'}</div>
+                  <div><strong>Goods:</strong> {selected.cross_border_details?.goods_description || '—'}{selected.cross_border_details?.packages ? ` (${selected.cross_border_details.packages} pkg)` : ''}</div>
+                  <div><strong>Customs:</strong> {selected.cross_border_details?.customs_agent === 'own' ? `customer's agent ${selected.cross_border_details?.customs_agent_name || ''}` : "TCG's declaring agent"} — carry the permit copy we send you; you never file customs yourself.</div>
+                  <div style={{ marginTop: '4px', fontSize: '12px', color: '#a16207' }}>Checklist: VEP RFID valid · Touch 'n Go ≥ RM50 · 3/4 tank at the SG checkpoint · passport · Malaysia insurance cover.</div>
+                </div>
+                {['pickup_confirmed', 'in_transit'].includes(selected.status) && (
+                  <div style={{ marginTop: '12px' }}>
+                    <div style={{ fontSize: '12px', fontWeight: '700', color: '#a16207', marginBottom: '6px' }}>Tap as you go — the customer sees each step</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr' : '1fr 1fr', gap: '8px' }}>
+                      {CROSS_BORDER_EVENTS.map(ev => {
+                        const hit = (Array.isArray(selected.cross_border_events) ? selected.cross_border_events : []).find(e => e?.event === ev.key);
+                        return (
+                          <button key={ev.key} onClick={() => !hit && logCheckpoint(ev.key)} disabled={!!hit || !!checkpointing} style={{
+                            padding: '12px 14px', borderRadius: '10px', textAlign: 'left', cursor: hit ? 'default' : 'pointer', fontFamily: "'Inter', sans-serif",
+                            border: hit ? '1px solid #86efac' : '1px solid #f59e0b', background: hit ? '#dcfce7' : 'white', color: hit ? '#166534' : '#92400e', fontSize: '13px', fontWeight: '700',
+                            opacity: checkpointing && checkpointing !== ev.key ? 0.6 : 1,
+                          }}>
+                            {ev.icon} {ev.label}
+                            <div style={{ fontSize: '11px', fontWeight: '500', color: hit ? '#15803d' : '#b45309', marginTop: '2px' }}>{hit ? fmtSgTime(new Date(hit.at).getTime()) : checkpointing === ev.key ? 'Saving…' : 'Tap when you get there'}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
 
             {/* GPS Tracking indicator */}

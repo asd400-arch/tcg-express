@@ -1,10 +1,14 @@
 'use client';
-import { getAreaName, formatPickupTime, formatBudgetRange, getCountdown, getVehicleLabel, getJobBudget, isQuoteJob } from '../../lib/job-helpers';
+import { getRouteLabel, formatPickupTime, formatBudgetRange, getCountdown, getVehicleLabel, getJobBudget, isQuoteJob, isCrossBorder, crossBorderCity } from '../../lib/job-helpers';
 import useLocale from './useLocale';
 import { formatCurrency } from '../../lib/locale/config';
 import { getLaunchTopup } from '../../lib/fares';
 
 function getJobBadge(job) {
+  // Cross-border (Malaysia) runs first — the driver must be verified for these
+  if (isCrossBorder(job)) {
+    return { text: `CROSS-BORDER · ${crossBorderCity(job)}`, icon: '🇲🇾', bg: '#fefce8', fg: '#a16207', border: '#fde68a' };
+  }
   // SaveMode takes priority
   if (job.delivery_mode === 'save_mode' && job.save_mode_window) {
     return { text: `${job.save_mode_window}H SAVE`, icon: '⏰', bg: '#f5f3ff', fg: '#7c3aed', border: '#ddd6fe' };
@@ -93,9 +97,14 @@ export default function JobCard({ job, myBid, accepting, onClick, onAccept, onBi
 
       {/* Row 3: Area -> Area + distance + item description */}
       <div style={{ fontSize: '13px', color: '#374151', marginBottom: '4px' }}>
-        {getAreaName(job.pickup_address)} {'\u2192'} {getAreaName(job.delivery_address)}
+        {getRouteLabel(job)}
         {job.distance_km ? <span style={{ color: '#94a3b8', marginLeft: '8px' }}>{parseFloat(job.distance_km).toFixed(1)} km</span> : ''}
       </div>
+      {isCrossBorder(job) && (
+        <div style={{ fontSize: '12px', color: '#a16207', marginBottom: '4px' }}>
+          \ud83d\udec2 {job.cross_border_details?.customs_agent === 'own' ? "Customs by the customer's agent" : "Customs by TCG's declaring agent"} \u00b7 quote the full run (fuel, tolls, road charge, levy)
+        </div>
+      )}
       {job.item_description && (
         <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           📋 {job.item_description}

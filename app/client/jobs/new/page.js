@@ -16,7 +16,7 @@ import {
 } from '../../../../lib/fares';
 import { findMatchingZones, calculateZoneSurcharge, isInRestrictedZone } from '../../../../lib/geo';
 import { toLocalDatetime } from '../../../../lib/job-helpers';
-import { isQuoteJob } from '../../../../lib/pricing-mode';
+import { isQuoteJob, MY_CITIES, CUSTOMS_AGENT_OPTIONS } from '../../../../lib/pricing-mode';
 import useLocale from '../../../components/useLocale';
 
 function AddressAutocomplete({ value, onChange, onSelect, placeholder, inputStyle }) {
@@ -122,6 +122,11 @@ export default function NewJob() {
   const [voucherResult, setVoucherResult] = useState(null); // { valid, coupon: { id, code, type, value, max_discount }, discount }
   const [voucherLoading, setVoucherLoading] = useState(false);
   const [voucherError, setVoucherError] = useState('');
+  // Cross-border (Malaysia) destination — Phase 1, 30 Sep 2026: quote-only, verified drivers, customs by TCG's agent
+  const [destination, setDestination] = useState('SG'); // 'SG' | 'MY'
+  const [xb, setXb] = useState({ city: 'johor_bahru', city_other: '', postcode: '', consignee_company: '', goods_description: '', declared_value_sgd: '', packages: '', hs_code: '', customs_agent: 'tcg', customs_agent_name: '' });
+  const crossBorder = destination === 'MY';
+  const setXbField = (k, v) => { setXb(prev => ({ ...prev, [k]: v })); setErrors(prev => { const n = { ...prev }; delete n[`xb_${k}`]; return n; }); };
   const [form, setForm] = useState({
     pickup_address: '', pickup_blk: '', pickup_unit: '', pickup_contact_first: '', pickup_contact_last: '', pickup_phone: '', pickup_instructions: '',
     delivery_address: '', delivery_blk: '', delivery_unit: '', delivery_contact_first: '', delivery_contact_last: '', delivery_phone: '', delivery_instructions: '',
@@ -147,10 +152,10 @@ export default function NewJob() {
       if (!hasContent) return;
       localStorage.setItem(DRAFT_KEY, JSON.stringify({
         savedAt: Date.now(), userId: user?.id || null,
-        form, jobType, step, deliveryMode, isEvSelected, pickupCoords, deliveryCoords, voucherCode,
+        form, jobType, step, deliveryMode, isEvSelected, pickupCoords, deliveryCoords, voucherCode, destination, xb,
       }));
     } catch {}
-  }, [form, jobType, step, deliveryMode, isEvSelected, pickupCoords, deliveryCoords, voucherCode, user?.id]);
+  }, [form, jobType, step, deliveryMode, isEvSelected, pickupCoords, deliveryCoords, voucherCode, destination, xb, user?.id]);
 
   const clearDraft = useCallback(() => { try { localStorage.removeItem(DRAFT_KEY); } catch {} }, []);
 
@@ -170,6 +175,8 @@ export default function NewJob() {
       if (d.pickupCoords) setPickupCoords(d.pickupCoords);
       if (d.deliveryCoords) setDeliveryCoords(d.deliveryCoords);
       if (d.voucherCode) setVoucherCode(d.voucherCode);
+      if (d.destination === 'MY') setDestination('MY');
+      if (d.xb && typeof d.xb === 'object') setXb(prev => ({ ...prev, ...d.xb }));
       const resume = new URLSearchParams(window.location.search).get('resume') === '1';
       if (resume) { setStep(4); toast.success('Wallet topped up — review and tap Post Job'); }
       else if (d.step) setStep(d.step);
@@ -264,7 +271,18 @@ export default function NewJob() {
     vehicle_required: effectiveVehicleMode,
     equipment_needed: [...(form.basic_equipment || []), ...(form.special_equipment || [])],
     budget_min: 1,
+    cross_border: crossBorder,
   });
+
+  // Switching destination: Malaysia addresses aren't geocoded (OneMap is Singapore-only) and take no voucher
+  useEffect(() => {
+    if (crossBorder) {
+      setDeliveryCoords(null);
+      setVoucherResult(null); setVoucherCode(''); setVoucherError('');
+      setDeliveryMode('express'); setSaveModeWindow(null); setIsEvSelected(false);
+      if (form.vehicle_required === 'motorcycle') set('vehicle_required', 'any');
+    }
+  }, [crossBorder]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset manual vehicle selection if it's now below auto-selected (upgrade only)
   useEffect(() => {
@@ -333,8 +351,15 @@ export default function NewJob() {
     if (!form.pickup_address.trim()) errs.pickup_address = 'Pickup address is required';
     if (!form.delivery_address.trim()) errs.delivery_address = 'Delivery address is required';
     if (!form.item_description.trim()) errs.item_description = 'Item description is required';
-    if (Object.keys(errs).length > 0) { setErrors(errs); toast.error('Please fill in all required fields'); return; }
-    if (zoneWarning?.type === 'restricted') { toast.error(zoneWarning.message); return; }
+    if (crossBorder) {
+      if (xb.city === 'other' && !xb.city_other.trim()) errs.xb_city_other = 'City or town is required';
+      if (!xb.consignee_company.trim()) errs.xb_consignee_company = 'Consignee company is required for customs';
+      if (!xb.goods_description.trim()) errs.xb_goods_description = 'Goods description is required for customs';
+      if (!(parseFloat(xb.declared_value_sgd) >= 0) || xb.declared_value_sgd === '') errs.xb_declared_value_sgd = 'Declared value is required for customs';
+      if (xb.customs_agent === 'own' && !xb.customs_agent_name.trim()) errs.xb_customs_agent_name = 'Name your customs agent';
+    }
+    if (Object.keys(errs).length > 0) { setErrors(errs); toast.error(Object.values(errs)[0] || 'Please fill in all required fields'); if (Object.keys(errs).some(k => k.startsWith('xb_'))) setStep(1); return; }
+    if (!crossBorder && zoneWarning?.type === 'restricted') { toast.error(zoneWarning.message); return; }
 
     // Validate pickup time is at least 30 minutes from now
     const minPickup = new Date(Date.now() + 30 * 60000);
@@ -346,8 +371,8 @@ export default function NewJob() {
       }
     }
 
-    // Check wallet balance before creating job
-    const minBudget = parseFloat(form.budget_min) || fare?.total || 0;
+    // Check wallet balance before creating job (cross-border: nothing is charged until you accept a quote)
+    const minBudget = crossBorder ? 0 : (parseFloat(form.budget_min) || fare?.total || 0);
     if (minBudget > 0) {
       try {
         const { data: wallet } = await supabase.from('wallets').select('balance').eq('user_id', user.id).single();
@@ -411,9 +436,29 @@ export default function NewJob() {
         base.co2_saved_kg = evCo2Saved || null;
         base.green_points_earned = evGreenPoints || null;
       }
-      if (voucherResult) {
+      if (voucherResult && !crossBorder) {
         base.coupon_id = voucherResult.coupon.id;
         base.coupon_discount = parseFloat(voucherResult.discount);
+      }
+      if (crossBorder) {
+        // Malaysia run: no formula fare, no voucher, no SG geocode; drivers quote the whole run
+        base.cross_border = true;
+        base.destination_country = 'MY';
+        base.cross_border_details = {
+          city: xb.city, city_other: xb.city === 'other' ? xb.city_other.trim() : null, postcode: xb.postcode.trim() || null,
+          consignee_company: xb.consignee_company.trim(), goods_description: xb.goods_description.trim(),
+          declared_value_sgd: parseFloat(xb.declared_value_sgd) || 0, packages: parseInt(xb.packages) || null, hs_code: xb.hs_code.trim() || null,
+          customs_agent: xb.customs_agent, customs_agent_name: xb.customs_agent === 'own' ? xb.customs_agent_name.trim() : null,
+        };
+        base.delivery_address = [form.delivery_address.trim(), xb.postcode.trim(), MY_CITIES.find(c => c.key === xb.city)?.key === 'other' ? xb.city_other.trim() : MY_CITIES.find(c => c.key === xb.city)?.label, 'Malaysia'].filter(Boolean).join(', ');
+        base.budget_min = null;
+        base.budget_max = parseFloat(form.budget_max) > 0 ? parseFloat(form.budget_max) : null;
+        base.special_requirements = form.special_requirements || null;
+        base.delivery_mode = 'express';
+        if (base.vehicle_required === 'motorcycle') base.vehicle_required = 'car'; // no motorcycles across the Causeway
+        delete base.delivery_lat; delete base.delivery_lng; delete base.zone_surcharge;
+        delete base.save_mode_window; delete base.save_mode_deadline;
+        delete base.is_ev_selected; delete base.co2_saved_kg; delete base.green_points_earned;
       }
       return { ...base, ...overrides };
     };
@@ -528,6 +573,8 @@ export default function NewJob() {
     setVoucherCode('');
     setVoucherResult(null);
     setVoucherError('');
+    setDestination('SG');
+    setXb({ city: 'johor_bahru', city_other: '', postcode: '', consignee_company: '', goods_description: '', declared_value_sgd: '', packages: '', hs_code: '', customs_agent: 'tcg', customs_agent_name: '' });
     setForm({
       pickup_address: '', pickup_blk: '', pickup_unit: '', pickup_contact_first: '', pickup_contact_last: '', pickup_phone: '', pickup_instructions: '',
       delivery_address: '', delivery_blk: '', delivery_unit: '', delivery_contact_first: '', delivery_contact_last: '', delivery_phone: '', delivery_instructions: '',
@@ -703,11 +750,49 @@ export default function NewJob() {
             </div>
             <div style={card}>
               <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>📦 Delivery Location</h3>
-              <div style={{ marginBottom: '14px' }}><label style={label}>Delivery Address<span style={req}>*</span></label><AddressAutocomplete inputStyle={inputErr('delivery_address')} value={form.delivery_address} onChange={v => set('delivery_address', v)} onSelect={c => setDeliveryCoords(c)} placeholder="Search address or postal code" /><div style={errText('delivery_address')}>{errors.delivery_address}</div></div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
-                <div><label style={label}>Blk/Block No.</label><input style={input} value={form.delivery_blk} onChange={e => set('delivery_blk', e.target.value)} placeholder="e.g. Blk 123" /></div>
-                <div><label style={label}>Unit No.</label><input style={input} value={form.delivery_unit} onChange={e => set('delivery_unit', e.target.value)} placeholder="e.g. #05-01" /></div>
+              {/* Destination: Singapore (fixed price) or Malaysia (cross-border, quotes) */}
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
+                {[{ key: 'SG', label: '🇸🇬 Singapore' }, { key: 'MY', label: '🇲🇾 Malaysia (JB / KL)' }].map(o => (
+                  <button key={o.key} type="button" onClick={() => setDestination(o.key)} style={{
+                    flex: 1, padding: '10px 12px', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Inter', sans-serif", fontSize: '13px', fontWeight: '700',
+                    border: destination === o.key ? '2px solid #3b82f6' : '2px solid #e2e8f0', background: destination === o.key ? '#eff6ff' : 'white', color: destination === o.key ? '#1d4ed8' : '#64748b',
+                  }}>{o.label}</button>
+                ))}
               </div>
+              {crossBorder && (
+                <div style={{ padding: '12px 14px', borderRadius: '10px', background: '#fefce8', border: '1px solid #fde68a', fontSize: '12px', color: '#854d0e', marginBottom: '14px', lineHeight: 1.5 }}>
+                  <strong>Cross-border delivery (pilot).</strong> Verified cross-border drivers quote the full run (fuel, tolls, road charge, levy) and you pick a quote — nothing is charged until you accept one. TCG's declaring agent files the Singapore export permit and the Malaysian K1; agent and customs fees (plus any Malaysian duty/SST) are invoiced separately. Give at least 24 hours' notice.
+                </div>
+              )}
+              {crossBorder ? (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr' : '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
+                    <div><label style={label}>City<span style={req}>*</span></label>
+                      <select style={input} value={xb.city} onChange={e => setXbField('city', e.target.value)}>
+                        {MY_CITIES.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+                      </select>
+                    </div>
+                    {xb.city === 'other' ? (
+                      <div><label style={label}>City / town<span style={req}>*</span></label><input style={inputErr('xb_city_other')} value={xb.city_other} onChange={e => setXbField('city_other', e.target.value)} placeholder="e.g. Senai, Johor" /><div style={errText('xb_city_other')}>{errors.xb_city_other}</div></div>
+                    ) : (
+                      <div><label style={label}>Postcode</label><input style={input} value={xb.postcode} onChange={e => setXbField('postcode', e.target.value)} placeholder="e.g. 80000" maxLength={10} /></div>
+                    )}
+                  </div>
+                  {xb.city === 'other' && (
+                    <div style={{ marginBottom: '14px' }}><label style={label}>Postcode</label><input style={input} value={xb.postcode} onChange={e => setXbField('postcode', e.target.value)} placeholder="e.g. 81400" maxLength={10} /></div>
+                  )}
+                  <div style={{ marginBottom: '14px' }}><label style={label}>Delivery Address<span style={req}>*</span></label><input style={inputErr('delivery_address')} value={form.delivery_address} onChange={e => set('delivery_address', e.target.value)} placeholder="Street address, building, unit (Malaysia)" /><div style={errText('delivery_address')}>{errors.delivery_address}</div></div>
+                  <div style={{ marginBottom: '14px' }}><label style={label}>Consignee company<span style={req}>*</span></label><input style={inputErr('xb_consignee_company')} value={xb.consignee_company} onChange={e => setXbField('consignee_company', e.target.value)} placeholder="Company receiving the goods (for customs)" /><div style={errText('xb_consignee_company')}>{errors.xb_consignee_company}</div></div>
+                </>
+              ) : (
+                <>
+                  <div style={{ marginBottom: '14px' }}><label style={label}>Delivery Address<span style={req}>*</span></label><AddressAutocomplete inputStyle={inputErr('delivery_address')} value={form.delivery_address} onChange={v => set('delivery_address', v)} onSelect={c => setDeliveryCoords(c)} placeholder="Search address or postal code" /><div style={errText('delivery_address')}>{errors.delivery_address}</div></div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
+                    <div><label style={label}>Blk/Block No.</label><input style={input} value={form.delivery_blk} onChange={e => set('delivery_blk', e.target.value)} placeholder="e.g. Blk 123" /></div>
+                    <div><label style={label}>Unit No.</label><input style={input} value={form.delivery_unit} onChange={e => set('delivery_unit', e.target.value)} placeholder="e.g. #05-01" /></div>
+                  </div>
+                </>
+              )}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '14px' }}>
                 <div><label style={label}>First Name</label><input style={input} value={form.delivery_contact_first} onChange={e => set('delivery_contact_first', e.target.value)} placeholder="First name" /></div>
                 <div><label style={label}>Last Name</label><input style={input} value={form.delivery_contact_last} onChange={e => set('delivery_contact_last', e.target.value)} placeholder="Last name" /></div>
@@ -715,7 +800,33 @@ export default function NewJob() {
               </div>
               <div style={{ marginTop: '14px' }}><label style={label}>Instructions</label><textarea style={{ ...input, height: '60px', resize: 'vertical' }} value={form.delivery_instructions} onChange={e => set('delivery_instructions', e.target.value)} placeholder="Leave at reception, call on arrival, etc." /></div>
             </div>
-            {zoneWarning && (
+            {crossBorder && (
+              <div style={card}>
+                <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '6px' }}>🛂 Customs declaration</h3>
+                <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '14px' }}>Needed for the Singapore export permit and the Malaysian import declaration (K1). The driver never files these.</p>
+                <div style={{ marginBottom: '14px' }}><label style={label}>Goods description<span style={req}>*</span></label><textarea style={{ ...inputErr('xb_goods_description'), height: '60px', resize: 'vertical' }} value={xb.goods_description} onChange={e => setXbField('goods_description', e.target.value)} placeholder="e.g. 12 × Dell OptiPlex desktops, refurbished, in original cartons" /><div style={errText('xb_goods_description')}>{errors.xb_goods_description}</div></div>
+                <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr 1fr' : '1fr 1fr 1fr', gap: '14px', marginBottom: '14px' }}>
+                  <div><label style={label}>Declared value (S$)<span style={req}>*</span></label><input type="number" min="0" step="0.01" style={inputErr('xb_declared_value_sgd')} value={xb.declared_value_sgd} onChange={e => setXbField('declared_value_sgd', e.target.value)} placeholder="e.g. 4800" /><div style={errText('xb_declared_value_sgd')}>{errors.xb_declared_value_sgd}</div></div>
+                  <div><label style={label}>Packages / pallets</label><input type="number" min="1" style={input} value={xb.packages} onChange={e => setXbField('packages', e.target.value)} placeholder="e.g. 12" /></div>
+                  <div><label style={label}>HS code (optional)</label><input style={input} value={xb.hs_code} onChange={e => setXbField('hs_code', e.target.value)} placeholder="e.g. 8471.41" maxLength={20} /></div>
+                </div>
+                <div style={{ marginBottom: xb.customs_agent === 'own' ? '14px' : 0 }}>
+                  <label style={label}>Customs paperwork</label>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {CUSTOMS_AGENT_OPTIONS.map(o => (
+                      <button key={o.key} type="button" onClick={() => setXbField('customs_agent', o.key)} style={{
+                        padding: '9px 14px', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Inter', sans-serif", fontSize: '13px', fontWeight: '600',
+                        border: xb.customs_agent === o.key ? '2px solid #3b82f6' : '2px solid #e2e8f0', background: xb.customs_agent === o.key ? '#eff6ff' : 'white', color: xb.customs_agent === o.key ? '#1d4ed8' : '#64748b',
+                      }}>{o.label}</button>
+                    ))}
+                  </div>
+                </div>
+                {xb.customs_agent === 'own' && (
+                  <div><label style={label}>Your customs agent<span style={req}>*</span></label><input style={inputErr('xb_customs_agent_name')} value={xb.customs_agent_name} onChange={e => setXbField('customs_agent_name', e.target.value)} placeholder="Agent / forwarder company name" /><div style={errText('xb_customs_agent_name')}>{errors.xb_customs_agent_name}</div></div>
+                )}
+              </div>
+            )}
+            {zoneWarning && !crossBorder && (
               <div style={{ padding: '14px', borderRadius: '10px', background: zoneWarning.type === 'restricted' ? '#fef2f2' : '#fffbeb', border: `1px solid ${zoneWarning.type === 'restricted' ? '#fecaca' : '#fde68a'}`, marginBottom: '16px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
                 <span style={{ fontSize: '18px' }}>{zoneWarning.type === 'restricted' ? '🚫' : '⚠️'}</span>
                 <div>
@@ -724,7 +835,20 @@ export default function NewJob() {
                 </div>
               </div>
             )}
-            <button onClick={() => { const e = {}; if (!form.pickup_address.trim()) e.pickup_address = 'Pickup address is required'; if (!form.delivery_address.trim()) e.delivery_address = 'Delivery address is required'; if (Object.keys(e).length > 0) { setErrors(e); toast.error('Please fill in required addresses'); return; } if (zoneWarning?.type !== 'restricted') setStep(2); }} disabled={zoneWarning?.type === 'restricted'} style={{ ...btnPrimary, opacity: zoneWarning?.type === 'restricted' ? 0.5 : 1 }}>Next →</button>
+            <button onClick={() => {
+              const e = {};
+              if (!form.pickup_address.trim()) e.pickup_address = 'Pickup address is required';
+              if (!form.delivery_address.trim()) e.delivery_address = 'Delivery address is required';
+              if (crossBorder) {
+                if (xb.city === 'other' && !xb.city_other.trim()) e.xb_city_other = 'City or town is required';
+                if (!xb.consignee_company.trim()) e.xb_consignee_company = 'Consignee company is required for customs';
+                if (!xb.goods_description.trim()) e.xb_goods_description = 'Goods description is required for customs';
+                if (xb.declared_value_sgd === '' || !(parseFloat(xb.declared_value_sgd) >= 0)) e.xb_declared_value_sgd = 'Declared value is required for customs';
+                if (xb.customs_agent === 'own' && !xb.customs_agent_name.trim()) e.xb_customs_agent_name = 'Name your customs agent';
+              }
+              if (Object.keys(e).length > 0) { setErrors(e); toast.error(crossBorder ? (Object.values(e)[0]) : 'Please fill in required addresses'); return; }
+              if (crossBorder || zoneWarning?.type !== 'restricted') setStep(2);
+            }} disabled={!crossBorder && zoneWarning?.type === 'restricted'} style={{ ...btnPrimary, opacity: !crossBorder && zoneWarning?.type === 'restricted' ? 0.5 : 1 }}>Next →</button>
           </div>
         )}
 
@@ -859,8 +983,8 @@ export default function NewJob() {
               </div>
             </div>
 
-            {/* EV Option */}
-            {effectiveVehicleMode && effectiveVehicleMode !== 'special' && EV_EMISSION_FACTORS[effectiveVehicleMode] && (
+            {/* EV Option (Singapore only) */}
+            {!crossBorder && effectiveVehicleMode && effectiveVehicleMode !== 'special' && EV_EMISSION_FACTORS[effectiveVehicleMode] && (
               <div style={{ ...card, border: isEvSelected ? '2px solid #16a34a' : '2px solid #e2e8f0', background: isEvSelected ? '#f0fdf4' : 'white' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: isEvSelected ? '14px' : '0' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -899,7 +1023,8 @@ export default function NewJob() {
               </div>
             )}
 
-            {/* Delivery Mode: Express vs SaveMode */}
+            {/* Delivery Mode: Express vs SaveMode (Singapore only) */}
+            {!crossBorder && (
             <div style={card}>
               <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '6px' }}>🚀 Delivery Mode</h3>
               <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '14px' }}>SaveMode groups deliveries to save you money</p>
@@ -950,6 +1075,7 @@ export default function NewJob() {
                 </div>
               )}
             </div>
+            )}
 
             {/* Urgency */}
             <div style={card}>
@@ -1106,6 +1232,15 @@ export default function NewJob() {
         {/* ── Step 3: Preferences & Budget ── */}
         {step === 3 && (
           <div>
+            {crossBorder ? (
+            <div style={card}>
+              <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '12px' }}>💲 Quotes from cross-border drivers</h3>
+              <div style={{ background: '#fefce8', border: '1px solid #fde68a', borderRadius: '10px', padding: '12px 16px', fontSize: '13px', color: '#854d0e', marginBottom: '14px', lineHeight: 1.5 }}>
+                Verified drivers (VEP RFID, Malaysia insurance cover, passport) quote one price for the whole run — fuel, tolls, road charge and levy included. You compare quotes and accept one; the amount is then held from your wallet. Customs agent fees, Malaysian duty and SST are invoiced separately. Typical pilot range: 1.7 m van to Johor Bahru S$120–200, 3 t lorry S$300–500; Kuala Lumpur roughly three times that.
+              </div>
+              <div style={{ maxWidth: '260px' }}><label style={label}>Max budget (S$, optional)</label><input type="number" min="0" style={input} value={form.budget_max} onChange={e => set('budget_max', e.target.value)} placeholder="e.g. 250" /><p style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>Drivers can't quote above this. Leave empty for open quotes.</p></div>
+            </div>
+            ) : (
             <div style={card}>
               <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>💲 {quoteMode ? 'Quote range' : 'Price'}</h3>
               {fare && !quoteMode && (
@@ -1135,8 +1270,10 @@ export default function NewJob() {
                 </button>
               )}
             </div>
+            )}
 
-            {/* Voucher Code */}
+            {/* Voucher Code (Singapore jobs only) */}
+            {!crossBorder && (
             <div style={card}>
               <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '12px' }}>🎟️ Have a voucher code?</h3>
               {voucherResult ? (
@@ -1195,6 +1332,7 @@ export default function NewJob() {
                 </div>
               )}
             </div>
+            )}
 
             <div style={card}>
               <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>⚙️ Other Preferences</h3>
@@ -1215,11 +1353,16 @@ export default function NewJob() {
                 <div><label style={label}>Pickup By</label><input type="datetime-local" style={input} value={form.pickup_by} onChange={e => set('pickup_by', e.target.value)} min={toLocalDatetime(Date.now() + 30 * 60000)} /></div>
                 <div><label style={label}>Deliver By</label><input type="datetime-local" style={input} value={form.deliver_by} onChange={e => set('deliver_by', e.target.value)} min={form.pickup_by || toLocalDatetime(Date.now() + 30 * 60000)} /></div>
               </div>
+              {crossBorder && (
+                <p style={{ fontSize: '12px', color: '#854d0e', background: '#fefce8', border: '1px solid #fde68a', borderRadius: '8px', padding: '8px 10px', marginBottom: '14px' }}>
+                  🛂 Cross-border: set the pickup at least 24 hours ahead so the customs permits can be filed. Motorcycles can't be used — the smallest vehicle is a car.
+                </p>
+              )}
               <div><label style={label}>Special Requirements</label><textarea style={{ ...input, height: '60px', resize: 'vertical' }} value={form.special_requirements} onChange={e => set('special_requirements', e.target.value)} placeholder="Handling instructions, insurance needs, etc." /></div>
             </div>
 
-            {/* Fare summary */}
-            <FareBreakdown />
+            {/* Fare summary (Singapore formula fare; cross-border runs are quoted) */}
+            {!crossBorder && <FareBreakdown />}
 
             <div style={{ display: 'flex', gap: '10px' }}>
               <button onClick={() => setStep(2)} style={btnBack}>← Back</button>

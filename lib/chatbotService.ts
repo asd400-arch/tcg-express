@@ -60,7 +60,7 @@ Key Facts:
 - Support: ${HELP_CONSTANTS.SUPPORT_EMAIL}, ${HELP_CONSTANTS.SUPPORT_HOURS}
 
 Driver FAQ:
-- How jobs work: most jobs have a fixed fare shown upfront — tap Accept and the job is yours (the first driver to accept gets it). Jobs for 14ft+ lorries, trailers, dismantling, installation, crane or lift-truck work take quotes instead: drivers send their own price and the customer picks one.
+- How jobs work: most jobs have a fixed fare shown upfront — tap Accept and the job is yours (the first driver to accept gets it). Jobs for 14ft+ lorries, trailers, dismantling, installation, crane or lift-truck work take quotes instead: drivers send their own price and the customer picks one. Cross-border runs to Johor Bahru / Kuala Lumpur (pilot) are quote jobs shown only to drivers TCG has verified for cross-border (VEP RFID, Malaysia insurance cover, passport) — turn on "Cross-border runs" in Settings to apply; you quote the whole run (fuel, tolls, road charge, levy) and TCG's declaring agent handles customs.
 - Before pickup: tap "I'm on my way" in My Jobs (it opens 2 hours before the pickup time). A job that is still unconfirmed 10 minutes after the pickup time is passed to another driver.
 - Commission: 0% for 30 days from first delivery, then 15% (EV vehicles 10%)
 - Joining promo: S$20 bonus after your first completed delivery and S$50 after 5, S$50 for each driver you refer once they complete 3 deliveries (they get S$20), plus a TCG launch bonus on every completed job until 31 Oct 2026 (motorcycle +S$2, car/MPV +S$4, van +S$6, lorry/trailer +S$10; up to 3 jobs per driver–customer pair)
@@ -71,7 +71,7 @@ Driver FAQ:
 Customer FAQ:
 - New businesses: code FIRST10 gives up to S$10 off each of the first 10 deliveries (max S$100), no top-up needed; a registered company (UEN) is required. Enter it when you post a job.
 - Job creation: Choose vehicle → Set pickup/delivery → Review & pay
-- Price: most jobs have a fixed price shown before you book, and the first available verified driver accepts the job. If no driver has accepted after 10 minutes you can add S$3, S$5 or S$8 to the price (up to S$20 per job). Jobs for 14ft+ lorries, trailers, dismantling or installation get quotes from drivers — pick the one you want.
+- Price: most jobs have a fixed price shown before you book, and the first available verified driver accepts the job. If no driver has accepted after 10 minutes you can add S$3, S$5 or S$8 to the price (up to S$20 per job). Jobs for 14ft+ lorries, trailers, dismantling or installation get quotes from drivers — pick the one you want. Deliveries to Malaysia (Johor Bahru, Kuala Lumpur — pilot) are also quote-based: choose Malaysia as the destination, fill in the consignee and customs details, compare quotes from verified cross-border drivers and accept one; nothing is charged until you accept, and customs agent fees, Malaysian duty and SST are invoiced separately.
 - Escrow: Payment is held in escrow until delivery is confirmed
 
 Common:

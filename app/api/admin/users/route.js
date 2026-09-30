@@ -11,16 +11,19 @@ export async function POST(request) {
 
     const { role } = await request.json();
 
-    let query = supabaseAdmin
-      .from('express_users')
-      .select('id, email, role, contact_name, phone, company_name, vehicle_type, vehicle_plate, license_number, driver_status, driver_rating, total_deliveries, is_active, is_verified, created_at, driver_type, nric_number, business_reg_number, nric_front_url, nric_back_url, license_photo_url, business_reg_cert_url, vehicle_insurance_url')
-      .order('created_at', { ascending: false });
+    const BASE_COLUMNS = 'id, email, role, contact_name, phone, company_name, vehicle_type, vehicle_plate, license_number, driver_status, driver_rating, total_deliveries, is_active, is_verified, created_at, driver_type, nric_number, business_reg_number, nric_front_url, nric_back_url, license_photo_url, business_reg_cert_url, vehicle_insurance_url';
+    // Cross-border (Malaysia) verification columns — 30 Sep 2026 migration; fall back if not run yet
+    const XB_COLUMNS = ', cross_border_requested, cross_border_requested_at, cross_border_ready, cross_border_verified_at, cross_border_notes';
+    const run = async (columns) => {
+      let query = supabaseAdmin.from('express_users').select(columns).order('created_at', { ascending: false });
+      if (role) query = query.eq('role', role);
+      return query;
+    };
 
-    if (role) {
-      query = query.eq('role', role);
+    let { data, error } = await run(BASE_COLUMNS + XB_COLUMNS);
+    if (error && (error.code === '42703' || /column .* does not exist/i.test(error.message || ''))) {
+      ({ data, error } = await run(BASE_COLUMNS));
     }
-
-    const { data, error } = await query;
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
