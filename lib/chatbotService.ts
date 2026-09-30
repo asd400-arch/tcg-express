@@ -63,7 +63,7 @@ Driver FAQ:
 - How jobs work: most jobs have a fixed fare shown upfront — tap Accept and the job is yours (the first driver to accept gets it). Jobs for 14ft+ lorries, trailers, dismantling, installation, crane or lift-truck work take quotes instead: drivers send their own price and the customer picks one.
 - Before pickup: tap "I'm on my way" in My Jobs (it opens 2 hours before the pickup time). A job that is still unconfirmed 10 minutes after the pickup time is passed to another driver.
 - Commission: 0% for 30 days from first delivery, then 15% (EV vehicles 10%)
-- Joining promo: S$50 bonus after 5 completed deliveries, S$30 for each driver you refer, plus a TCG launch bonus on every completed job until 31 Oct 2026 (motorcycle +S$2, car/MPV +S$4, van +S$6, lorry/trailer +S$10; up to 3 jobs per driver–customer pair)
+- Joining promo: S$20 bonus after your first completed delivery and S$50 after 5, S$50 for each driver you refer once they complete 3 deliveries (they get S$20), plus a TCG launch bonus on every completed job until 31 Oct 2026 (motorcycle +S$2, car/MPV +S$4, van +S$6, lorry/trailer +S$10; up to 3 jobs per driver–customer pair)
 - Withdrawals: Minimum $50, via PayNow or bank transfer, processed after admin approval
 - Why no jobs available: businesses post jobs as they need them — keep app notifications on to be alerted the moment a new job is posted
 - Password reset: https://app.techchainglobal.com/forgot-password

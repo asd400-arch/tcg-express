@@ -330,7 +330,7 @@ export default function DriverSettings() {
         {user.referral_code && (
           <div style={card}>
             <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>🎁 Referral Program</h3>
-            <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '14px' }}>Share your code and earn $30 when your referral completes their first job!</p>
+            <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '14px' }}>Share your code: S$50 for you when your referral completes 3 deliveries, and S$20 for them at their first.</p>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
               <div style={{ flex: 1, padding: '12px 16px', borderRadius: '10px', background: '#f8fafc', border: '2px dashed #3b82f6', fontFamily: 'monospace', fontSize: '18px', fontWeight: '800', color: '#3b82f6', textAlign: 'center', letterSpacing: '2px' }}>
                 {user.referral_code}

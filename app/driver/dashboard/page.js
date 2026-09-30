@@ -114,7 +114,7 @@ export default function DriverDashboard() {
               <span style={{ fontSize: '13px', fontWeight: '700', color: '#7c3aed' }}>{stats.completed}/5</span>
             </div>
             <p style={{ fontSize: '13px', color: '#6d28d9', margin: '0 0 10px', fontWeight: '500' }}>
-              Complete 5 deliveries to earn $50 wallet credit!
+              S$20 after your first delivery, S$50 more after 5 — plus a TCG bonus on every job until 31 Oct.
             </p>
             <div style={{ height: '8px', borderRadius: '4px', background: '#ddd6fe', overflow: 'hidden' }}>
               <div style={{ height: '100%', borderRadius: '4px', background: '#7c3aed', width: `${(stats.completed / 5) * 100}%`, transition: 'width 0.3s' }} />

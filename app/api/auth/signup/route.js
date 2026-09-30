@@ -163,8 +163,10 @@ export async function POST(request) {
             referred_id: data.id,
             referral_code: validReferredBy,
             reward_type: 'referral',
-            referrer_amount: 30,
-            referred_amount: 10,
+            // Drivers (30 Sep 2026): referrer S$50 when the referred driver completes 3 deliveries,
+            // referred S$20 at their first. Clients: S$30 / S$10 on the first order.
+            referrer_amount: safeFields.role === 'driver' ? 50 : 30,
+            referred_amount: safeFields.role === 'driver' ? 20 : 10,
             status: 'pending',
             trigger_event: triggerEvent,
           }]);

@@ -240,8 +240,13 @@ export async function POST(request, { params }) {
       } catch {}
     }
 
-    // Driver Welcome Bonus: $50 after 5 completed deliveries
+    // Driver bonuses: S$20 after the 1st completed delivery, S$50 after 5
     if (!isPartnerJob && (normalizedStatus === 'confirmed' || normalizedStatus === 'completed') && job.assigned_driver_id) {
+      try {
+        await processFirstJobBonus(job.assigned_driver_id);
+      } catch (e) {
+        console.error('[FIRST-JOB-BONUS] Error:', e?.message);
+      }
       try {
         await processWelcomeBonus(job.assigned_driver_id);
       } catch (e) {
@@ -249,7 +254,8 @@ export async function POST(request, { params }) {
       }
     }
 
-    // Referral Rewards: credit both parties on first completion
+    // Referral Rewards: drivers — referred S$20 at 1st delivery, referrer S$50 at the referred driver's 3rd;
+    // clients — both parties on the first completed order
     if (!isPartnerJob && (normalizedStatus === 'confirmed' || normalizedStatus === 'completed')) {
       try {
         // Check driver referral
@@ -389,6 +395,57 @@ async function awardGreenPoints(job, jobId) {
   }
 }
 
+// ── First-Job Bonus: S$20 when a driver completes their first delivery (30 Sep 2026) ──
+const FIRST_JOB_BONUS = 20;
+
+async function processFirstJobBonus(driverId) {
+  const { count } = await supabaseAdmin
+    .from('express_jobs')
+    .select('id', { count: 'exact', head: true })
+    .eq('assigned_driver_id', driverId)
+    .in('status', ['confirmed', 'completed']);
+  if ((count || 0) < 1) return;
+
+  // Once per driver — the confirmed → completed transition runs this block twice
+  const { data: existing } = await supabaseAdmin
+    .from('wallet_transactions')
+    .select('id')
+    .eq('user_id', driverId)
+    .eq('reference_type', 'first_job_bonus')
+    .limit(1);
+  if (existing && existing.length > 0) return;
+
+  let { data: wallet } = await supabaseAdmin.from('wallets').select('id').eq('user_id', driverId).single();
+  if (!wallet) {
+    const { data: nw } = await supabaseAdmin.from('wallets').insert([{ user_id: driverId, balance: 0 }]).select().single();
+    wallet = nw;
+  }
+  if (!wallet) return;
+
+  const { error } = await supabaseAdmin.rpc('wallet_credit', {
+    p_wallet_id: wallet.id,
+    p_user_id: driverId,
+    p_amount: FIRST_JOB_BONUS,
+    p_type: 'bonus',
+    p_reference_type: 'first_job_bonus',
+    p_reference_id: driverId,
+    p_payment_method: 'system',
+    p_description: `S$${FIRST_JOB_BONUS} First-Job Bonus — first delivery completed`,
+    p_metadata: { withdrawable: true },
+  });
+  if (error) {
+    console.error('[FIRST-JOB-BONUS] wallet_credit failed:', error.message);
+    return;
+  }
+
+  await notify(driverId, {
+    type: 'wallet', category: 'account_alerts',
+    title: '🎉 First-Job Bonus credited!',
+    message: `S$${FIRST_JOB_BONUS} has been added to your wallet for completing your first delivery. S$50 more after 5 deliveries!`,
+    url: '/driver/wallet',
+  });
+}
+
 // ── Welcome Bonus: $50 after 5 completed deliveries ──
 async function processWelcomeBonus(driverId) {
   const { data: driver } = await supabaseAdmin
@@ -438,7 +495,57 @@ async function processWelcomeBonus(driverId) {
   });
 }
 
-// ── Referral Reward: $30 to referrer, $10 to referred on first completion ──
+// ── Referral Reward ──
+// Drivers (trigger first_delivery, 30 Sep 2026): the referred driver gets referred_amount at their
+// 1st completed delivery; the referrer gets referrer_amount once the referred driver has completed
+// REFERRAL_DRIVER_JOBS deliveries. Clients (trigger first_order): both parties on the first order.
+const REFERRAL_DRIVER_JOBS = 3;
+
+// Credit one side of a referral once. The ledger (user + reward id) is the idempotency key,
+// so the confirmed → completed double run and repeated completions can't pay twice.
+async function creditReferralOnce(userId, amount, reward, description, metadata) {
+  if (!(amount > 0)) return false;
+  const { data: existing } = await supabaseAdmin
+    .from('wallet_transactions')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('reference_type', 'referral_reward')
+    .eq('reference_id', reward.id)
+    .limit(1);
+  if (existing && existing.length > 0) return false;
+
+  let { data: wallet } = await supabaseAdmin.from('wallets').select('id').eq('user_id', userId).single();
+  if (!wallet) {
+    const { data: nw } = await supabaseAdmin.from('wallets').insert([{ user_id: userId, balance: 0 }]).select().single();
+    wallet = nw;
+  }
+  if (!wallet) return false;
+
+  const { error } = await supabaseAdmin.rpc('wallet_credit', {
+    p_wallet_id: wallet.id,
+    p_user_id: userId,
+    p_amount: amount,
+    p_type: 'bonus',
+    p_reference_type: 'referral_reward',
+    p_reference_id: reward.id,
+    p_payment_method: 'system',
+    p_description: description,
+    p_metadata: metadata,
+  });
+  if (error) {
+    console.error('[REFERRAL] wallet_credit failed:', error.message);
+    return false;
+  }
+  return true;
+}
+
+async function markBonusBalance(userId, amount) {
+  // Client-side referral credits are not withdrawable
+  const { data: w } = await supabaseAdmin.from('wallets').select('id, bonus_balance').eq('user_id', userId).single();
+  if (!w) return;
+  await supabaseAdmin.from('wallets').update({ bonus_balance: Number(w.bonus_balance || 0) + amount }).eq('id', w.id);
+}
+
 async function processReferralReward(userId, triggerEvent) {
   // Check if user has a pending referral reward
   const { data: reward } = await supabaseAdmin
@@ -451,97 +558,88 @@ async function processReferralReward(userId, triggerEvent) {
 
   if (!reward) return;
 
-  // Check this is actually their first completion
-  const statusFilter = triggerEvent === 'first_delivery'
-    ? { column: 'assigned_driver_id' }
-    : { column: 'client_id' };
-
+  const column = triggerEvent === 'first_delivery' ? 'assigned_driver_id' : 'client_id';
   const { count } = await supabaseAdmin
     .from('express_jobs')
     .select('id', { count: 'exact', head: true })
-    .eq(statusFilter.column, userId)
+    .eq(column, userId)
     .in('status', ['confirmed', 'completed']);
+  const completed = count || 0;
+  const referrerAmount = parseFloat(reward.referrer_amount) || 0;
+  const referredAmount = parseFloat(reward.referred_amount) || 0;
 
-  // Only trigger on first completion (count should be 1 since this job just completed)
-  if (count > 1) {
-    // Already had completed jobs before — mark as missed
+  const { data: referred } = await supabaseAdmin.from('express_users').select('contact_name').eq('id', userId).single();
+  const referredName = referred?.contact_name || 'Someone';
+
+  if (triggerEvent === 'first_delivery') {
+    // Step 1 — the referred driver's own bonus at their first completed delivery
+    if (completed >= 1) {
+      const paid = await creditReferralOnce(userId, referredAmount, reward,
+        'Referral welcome bonus — first delivery completed', { referrer_id: reward.referrer_id });
+      if (paid) {
+        await notify(userId, {
+          type: 'wallet', category: 'account_alerts',
+          title: '🎉 Referral Bonus!',
+          message: `S$${referredAmount} referral bonus credited to your wallet. Welcome to TCG Express!`,
+          url: '/driver/wallet',
+        });
+      }
+    }
+    // Step 2 — the referrer's bonus once the referred driver has completed enough deliveries
+    if (completed >= REFERRAL_DRIVER_JOBS) {
+      const paid = await creditReferralOnce(reward.referrer_id, referrerAmount, reward,
+        `Referral reward — ${referredName} completed ${REFERRAL_DRIVER_JOBS} deliveries`, { referred_id: userId });
+      await supabaseAdmin.from('referral_rewards').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', reward.id);
+      if (paid) {
+        await notify(reward.referrer_id, {
+          type: 'wallet', category: 'account_alerts',
+          title: '🎉 Referral Reward!',
+          message: `Your referral ${referredName} completed ${REFERRAL_DRIVER_JOBS} deliveries. S$${referrerAmount} credited to your wallet!`,
+          url: '/driver/wallet',
+        });
+      }
+    }
+    return;
+  }
+
+  // Clients: only the first completed order counts
+  if (completed > 1) {
+    // Already had completed orders before — mark as missed
     await supabaseAdmin.from('referral_rewards').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', reward.id);
     return;
   }
 
-  // Credit referrer ($30)
-  let { data: referrerWallet } = await supabaseAdmin.from('wallets').select('id').eq('user_id', reward.referrer_id).single();
-  if (!referrerWallet) {
-    const { data: nw } = await supabaseAdmin.from('wallets').insert([{ user_id: reward.referrer_id, balance: 0 }]).select().single();
-    referrerWallet = nw;
-  }
-  if (referrerWallet) {
-    await supabaseAdmin.rpc('wallet_credit', {
-      p_wallet_id: referrerWallet.id,
-      p_user_id: reward.referrer_id,
-      p_amount: parseFloat(reward.referrer_amount),
-      p_type: 'bonus',
-      p_reference_type: 'referral_reward',
-      p_reference_id: reward.id,
-      p_payment_method: 'system',
-      p_description: `Referral reward — your referral completed their first ${triggerEvent === 'first_delivery' ? 'delivery' : 'order'}`,
-      p_metadata: { referred_id: userId },
-    });
-
+  const referrerPaid = await creditReferralOnce(reward.referrer_id, referrerAmount, reward,
+    'Referral reward — your referral completed their first order', { referred_id: userId });
+  if (referrerPaid) {
     // Make non-withdrawable for client referrers
     const { data: referrerUser } = await supabaseAdmin.from('express_users').select('role').eq('id', reward.referrer_id).single();
-    if (referrerUser?.role === 'client') {
-      const { data: rw } = await supabaseAdmin.from('wallets').select('bonus_balance').eq('id', referrerWallet.id).single();
-      await supabaseAdmin.from('wallets').update({ bonus_balance: Number(rw?.bonus_balance || 0) + parseFloat(reward.referrer_amount) }).eq('id', referrerWallet.id);
-    }
+    if (referrerUser?.role === 'client') await markBonusBalance(reward.referrer_id, referrerAmount);
   }
 
-  // Credit referred ($10)
-  let { data: referredWallet } = await supabaseAdmin.from('wallets').select('id').eq('user_id', userId).single();
-  if (!referredWallet) {
-    const { data: nw } = await supabaseAdmin.from('wallets').insert([{ user_id: userId, balance: 0 }]).select().single();
-    referredWallet = nw;
-  }
-  if (referredWallet) {
-    await supabaseAdmin.rpc('wallet_credit', {
-      p_wallet_id: referredWallet.id,
-      p_user_id: userId,
-      p_amount: parseFloat(reward.referred_amount),
-      p_type: 'bonus',
-      p_reference_type: 'referral_reward',
-      p_reference_id: reward.id,
-      p_payment_method: 'system',
-      p_description: 'Referral welcome bonus — thanks for joining via referral!',
-      p_metadata: { referrer_id: reward.referrer_id },
-    });
-
-    // Make non-withdrawable for client referred users
-    if (triggerEvent === 'first_order') {
-      const { data: rw } = await supabaseAdmin.from('wallets').select('bonus_balance').eq('id', referredWallet.id).single();
-      await supabaseAdmin.from('wallets').update({ bonus_balance: Number(rw?.bonus_balance || 0) + parseFloat(reward.referred_amount) }).eq('id', referredWallet.id);
-    }
-  }
+  const referredPaid = await creditReferralOnce(userId, referredAmount, reward,
+    'Referral welcome bonus — thanks for joining via referral!', { referrer_id: reward.referrer_id });
+  if (referredPaid) await markBonusBalance(userId, referredAmount);
 
   // Mark reward as completed
   await supabaseAdmin.from('referral_rewards').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', reward.id);
 
-  // Notify referrer
-  const { data: referred } = await supabaseAdmin.from('express_users').select('contact_name').eq('id', userId).single();
-  const referredName = referred?.contact_name || 'Someone';
-  await notify(reward.referrer_id, {
-    type: 'wallet', category: 'account_alerts',
-    title: '🎉 Referral Reward!',
-    message: `Your referral ${referredName} completed their first ${triggerEvent === 'first_delivery' ? 'delivery' : 'order'}! $${reward.referrer_amount} credited to your wallet!`,
-    url: '/driver/wallet',
-  });
-
-  // Notify referred
-  await notify(userId, {
-    type: 'wallet', category: 'account_alerts',
-    title: '🎉 Referral Bonus!',
-    message: `$${reward.referred_amount} referral bonus credited to your wallet! Welcome to TCG Express!`,
-    url: '/driver/wallet',
-  });
+  if (referrerPaid) {
+    await notify(reward.referrer_id, {
+      type: 'wallet', category: 'account_alerts',
+      title: '🎉 Referral Reward!',
+      message: `Your referral ${referredName} completed their first order! $${reward.referrer_amount} credited to your wallet!`,
+      url: '/client/wallet',
+    });
+  }
+  if (referredPaid) {
+    await notify(userId, {
+      type: 'wallet', category: 'account_alerts',
+      title: '🎉 Referral Bonus!',
+      message: `$${reward.referred_amount} referral bonus credited to your wallet! Welcome to TCG Express!`,
+      url: '/client/wallet',
+    });
+  }
 }
 
 // ── TCG launch top-up ──
