@@ -92,6 +92,25 @@ const SERVICES = [
     cta: '/client/jobs/new',
     ctaLabel: 'Book Now',
   },
+  {
+    key: 'cross_border',
+    icon: '🇲🇾',
+    title: 'Cross-Border: Singapore → Malaysia',
+    subtitle: 'Johor Bahru & Kuala Lumpur, door to door',
+    description:
+      'Hand us the delivery and it is handled: verified cross-border drivers, customs paperwork, live tracking to the door. One quote, one point of contact — nothing is charged until you accept. Pilot runs from October 2026.',
+    features: [
+      'Verified drivers with VEP RFID and Malaysia cover',
+      'Export permit and Malaysian K1 arranged for you',
+      'Van to 3-tonne lorry, tech and office equipment',
+      'Border checkpoints reported live in the app',
+    ],
+    color: '#d97706',
+    gradient: 'linear-gradient(135deg, #f59e0b, #b45309)',
+    tag: 'NEW · PILOT',
+    cta: '/client/jobs/new',
+    ctaLabel: 'Request a Quote',
+  },
 ];
 
 export default function ServicesPage() {
@@ -239,6 +258,33 @@ export default function ServicesPage() {
               }}>{s.ctaLabel}</a>
             </div>
           ))}
+        </div>
+
+        {/* Cross-border SG → MY (30 Sep 2026) */}
+        <div style={{
+          background: 'linear-gradient(135deg, #fffbeb, #fef3c7)', border: '1px solid #fde68a',
+          borderRadius: '20px', padding: m ? '28px 22px' : '40px', marginBottom: '60px',
+          display: 'grid', gridTemplateColumns: m ? '1fr' : '1.4fr 1fr', gap: m ? '20px' : '36px', alignItems: 'center',
+        }}>
+          <div>
+            <span style={{ display: 'inline-block', padding: '4px 12px', borderRadius: '999px', background: '#b45309', color: 'white', fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', marginBottom: '14px' }}>NEW · CROSS-BORDER PILOT</span>
+            <h2 style={{ fontSize: m ? '24px' : '30px', fontWeight: '800', color: '#78350f', margin: '0 0 12px', lineHeight: 1.2 }}>
+              Singapore to Johor Bahru and Kuala Lumpur delivery — handled end to end
+            </h2>
+            <p style={{ fontSize: '15px', color: '#92400e', lineHeight: 1.7, margin: '0 0 18px' }}>
+              Post the job with the consignee and goods details, and leave the rest to us: verified cross-border drivers (VEP RFID, Malaysia insurance cover), the Singapore export permit and Malaysian K1, and live tracking checkpoint by checkpoint. You get one quote and one point of contact, and nothing is charged until you accept. Tech, IT and office equipment, van to 3-tonne lorry, door to door.
+            </p>
+            <a href="/client/jobs/new" style={{ display: 'inline-block', padding: '13px 26px', borderRadius: '10px', background: 'linear-gradient(135deg, #f59e0b, #b45309)', color: 'white', fontSize: '15px', fontWeight: '700', textDecoration: 'none' }}>Request a cross-border quote</a>
+          </div>
+          <div style={{ background: 'white', borderRadius: '16px', padding: '22px', border: '1px solid #fde68a' }}>
+            <div style={{ fontSize: '12px', fontWeight: '800', color: '#b45309', letterSpacing: '0.5px', marginBottom: '10px' }}>HOW IT WORKS</div>
+            <ol style={{ margin: 0, paddingLeft: '20px', color: '#374151', fontSize: '14px', lineHeight: 1.8 }}>
+              <li>Choose Malaysia as the destination and add the consignee and goods details.</li>
+              <li>Verified cross-border drivers quote the whole run — fuel, tolls, road charge and levy included.</li>
+              <li>Accept a quote. Customs paperwork is arranged through licensed declaring agents (fees invoiced separately).</li>
+              <li>Follow the run live: Singapore checkpoint, cleared, Malaysia checkpoint, delivered.</li>
+            </ol>
+          </div>
         </div>
 
         {/* CTA Banner */}

@@ -81,6 +81,12 @@ export default function PreviewPage() {
           Servers, displays, POS, networking gear — see a fixed price before you book, a verified driver takes the job, track it door to door, invoices handled.
         </p>
 
+        {live && (
+          <a href="/services" style={{ display: 'block', marginTop: 16, padding: '12px 14px', borderRadius: 12, background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.45)', color: '#fde68a', fontSize: 14, lineHeight: 1.5, textDecoration: 'none', textAlign: 'left' }}>
+            <span style={{ fontWeight: 800, color: '#fbbf24' }}>NEW · Singapore → Johor Bahru &amp; Kuala Lumpur.</span> Hand us the delivery and it&apos;s handled — drivers, customs paperwork, tracking. One quote, nothing charged until you accept. Pilot runs from October →
+          </a>
+        )}
+
         {!live && (
           <div style={{ marginTop: 22, display: 'flex', gap: 10 }}>
             {[[d, 'DAYS'], [pad(h), 'HRS'], [pad(m), 'MIN'], [pad(s), 'SEC']].map(([v, label]) => (
