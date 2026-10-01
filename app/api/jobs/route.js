@@ -20,6 +20,8 @@ import { isQuoteJob, isCrossBorder, MY_CITIES, CUSTOMS_AGENT_OPTIONS, CROSS_BORD
 import { jobPriceLine, maybeRunDispatchSweep, listActiveDrivers, isSchemaMissing } from '../../../lib/dispatch';
 import { getRouteLabel } from '../../../lib/job-helpers';
 import { cleanString } from '../../../lib/validate';
+import { alertNewJob } from '../../../lib/admin-alerts';
+import { MIN_PICKUP_LEAD_MIN, minPickupMessage } from '../../../lib/job-rules';
 
 /**
  * Cross-border (Malaysia) job details from the request body — Phase 1, 30 Sep 2026.
@@ -367,13 +369,17 @@ export async function POST(request) {
       }
     }
 
-    // Validate pickup time is at least 30 minutes from now
+    // Validate pickup time: at least MIN_PICKUP_LEAD_MIN (60) minutes from now (1 Oct 2026 — the first
+    // organic job gave drivers 31 minutes and nobody accepted in time).
     const pickupBy = body.pickup_date || body.pickup_by || null;
     if (pickupBy) {
       const pickupTime = new Date(pickupBy);
-      const minPickup = new Date(Date.now() + 29 * 60000); // 29 min to allow slight clock drift
+      const minPickup = new Date(Date.now() + (MIN_PICKUP_LEAD_MIN - 1) * 60000); // 1 min slack for clock drift
+      if (Number.isNaN(pickupTime.getTime())) {
+        return NextResponse.json({ error: 'Invalid pickup time' }, { status: 400 });
+      }
       if (pickupTime < minPickup) {
-        return NextResponse.json({ error: 'Minimum pickup time is 30 minutes from now' }, { status: 400 });
+        return NextResponse.json({ error: minPickupMessage(), code: 'pickup_too_soon', min_lead_min: MIN_PICKUP_LEAD_MIN }, { status: 400 });
       }
     }
 
@@ -575,6 +581,7 @@ export async function POST(request) {
     const alertDrivers = activeDrivers.filter(d => !crossBorderJob || d.cross_border_ready === true);
 
     // Push notifications (Expo + Web via sendPushToUser) — drivers only
+    let pushedDrivers = 0;
     try {
       const driverIdSet = new Set(alertDrivers.map(u => u.id));
 
@@ -584,6 +591,7 @@ export async function POST(request) {
 
       if (subs && subs.length > 0) {
         const uniqueUserIds = [...new Set(subs.map(s => s.user_id))].filter(id => driverIdSet.has(id));
+        pushedDrivers = uniqueUserIds.length;
         console.log(`[JOB-PUSH] Web push to ${uniqueUserIds.length} subscribed drivers`);
 
         const results = await Promise.allSettled(
@@ -625,6 +633,10 @@ export async function POST(request) {
     } catch (notifErr) {
       console.error('[JOB-NOTIF] In-app notification error:', notifErr?.message);
     }
+
+    // Admin safety net (1 Oct 2026): the humans hear about every live job — email + admin push.
+    // Runs after the response; the dispatch sweep sends the "no driver after 5 min" follow-up.
+    after(() => alertNewJob(data, { pushed: pushedDrivers, inApp: alertDrivers.length }));
 
     // Record green points for EV delivery
     if (jobData.is_ev_selected && jobData.green_points_earned > 0) {

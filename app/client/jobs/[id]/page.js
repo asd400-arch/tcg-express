@@ -221,8 +221,20 @@ export default function ClientJobDetail({ params }) {
 
   const cancelJob = async () => {
     if (!confirm('Cancel this job?')) return;
-    await supabase.from('express_jobs').update({ status: 'cancelled' }).eq('id', jobId);
-    toast.info('Job cancelled');
+    // Through the API (1 Oct 2026): records who cancelled and when, and alerts the admins so
+    // someone can call a customer who gave up waiting for a driver.
+    try {
+      const res = await fetch(`/api/jobs/${jobId}/cancel`, { method: 'POST' });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(result.error || 'Could not cancel the job');
+        return;
+      }
+      toast.info('Job cancelled');
+    } catch {
+      toast.error('Could not cancel the job');
+      return;
+    }
     loadData();
   };
 

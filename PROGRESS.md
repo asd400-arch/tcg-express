@@ -2,7 +2,7 @@
 
 > **이 파일의 목적**: 새 채팅창을 열었을 때 이 파일 하나만 읽으면 바로 이어서 작업할 수 있게 하는 것.
 > **갱신 규칙**: 매일 작업 종료 시 `## 날짜별 기록` 맨 위에 그날 항목을 추가한다. 상단 요약(현재 상태·열린 결정)은 변경된 것만 덮어쓴다.
-> 마지막 갱신: **2026-09-30 (수) 09:20 SGT** (평일 아침 점검 · ACRA 이메일 인증 당일 마감 · CustomPrint 견적 당일 만료 · Raffles 회신 6일 미발송)
+> 마지막 갱신: **2026-10-01 (목) 09:15 SGT** (평일 아침 점검 · Raffles 회신 7일 미발송 · CustomPrint 견적 9/30 만료 · 점검 지시문 마감 목록 소진)
 
 ---
 
@@ -13,7 +13,7 @@
 | 회사 | Tech Chain Global Pte Ltd (UEN 202005872W) |
 | 서비스 | TCG Express — 싱가포르 B2B IT 장비 배송 마켓플레이스 |
 | **런칭일** | **2026년 9월 1일 (화)** |
-| 오늘 기준 | **2026-09-30 (수)** — 오픈 후 D+29 |
+| 오늘 기준 | **2026-10-01 (목)** — 오픈 후 D+30 |
 | 대표 | Scott (대외 발송물은 성 없이 "Scott". 법인/은행/계약 문서만 "Scott Park") |
 | 스캇님 소재 | **UAE 체류 중 (2026-09-01 기준).** 은행·계정 로그인 위치 경고는 이 소재지와 대조한 뒤에만 보고. 소재지 바뀌면 이 줄 갱신. |
 | 웹 | https://app.techchainglobal.com · https://techchainglobal.com |
@@ -182,6 +182,26 @@
 ---
 
 ## 4. 날짜별 기록
+
+### 2026-10-01 (목) — 평일 아침 점검. **Raffles 회신 7일 미발송(스레드 침묵 9일) · CustomPrint 견적 어제 만료(통보 없이 소멸 임박) · 본 점검 지시문의 마감 목록 소진**
+
+- **★ Raffles(Ahmad) 홀드 확인 회신 — 초안 `r-4959279156898192565`(9/24 01:10Z) 7일째(168시간) 임시보관함.** 스레드 최종 = 9/22 03:43Z Ahmad "진행 여부 알려달라" → **9일 침묵.** Ahmad는 아트웍 PDF 수령 + 프루프 발송 예정 상태 → 배지30·랜야드30 무단 착수 리스크 유지. 신규 수신 0건. 8/31·9/10·9/15 수신 메일 여전히 UNREAD. → **오늘 발송 또는 전화**(1 Woodlands Industrial Park E1 #02-01A, 09–18시). 같은 스레드군에 사용되지 않은 구 초안 3건(`r475037972575369668`·`r7092788109573616790` 9/15, `r-951895177208807519` 9/14) 잔존 — 발송 전 정리 필요.
+- **★ CustomPrint(Loghini) 견적 9/30 만료 — 어제 소멸.** 탈락 통보 초안 `r1679263728040096962` **7일째 미발송.** 벤더 최종 발신 9/22 01:07Z(4지선다 독촉) 9일째 미확인(UNREAD). 조건: $15.10/장(50장), 비GST, 리드타임 15영업일. **결정 필요: 만료 사실을 적시한 종결 통보를 오늘 보낼지, 통보 없이 종료할지.**
+- **★ 본 작업 지시문 2단계 마감 목록이 오늘부로 전부 소진.** 9/14–9/30 고정 목록 → 10/1 기준 해당 항목 0건. 9/30 점검에서 지적한 대로 마스터 일정 재작성 후 지시문 교체 필요. 1단계 발신처 목록의 airmarket·mentormedia·airsealogistics 3곳은 창고 캐파 트랙(열람·보고 금지)이므로 제외 대상 — **본 점검에서는 열람하지 않음.**
+- **신규 견적 0건.** 이번 점검에서 새로 확인된 단가·납기 숫자 없음.
+- **드라이버 테스트 초대 46통 발송 확인(9/30 17:20–17:23 SGT).** 9/30 저녁 기록의 "초대 이메일 스캇님 go 대기"는 **발송 완료로 정정**(R6). 14일 실테스트 시계 시작 → **Play 프로덕션 재신청 10/14–15.** Play 발신 메일은 9/15 거부 통지 이후 16일간 0건.
+- **크로스보더 통관 파트너**: IFG 9/30 11:14Z 회신 — 담당 Ms Jiha(nurjiha@ifgshipping.com) 인계, 실답변 대기. LorrySifu 무응답. **Bills Logistic(contact@billslogistic.com) 메일 반송** — 수신 서버 차단, 대체 연락처 확보 필요.
+- **★ 왜 고객은 늘어도 배송이 안 올라오나(1 Oct 데이터 진단 → 대책 코드)**: 고객 계정 24 = 베타·테스트·거래처 10 + 본인/테스트 3 + 회사명 없는 개인 5(기사 오가입 추정) + 이메일 오타 1(hotmial.com) + 런칭 후 실제 사업체 6(Pohang Susan 9/25, zmoove 9/28, Sin Li Electronics·Hawko Trading·Tech deals·CardGaiden 9/30; Sin Li·Hawko는 심림 프로모터 PROMO 코드). UEN 입력 0/24. **첫 자연 유입 주문 TCG-2026-00010(CardGaiden, 심림스퀘어→웨스트코스트, car S$11, 16:34 게시, 픽업 17:05=앱 기본값 now+30분)이 35분 만에 사망**: 인앱 73명·푸시 가능 기사 11명(승용차·MPV 4명), 16:45 부스트 넛지, 17:09 고객이 웹 'Cancel Job'(anon 직접 update → cancelled_at 없음). 승인 기사 66 중 푸시 토큰 11.
+  - 코드(1 Oct 저녁, 푸시 대기): `lib/admin-alerts.js`(신규: 새 잡·5분 미수락·릴리즈·오픈잡 취소 → role=admin 인앱+푸시 + ADMIN_ALERT_EMAILS(기본 admin@) 이메일, NOTIFICATION_EMAILS 게이트 우회, 기사 콜리스트 포함), `lib/dispatch.js` 스위프 0단계(`admin_alerted_at` 가드, `sql/2026-10-01-admin-alerts.sql` 미실행 시 경고만), `releaseAssignedDriver` 어드민 알림, `POST /api/jobs` after(alertNewJob) + 픽업 최소 60분(`lib/job-rules.js` MIN_PICKUP_LEAD_MIN, code pickup_too_soon), 취소 라우트 어드민 알림 + 웹 'Cancel Job'을 API 경유로, 웹/앱 잡 폼 기본 픽업 now+60(15분 반올림)·검증·안내 문구 "Earliest pickup 60 min… if nobody has, we call you"(앱 `pickupTouched`: 기본값이 지나면 조용히 앞으로 당김). Vercel env 선택: `ADMIN_ALERT_EMAILS=admin@techchainglobal.com,<스캇 앱 로그인 이메일>` → 폰 푸시.
+  - 나머지 대책(스캇님 결정): CardGaiden Marcus Ong 직접 연락(초안 전달), 신규 사업체 6곳 48시간 내 개인 메시지(초안 marketing/customers/), FIRST10 UEN을 첫 주문 폼에서, 10월 사업체 가입 전원 S$15, 프로모터 인센티브 '가입 S$2 + 첫 배송 완료 S$5', 텔레그램 잡 채널, 'Van'/'Nvan' vehicle_type 정정(필터는 통과하지만 표시·요금 오류).
+- **크로스보더 업체 미팅 팩 작성(스캇님 "리스크 안 떠안는 구조로 바로 미팅 가능하게")**: `marketing/crossborder/TCG-crossborder-partner-meeting-guide-2026-10-01.md`(한글 가이드: 원칙·리스크 매트릭스·미팅별 받을 것/양보/레드라인·견적 구조·앱/약관 수정안) + `marketing/crossborder/meeting-pack/`(영문 docx+pdf 4종: 통관 에이전트 partner brief 4쪽, 화물보험 오픈커버 RFQ 3쪽, Cross-Border Addendum 초안 v0.1 3쪽, 파일럿 고객 1장). 구조: TCG = 플랫폼·paying agent(declarant/exporter/importer/carrier 아님), 에이전트는 shipper·consignee가 건별 appointment letter로 선임(framework는 요율·SLA만), 관세·SST는 수하인→에이전트 직접, 손해는 운전자 캡 + 고객 선택 보험(ICC(A) 오픈커버 목표 요율 0.25~0.35%, 최소 S$25/건). **앱 수정 대기(승인 필요)**: LiabilityCapModal의 "Claims exceeding the cap are covered by the platform's insurance" 삭제(플랫폼 보험 없음), 약관 §10(d)·§14 신설 + TC_VERSION 1.2, 크로스보더 잡 폼 애드덤 동의 체크박스, 운전자 토글 규칙 동의. 애드덤 7.2(b) S$5/kg 한도 유지 여부 = 스캇님 결정.
+- **Fatty(Ginnie)**: 신규 메일 0건. 전단 2,000장 수령 완료·배송료 취소 확인 상태 유지. 남은 미결 **택스 인보이스 미수령** 1건. 폐기 대상 초안 `r-4120702454327990361` 임시보관함 잔존 — **발송 금지.**
+- **침묵 유지**: Lim Sign · Kiasu Print · ADV(Cindy) 메일 0건(각 5주+). Dekawrap(Betty) 9/21 이후 10일 무신규 — 차량 데칼 단독 견적 상태 유지.
+- **프로모터**: 확정 **0/15 변동 없음.** Henry(cheepothrills)·Xavier(xavierwan73) 메일 0건(20일+), **Xavier WhatsApp 번호 미확보.** MCF-2026-1509996 9/27 마감 — 재게시 미결. 교육·첫 근무 일정은 Android 공개(≈10/12~) 기준 재산정 필요.
+- **배지 MOQ 미해결(이월).** Raffles 표준 MOQ 50장 → 30장 별도 견적 요청·수령 0건. 이 숫자 없이는 배지 발주 불가.
+- **인쇄 수량**: 전단 2,000장만 확정·수령. 배지30·티셔츠50·배너2 홀드 — 15명 전제 수량이므로 인원 확정 후 재산정(이월).
+- **기한**: ContactOne S$185 납부 **10/7** + 선임 ad-hoc $40. WhatsApp 서비스 메시지 과금 변경 **오늘(10/1)** 발효 — API 보류 결정이라 조치 없음.
+- **스캇님 결정 대기(이월)**: S$15 존 캠페인 off, 전단/프로모터 키트 문구 갱신(입찰 모델 잔존), Loh Hui Lin·Jacqueline 등록 여부, 크로스보더 실사용 테스트.
 
 ### 2026-09-30 (수) — 오후·저녁. **Android 빌드 12 → Play 비공개 테스트 라이브 · 프로모터 QR 첫 발급(SIMLIM-P01) · 전단 QR/프로모션 구조 불일치 확인 · 드라이버 대규모 모집 착수(보너스 개편 배포 완료) · Carousell 기사 리스팅 갱신 · WhatsApp Business 전환 계획 · 크로스보더(JB·KL) 1단계 배포 완료 + 통관 파트너 문의 발송**
 

@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { supabaseAdmin } from '../../../../../lib/supabase-server';
 import { getSession } from '../../../../../lib/auth';
+import { alertOpenJobCancelled } from '../../../../../lib/admin-alerts';
 
 export async function POST(request, { params }) {
   try {
@@ -38,10 +39,17 @@ export async function POST(request, { params }) {
         cancelled_by: session.role,
       })
       .eq('id', jobId)
+      .in('status', ['open', 'bidding'])
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (!data) return NextResponse.json({ error: 'The job just changed (a driver may have accepted). Refresh and check.' }, { status: 409 });
+
+    // Admin safety net (1 Oct 2026): a customer giving up on a job nobody accepted is worth a phone call.
+    if (session.role !== 'admin') {
+      after(() => alertOpenJobCancelled(data, { by: session.role }));
+    }
 
     return NextResponse.json({ data });
   } catch (err) {

@@ -16,6 +16,7 @@ import {
 } from '../../../../lib/fares';
 import { findMatchingZones, calculateZoneSurcharge, isInRestrictedZone } from '../../../../lib/geo';
 import { toLocalDatetime } from '../../../../lib/job-helpers';
+import { defaultPickupDate, pickupTooSoon, minPickupMessage, PICKUP_LEAD_NOTE } from '../../../../lib/job-rules';
 import { isQuoteJob, MY_CITIES, CUSTOMS_AGENT_OPTIONS } from '../../../../lib/pricing-mode';
 import useLocale from '../../../components/useLocale';
 
@@ -361,14 +362,11 @@ export default function NewJob() {
     if (Object.keys(errs).length > 0) { setErrors(errs); toast.error(Object.values(errs)[0] || 'Please fill in all required fields'); if (Object.keys(errs).some(k => k.startsWith('xb_'))) setStep(1); return; }
     if (!crossBorder && zoneWarning?.type === 'restricted') { toast.error(zoneWarning.message); return; }
 
-    // Validate pickup time is at least 30 minutes from now
-    const minPickup = new Date(Date.now() + 30 * 60000);
-    if (form.pickup_by) {
-      const pickupTime = new Date(form.pickup_by);
-      if (pickupTime < minPickup) {
-        toast.error('Minimum pickup time is 30 minutes from now');
-        return;
-      }
+    // Validate pickup time is at least MIN_PICKUP_LEAD_MIN (60) minutes from now (1 Oct 2026)
+    if (form.pickup_by && pickupTooSoon(form.pickup_by)) {
+      setErrors(prev => ({ ...prev, pickup_by: minPickupMessage() }));
+      toast.error(minPickupMessage());
+      return;
     }
 
     // Check wallet balance before creating job (cross-border: nothing is charged until you accept a quote)
@@ -1350,9 +1348,10 @@ export default function NewJob() {
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
-                <div><label style={label}>Pickup By</label><input type="datetime-local" style={input} value={form.pickup_by} onChange={e => set('pickup_by', e.target.value)} min={toLocalDatetime(Date.now() + 30 * 60000)} /></div>
-                <div><label style={label}>Deliver By</label><input type="datetime-local" style={input} value={form.deliver_by} onChange={e => set('deliver_by', e.target.value)} min={form.pickup_by || toLocalDatetime(Date.now() + 30 * 60000)} /></div>
+                <div><label style={label}>Pickup By</label><input type="datetime-local" style={inputErr('pickup_by')} value={form.pickup_by} onChange={e => { set('pickup_by', e.target.value); setErrors(prev => { const { pickup_by, ...rest } = prev; return rest; }); }} min={toLocalDatetime(defaultPickupDate().getTime())} /><div style={errText('pickup_by')}>{errors.pickup_by}</div></div>
+                <div><label style={label}>Deliver By</label><input type="datetime-local" style={input} value={form.deliver_by} onChange={e => set('deliver_by', e.target.value)} min={form.pickup_by || toLocalDatetime(defaultPickupDate().getTime())} /></div>
               </div>
+              <p style={{ fontSize: '12px', color: '#475569', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '8px 10px', marginTop: '-4px', marginBottom: '14px' }}>{PICKUP_LEAD_NOTE}</p>
               {crossBorder && (
                 <p style={{ fontSize: '12px', color: '#854d0e', background: '#fefce8', border: '1px solid #fde68a', borderRadius: '8px', padding: '8px 10px', marginBottom: '14px' }}>
                   🛂 Cross-border: set the pickup at least 24 hours ahead so the customs permits can be filed. Motorcycles can't be used — the smallest vehicle is a car.
