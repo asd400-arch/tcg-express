@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import UnitBadge from '../../components/UnitBadge';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../components/AuthContext';
 import useLocale from '../../components/useLocale';
@@ -466,6 +467,7 @@ export default function DriverMyJobs() {
                     </div>
                     <div style={{ fontSize: '13px', color: '#374151' }}>{job.item_description}</div>
                     <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>{isCrossBorder(job) ? '🇲🇾' : '📍'} {job.pickup_address} → {job.delivery_address}</div>
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '4px' }}><UnitBadge compact label="Pickup" address={job.pickup_address} />{!isCrossBorder(job) && <UnitBadge compact label="Drop" address={job.delivery_address} />}</div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     {unreadByJob[job.id] > 0 && (
@@ -668,6 +670,7 @@ export default function DriverMyJobs() {
                   <div style={card}>
                     <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b', marginBottom: '10px' }}>📍 Pickup</h3>
                     <div style={{ fontSize: '14px', color: '#374151' }}>{selected.pickup_address}</div>
+                    <UnitBadge address={selected.pickup_address} />
                     {selected.pickup_contact && <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>👤 {selected.pickup_contact} {selected.pickup_phone}</div>}
                     {selected.pickup_instructions && <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>📝 {selected.pickup_instructions}</div>}
                     {['assigned', 'pickup_confirmed'].includes(selected.status) && selected.pickup_address && (
@@ -681,6 +684,7 @@ export default function DriverMyJobs() {
                   <div style={card}>
                     <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b', marginBottom: '10px' }}>📦 Delivery</h3>
                     <div style={{ fontSize: '14px', color: '#374151' }}>{selected.delivery_address}</div>
+                    {!isCrossBorder(selected) && <UnitBadge address={selected.delivery_address} />}
                     {selected.delivery_contact && <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>👤 {selected.delivery_contact} {selected.delivery_phone}</div>}
                     {selected.delivery_instructions && <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>📝 {selected.delivery_instructions}</div>}
                     {selected.status === 'in_transit' && selected.delivery_address && (

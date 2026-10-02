@@ -364,6 +364,18 @@ export default function DriverSettings() {
 
         <NotificationPreferences user={user} onSave={updateUser} toast={toast} />
 
+        {/* Driver code (2 Oct 2026): customers type it to book this driver directly */}
+        {user.driver_code && (
+          <div style={card}>
+            <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b', marginBottom: '8px' }}>📌 My driver code{user.tcg_fleet ? <span style={{ marginLeft: '8px', fontSize: '11px', fontWeight: '800', padding: '2px 8px', borderRadius: '6px', background: '#dbeafe', color: '#1d4ed8', verticalAlign: 'middle' }}>TCG FLEET</span> : null}</h3>
+            <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '12px' }}>Give this code to your regular customers. When they post a delivery and choose "Specific driver", the job goes to you only.</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '26px', fontWeight: '800', letterSpacing: '0.15em', fontFamily: 'monospace', color: '#0f172a' }}>{user.driver_code}</span>
+              <button onClick={() => { try { navigator.clipboard.writeText(user.driver_code); toast.success('Driver code copied'); } catch {} }} style={{ padding: '6px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', background: 'white', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>Copy</button>
+            </div>
+          </div>
+        )}
+
         {/* Referral Program */}
         {user.referral_code && (
           <div style={card}>

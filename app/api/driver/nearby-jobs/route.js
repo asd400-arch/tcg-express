@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../../lib/supabase-server';
 import { getSession } from '../../../../lib/auth';
 import { checkVehicleFit } from '../../../../lib/fares';
+import { driverCanTakeJob, loadDriverPoolProfile } from '../../../../lib/driver-pool';
 
 // GET: Find nearby pending jobs within radius
 export async function GET(request) {
@@ -26,6 +27,8 @@ export async function GET(request) {
     if (driverErr) {
       ({ data: driver } = await supabaseAdmin.from('express_users').select('vehicle_type').eq('id', session.userId).single());
     }
+
+    const poolMe = await loadDriverPoolProfile(session.userId);
 
     // Get driver's current queue count
     const { data: queueItems } = await supabaseAdmin
@@ -56,6 +59,9 @@ export async function GET(request) {
 
       // Cross-border (Malaysia) jobs: verified cross-border drivers only
       if (job.cross_border && driver?.cross_border_ready !== true) return false;
+
+      // TCG fleet / booked-driver jobs
+      if (!driverCanTakeJob(job, poolMe)) return false;
 
       // Must have a minimum budget
       const minBudget = parseFloat(job.budget_min) || 0;

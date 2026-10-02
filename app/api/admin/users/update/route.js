@@ -3,7 +3,7 @@ import { supabaseAdmin } from '../../../../../lib/supabase-server';
 import { getSession } from '../../../../../lib/auth';
 import { notify } from '../../../../../lib/notify';
 
-const ALLOWED_FIELDS = ['driver_status', 'is_active', 'cross_border_ready'];
+const ALLOWED_FIELDS = ['driver_status', 'is_active', 'cross_border_ready', 'tcg_fleet'];
 const ALLOWED_DRIVER_STATUSES = ['approved', 'rejected', 'suspended', 'pending'];
 
 export async function POST(request) {
@@ -54,6 +54,14 @@ export async function POST(request) {
       safeUpdates.cross_border_verified_at = safeUpdates.cross_border_ready ? new Date().toISOString() : null;
     }
 
+    // TCG Express fleet membership (2 Oct 2026): fleet-only jobs reach these drivers
+    if ('tcg_fleet' in safeUpdates) {
+      if (typeof safeUpdates.tcg_fleet !== 'boolean') {
+        return NextResponse.json({ error: 'tcg_fleet must be boolean' }, { status: 400 });
+      }
+      safeUpdates.tcg_fleet_since = safeUpdates.tcg_fleet ? new Date().toISOString() : null;
+    }
+
     const { error } = await supabaseAdmin
       .from('express_users')
       .update(safeUpdates)
@@ -90,6 +98,16 @@ export async function POST(request) {
         type: 'account', category: 'account_alerts',
         title: 'Cross-border runs unlocked 🇲🇾',
         message: 'You can now see and quote Singapore → Johor Bahru / Kuala Lumpur jobs. Keep your VEP RFID, Malaysia insurance and passport valid.',
+        url: '/driver/jobs',
+        data: { type: 'account', role: 'driver' },
+      }).catch(() => {});
+    }
+
+    if (safeUpdates.tcg_fleet === true) {
+      await notify(userId, {
+        type: 'account', category: 'account_alerts',
+        title: 'Welcome to the TCG Express fleet',
+        message: 'You will now also get jobs booked for the TCG Express fleet. Customers can also book you directly with your driver code (see Settings).',
         url: '/driver/jobs',
         data: { type: 'account', role: 'driver' },
       }).catch(() => {});

@@ -70,6 +70,19 @@ export default function AdminDrivers() {
     loadData();
   };
 
+  // TCG Express fleet (2 Oct 2026): fleet-only jobs go to these drivers
+  const setFleet = async (id, on) => {
+    const res = await fetch('/api/admin/users/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: id, updates: { tcg_fleet: on } }),
+    });
+    const result = await res.json().catch(() => ({}));
+    if (!res.ok) { toast.error(result.error || 'Update failed'); return; }
+    toast.success(on ? 'Added to TCG fleet — driver notified' : 'Removed from TCG fleet');
+    loadData();
+  };
+
   const isPdf = (url) => url && url.toLowerCase().endsWith('.pdf');
 
   const DocThumbnail = ({ url, label }) => {
@@ -124,7 +137,11 @@ export default function AdminDrivers() {
                 <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
                   <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: '700', color: '#64748b' }}>{(d.contact_name || 'D')[0]}</div>
                   <div>
-                    <div style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b' }}>{d.contact_name}</div>
+                    <div style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      {d.contact_name}
+                      {d.driver_code && <span style={{ fontSize: '11px', fontWeight: '800', letterSpacing: '0.08em', padding: '2px 8px', borderRadius: '6px', background: '#f1f5f9', color: '#334155', fontFamily: 'monospace' }}>CODE {d.driver_code}</span>}
+                      {d.tcg_fleet && <span style={{ fontSize: '11px', fontWeight: '800', padding: '2px 8px', borderRadius: '6px', background: '#dbeafe', color: '#1d4ed8' }}>TCG FLEET</span>}
+                    </div>
                     <div style={{ fontSize: '13px', color: '#64748b' }}>{d.email} • {d.phone}</div>
                     <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>{d.vehicle_type} • {d.vehicle_plate} • License: {d.license_number}</div>
                     {d.nric_number && <div style={{ fontSize: '12px', color: '#94a3b8' }}>NRIC: {d.nric_number}{d.business_reg_number ? ` • BRN: ${d.business_reg_number}` : ''}</div>}
@@ -149,6 +166,11 @@ export default function AdminDrivers() {
                     {d.driver_status === 'approved' && <button onClick={() => updateStatus(d.id, 'suspended')} style={{ padding: '5px 12px', borderRadius: '6px', border: 'none', background: '#f59e0b', color: 'white', fontSize: '11px', fontWeight: '600', cursor: 'pointer' }}>Suspend</button>}
                     {d.driver_status !== 'rejected' && <button onClick={() => updateStatus(d.id, 'rejected')} style={{ padding: '5px 12px', borderRadius: '6px', border: 'none', background: '#ef4444', color: 'white', fontSize: '11px', fontWeight: '600', cursor: 'pointer' }}>Reject</button>}
                   </div>
+                  {d.driver_status === 'approved' && d.tcg_fleet !== undefined && (
+                    <button onClick={() => setFleet(d.id, !d.tcg_fleet)} style={{ padding: '5px 12px', borderRadius: '6px', border: d.tcg_fleet ? '1px solid #3b82f6' : 'none', background: d.tcg_fleet ? 'white' : '#2563eb', color: d.tcg_fleet ? '#1d4ed8' : 'white', fontSize: '11px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>
+                      {d.tcg_fleet ? 'Remove from TCG fleet' : 'Add to TCG fleet'}
+                    </button>
+                  )}
                   {(d.cross_border_requested || d.cross_border_ready) && d.driver_status === 'approved' && (
                     <button onClick={() => setCrossBorder(d.id, !d.cross_border_ready)} style={{ padding: '5px 12px', borderRadius: '6px', border: d.cross_border_ready ? '1px solid #f59e0b' : 'none', background: d.cross_border_ready ? 'white' : '#d97706', color: d.cross_border_ready ? '#b45309' : 'white', fontSize: '11px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>
                       {d.cross_border_ready ? '🇲🇾 Revoke cross-border' : '🇲🇾 Verify cross-border'}

@@ -7,6 +7,8 @@ import { buildPaymentsBreakdown } from '../../../../../lib/bid-breakdown';
 import { getCommissionRate } from '../../../../../lib/zero-commission';
 import { isQuoteJob, driverPrice } from '../../../../../lib/pricing-mode';
 import { hasRecentNoShow } from '../../../../../lib/dispatch';
+import { driverCanTakeJob, loadDriverPoolProfile, poolBlockMessage, isSalaryJob } from '../../../../../lib/driver-pool';
+import { isInvoiceJob, assignInvoiceTrip } from '../../../../../lib/contract';
 
 // POST: Driver accepts a fixed-price job — first driver to accept gets it (27 Sep 2026).
 // The driver is paid the fixed price (customer price + TCG-funded voucher); the customer is
@@ -36,7 +38,7 @@ export async function POST(request, { params }) {
     // Fetch job to get budget and client_id
     const { data: job, error: jobErr } = await supabaseAdmin
       .from('express_jobs')
-      .select('id, client_id, status, job_number, budget_max, budget_min, vehicle_required, fare_breakdown, coupon_discount, coupon_id, equipment_needed')
+      .select('*') // whole row: includes driver_pool / target_driver_id once the 2 Oct migration has run
       .eq('id', jobId)
       .single();
 
@@ -76,6 +78,12 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: 'Your driver account is not approved yet.' }, { status: 403 });
     }
 
+    // TCG fleet / booked-driver jobs (2 Oct 2026)
+    const poolMe = await loadDriverPoolProfile(session.userId);
+    if (!driverCanTakeJob(job, poolMe)) {
+      return NextResponse.json({ error: poolBlockMessage(job), code: 'driver_pool_blocked' }, { status: 403 });
+    }
+
     // Reliability: a recent no-show blocks instant accepts for 30 days (an admin can clear it)
     if (await hasRecentNoShow(session.userId)) {
       return NextResponse.json({
@@ -91,6 +99,26 @@ export async function POST(request, { params }) {
           error: `Your vehicle is too small for this job. Required: ${fit.required}`,
         }, { status: 400 });
       }
+    }
+
+    // Contract (invoice-billed) jobs (2 Oct 2026): no wallet debit, no escrow — the driver takes the whole trip
+    if (isInvoiceJob(job)) {
+      const res = await assignInvoiceTrip(job, session.userId);
+      if (!res.ok) return NextResponse.json({ error: res.error }, { status: res.status });
+      const drops = res.jobs.length;
+      try {
+        const { data: drv } = await supabaseAdmin.from('express_users').select('contact_name').eq('id', session.userId).single();
+        await notify(job.client_id, {
+          type: 'job', category: 'bid_activity',
+          title: drops > 1 ? `Driver assigned to your ${drops}-drop trip` : `Driver found for ${job.job_number}!`,
+          message: `${drv?.contact_name || 'A driver'} accepted. Billed on your monthly invoice.`,
+          referenceId: jobId,
+          data: { job_id: jobId, role: 'client' },
+        });
+      } catch {}
+      const salary = await isSalaryJob(job, session.userId);
+      const message = `${drops > 1 ? `All ${drops} drops of this trip are yours` : 'The job is yours'}${salary ? ' — fleet work, counted towards your monthly pay' : ' — paid per drop when delivered'}. Open My Jobs and tap "I'm on my way" before pickup.`;
+      return NextResponse.json({ success: true, invoice: true, drops, message, jobs: res.jobs.map((j) => ({ id: j.id, job_number: j.job_number })) });
     }
 
     // Fixed price for the driver = what the customer pays + the TCG-funded voucher

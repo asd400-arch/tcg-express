@@ -49,6 +49,13 @@ export async function POST(request, { params }) {
     if (!['open', 'bidding'].includes(job.status)) {
       return NextResponse.json({ error: 'A driver has already taken this job.' }, { status: 409 });
     }
+    // Contract jobs have a fixed rate card price (2 Oct 2026)
+    {
+      const { data: bm } = await supabaseAdmin.from('express_jobs').select('*').eq('id', job.id).maybeSingle();
+      if (bm?.billing_mode === 'invoice') {
+        return NextResponse.json({ error: 'Contract jobs have a fixed rate — the price cannot be raised.' }, { status: 400 });
+      }
+    }
     if (isQuoteJob(job)) {
       return NextResponse.json({ error: 'This job takes quotes — drivers set their own price.' }, { status: 400 });
     }

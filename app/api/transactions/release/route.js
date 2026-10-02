@@ -4,6 +4,7 @@ import { getSession } from '../../../../lib/auth';
 import { notify } from '../../../../lib/notify';
 import { rateLimiters, applyRateLimit } from '../../../../lib/rate-limiters';
 import { requireUUID } from '../../../../lib/validate';
+import { isSalaryJob, settleSalaryJob } from '../../../../lib/driver-pool';
 
 export async function POST(req) {
   const controller = new AbortController();
@@ -35,6 +36,19 @@ export async function POST(req) {
     }
     if (job.client_id !== session.userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
+    // Salaried TCG fleet driver (2 Oct 2026): settle to TCG, no wallet credit
+    {
+      const { data: j2 } = await supabaseAdmin.from('express_jobs').select('*').eq('id', jobId).maybeSingle();
+      if (j2?.billing_mode === 'invoice') {
+        return NextResponse.json({ error: 'This job is billed on your monthly invoice — there is no wallet payment to release.' }, { status: 400 });
+      }
+      if (j2?.assigned_driver_id && await isSalaryJob(j2, j2.assigned_driver_id)) {
+        const r = await settleSalaryJob(jobId, j2.assigned_driver_id);
+        if (!r.escrow) return NextResponse.json({ error: 'No held payment to release for this job' }, { status: 400 });
+        return NextResponse.json({ data: { success: true, salary: true } });
+      }
     }
 
     // ATOMIC: single RPC call does escrow verify + driver wallet credit + mark paid

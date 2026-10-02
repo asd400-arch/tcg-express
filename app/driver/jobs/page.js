@@ -1,5 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
+import UnitBadge from '../../components/UnitBadge';
+import { driverCanTakeJob, collapseTrips } from '../../../lib/driver-pool-rules';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../components/AuthContext';
 import Sidebar from '../../components/Sidebar';
@@ -93,9 +95,10 @@ export default function DriverJobs() {
         return;
       }
 
-      const rawJobs = jobsRes.data || [];
+      const rawJobs = collapseTrips(jobsRes.data || []);
       const allJobs = rawJobs.filter(j => {
         if (j.is_corp_premium) return false;
+        if (!driverCanTakeJob(j, user)) return false; // TCG fleet / booked-driver jobs (2 Oct 2026)
         if (j.vehicle_required && j.vehicle_required !== 'any' && user.vehicle_type) {
           const fit = checkVehicleFit(user.vehicle_type, j.vehicle_required);
           if (!fit.ok) return false;
@@ -164,7 +167,7 @@ export default function DriverJobs() {
         setAccepting(null);
         return;
       }
-      toast.success(`The job is yours! You'll earn $${result.payout}. Open My Jobs and tap "I'm on my way" before pickup.`);
+      toast.success(result.message || `The job is yours! You'll earn $${result.payout}. Open My Jobs and tap "I'm on my way" before pickup.`);
       setAccepting(null);
       setDetailJob(null);
       loadData();
@@ -357,12 +360,14 @@ export default function DriverJobs() {
               <div style={card}>
                 <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#3b82f6', marginBottom: '10px' }}>PICKUP</h3>
                 <div style={{ fontSize: '14px', color: '#1e293b', fontWeight: '600', marginBottom: '6px' }}>{detailJob.pickup_address}</div>
+                <UnitBadge address={detailJob.pickup_address} />
                 {detailJob.pickup_contact && <div style={{ fontSize: '13px', color: '#64748b' }}>{detailJob.pickup_contact} {detailJob.pickup_phone ? `| ${detailJob.pickup_phone}` : ''}</div>}
                 {detailJob.pickup_instructions && <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '6px' }}>{detailJob.pickup_instructions}</div>}
               </div>
               <div style={card}>
                 <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#10b981', marginBottom: '10px' }}>DELIVERY</h3>
                 <div style={{ fontSize: '14px', color: '#1e293b', fontWeight: '600', marginBottom: '6px' }}>{detailJob.delivery_address}</div>
+                {!isCrossBorder(detailJob) && <UnitBadge address={detailJob.delivery_address} />}
                 {detailJob.delivery_contact && <div style={{ fontSize: '13px', color: '#64748b' }}>{detailJob.delivery_contact} {detailJob.delivery_phone ? `| ${detailJob.delivery_phone}` : ''}</div>}
                 {detailJob.delivery_instructions && <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '6px' }}>{detailJob.delivery_instructions}</div>}
               </div>

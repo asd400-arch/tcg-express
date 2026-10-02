@@ -21,7 +21,10 @@ import { jobPriceLine, maybeRunDispatchSweep, listActiveDrivers, isSchemaMissing
 import { getRouteLabel } from '../../../lib/job-helpers';
 import { cleanString } from '../../../lib/validate';
 import { alertNewJob } from '../../../lib/admin-alerts';
-import { MIN_PICKUP_LEAD_MIN, minPickupMessage } from '../../../lib/job-rules';
+import { MIN_PICKUP_LEAD_MIN, minPickupMessage, extractUnit } from '../../../lib/job-rules';
+import { driverCanTakeJob, resolveDriverCode, driverShortName, loadDriverPoolProfile } from '../../../lib/driver-pool';
+import { collapseTrips } from '../../../lib/driver-pool-rules';
+import { checkVehicleFit } from '../../../lib/fares';
 
 /**
  * Cross-border (Malaysia) job details from the request body — Phase 1, 30 Sep 2026.
@@ -157,8 +160,13 @@ export async function GET(request) {
       query = query.order('created_at', { ascending: false });
     }
 
-    const { data, error } = await query;
+    let { data, error } = await query;
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    // Job board: hide jobs booked for the TCG fleet or for another driver (2 Oct 2026)
+    if (isJobBoard && session.role === 'driver' && Array.isArray(data)) {
+      const me = await loadDriverPoolProfile(session.userId);
+      data = collapseTrips(data.filter((j) => driverCanTakeJob(j, me)));
+    }
     // Drivers' job boards poll this every 30 s — piggyback the dispatch sweep (throttled, after the response)
     after(() => maybeRunDispatchSweep());
     return NextResponse.json({ data });
@@ -180,6 +188,46 @@ export async function POST(request) {
     const xb = parseCrossBorder(body);
     if (xb.error) return NextResponse.json({ error: xb.error }, { status: 400 });
     const crossBorderDetails = xb.details;
+
+    // Unit numbers are required (2 Oct 2026): either sent as a field, or already inside the address,
+    // or the customer ticked "No unit". Malaysia delivery addresses are free text and are exempt.
+    const hasUnit = (unit, address) => Boolean(String(unit || '').trim()) || Boolean(extractUnit(address));
+    if (!hasUnit(body.pickup_unit, body.pickup_address)) {
+      return NextResponse.json({ error: 'Please add the pickup unit number (e.g. #05-01), or tick "No unit" for a landed house or whole building.', code: 'pickup_unit_required' }, { status: 400 });
+    }
+    if (!crossBorderDetails && !hasUnit(body.delivery_unit, body.delivery_address)) {
+      return NextResponse.json({ error: 'Please add the delivery unit number (e.g. #05-01), or tick "No unit" for a landed house or whole building.', code: 'delivery_unit_required' }, { status: 400 });
+    }
+
+    // Who may take it (2 Oct 2026): any on-call driver, TCG Express fleet only, or one driver by code.
+    const requestedPool = ['tcg', 'direct'].includes(body.driver_pool) ? body.driver_pool : (body.driver_code ? 'direct' : 'open');
+    let targetDriver = null;
+    if (requestedPool === 'direct') {
+      const r = await resolveDriverCode(body.driver_code);
+      if (r.error) return NextResponse.json({ error: r.error, code: 'driver_code_invalid' }, { status: r.status || 400 });
+      targetDriver = r.driver;
+      const wantVehicle = body.vehicle_required || body.vehicle_mode;
+      if (wantVehicle && wantVehicle !== 'any' && !checkVehicleFit(targetDriver.vehicle_type, wantVehicle).ok) {
+        return NextResponse.json({ error: `${driverShortName(targetDriver.contact_name)} drives a ${targetDriver.vehicle_type || 'different vehicle'}, which doesn't fit this job. Pick a smaller vehicle or another option.`, code: 'driver_vehicle_mismatch' }, { status: 400 });
+      }
+      if (crossBorderDetails) {
+        const { data: xbOk } = await supabaseAdmin.from('express_users').select('cross_border_ready').eq('id', targetDriver.id).maybeSingle();
+        if (xbOk?.cross_border_ready !== true) {
+          return NextResponse.json({ error: `${driverShortName(targetDriver.contact_name)} isn't verified for cross-border runs yet.`, code: 'driver_not_cross_border' }, { status: 400 });
+        }
+      }
+    } else if (requestedPool === 'tcg') {
+      const { count, error: fleetErr } = await supabaseAdmin
+        .from('express_users')
+        .select('id', { count: 'exact', head: true })
+        .eq('role', 'driver').eq('tcg_fleet', true).eq('is_active', true);
+      if (fleetErr && isSchemaMissing(fleetErr)) {
+        return NextResponse.json({ error: 'TCG Express fleet booking is being switched on — please try again shortly.' }, { status: 503 });
+      }
+      if (!count) {
+        return NextResponse.json({ error: 'No TCG Express fleet driver is available yet. Choose "Any available driver" for now.', code: 'tcg_fleet_empty' }, { status: 400 });
+      }
+    }
 
     // Validate and calculate voucher discount (if provided)
     let couponDiscount = 0;
@@ -446,6 +494,12 @@ export async function POST(request) {
       jobData.coupon_discount = couponDiscount;
     }
 
+    // Driver pool — only written when not 'open', so 'open' jobs keep working before the migration
+    if (requestedPool !== 'open') {
+      jobData.driver_pool = requestedPool;
+      if (targetDriver) jobData.target_driver_id = targetDriver.id;
+    }
+
     // Cross-border (Malaysia): quote-only, verified drivers, customs details kept with the job
     if (crossBorderDetails) {
       jobData.cross_border = true;
@@ -548,6 +602,9 @@ export async function POST(request) {
       if (crossBorderDetails && isSchemaMissing(error)) {
         return NextResponse.json({ error: 'Cross-border deliveries are being switched on — please try again shortly.' }, { status: 503 });
       }
+      if (requestedPool !== 'open' && isSchemaMissing(error)) {
+        return NextResponse.json({ error: 'Choosing a driver is being switched on — please try again shortly, or choose "Any available driver".' }, { status: 503 });
+      }
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
@@ -572,13 +629,17 @@ export async function POST(request) {
     const deliveryArea = getAreaFromAddress(jobData.delivery_address);
     const routeLine = crossBorderJob ? getRouteLabel(data) : `${pickupArea} → ${deliveryArea}`;
     const pushBody = `${data.job_number} | ${jobPriceLine(data)} | ${routeLine}`;
-    const pushTitle = crossBorderJob
-      ? '🇲🇾 Cross-border job — send your quote'
-      : isQuoteJob(data) ? '🚚 New job — send your quote' : '🚚 New job — first to accept gets it';
+    const pushTitle = targetDriver
+      ? '📌 Job booked for you — please accept'
+      : crossBorderJob
+        ? '🇲🇾 Cross-border job — send your quote'
+        : isQuoteJob(data) ? '🚚 New job — send your quote' : '🚚 New job — first to accept gets it';
 
-    // Who hears about it: active drivers; Malaysia runs → verified cross-border drivers only
+    // Who hears about it: active drivers allowed by the job's pool; Malaysia runs → verified cross-border drivers only
     const activeDrivers = await listActiveDrivers();
-    const alertDrivers = activeDrivers.filter(d => !crossBorderJob || d.cross_border_ready === true);
+    const alertDrivers = activeDrivers
+      .filter(d => !crossBorderJob || d.cross_border_ready === true)
+      .filter(d => driverCanTakeJob(data, d));
 
     // Push notifications (Expo + Web via sendPushToUser) — drivers only
     let pushedDrivers = 0;

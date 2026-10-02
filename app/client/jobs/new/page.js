@@ -16,7 +16,7 @@ import {
 } from '../../../../lib/fares';
 import { findMatchingZones, calculateZoneSurcharge, isInRestrictedZone } from '../../../../lib/geo';
 import { toLocalDatetime } from '../../../../lib/job-helpers';
-import { defaultPickupDate, pickupTooSoon, minPickupMessage, PICKUP_LEAD_NOTE } from '../../../../lib/job-rules';
+import { defaultPickupDate, pickupTooSoon, minPickupMessage, PICKUP_LEAD_NOTE, NO_UNIT_LABEL, composeAddress } from '../../../../lib/job-rules';
 import { isQuoteJob, MY_CITIES, CUSTOMS_AGENT_OPTIONS } from '../../../../lib/pricing-mode';
 import useLocale from '../../../components/useLocale';
 
@@ -129,8 +129,8 @@ export default function NewJob() {
   const crossBorder = destination === 'MY';
   const setXbField = (k, v) => { setXb(prev => ({ ...prev, [k]: v })); setErrors(prev => { const n = { ...prev }; delete n[`xb_${k}`]; return n; }); };
   const [form, setForm] = useState({
-    pickup_address: '', pickup_blk: '', pickup_unit: '', pickup_contact_first: '', pickup_contact_last: '', pickup_phone: '', pickup_instructions: '',
-    delivery_address: '', delivery_blk: '', delivery_unit: '', delivery_contact_first: '', delivery_contact_last: '', delivery_phone: '', delivery_instructions: '',
+    driver_pool: 'open', driver_code: '', pickup_address: '', pickup_blk: '', pickup_unit: '', pickup_no_unit: false, pickup_contact_first: '', pickup_contact_last: '', pickup_phone: '', pickup_instructions: '',
+    delivery_address: '', delivery_blk: '', delivery_unit: '', delivery_no_unit: false, delivery_contact_first: '', delivery_contact_last: '', delivery_phone: '', delivery_instructions: '',
     item_description: '', item_category: 'general',
     weight_range: '', dim_l: '', dim_w: '', dim_h: '',
     urgency: 'standard', budget_min: '', budget_max: '', vehicle_required: 'any', special_requirements: '',
@@ -192,9 +192,38 @@ export default function NewJob() {
     return () => clearTimeout(t);
   }, [saveDraft, success]);
 
-  const buildAddress = (street, blk, unit) => {
-    const prefix = [blk.trim(), unit.trim()].filter(Boolean).join(' ');
-    return prefix ? `${prefix}, ${street}` : street;
+  // Unit numbers are required (2 Oct 2026); "no unit" must be ticked explicitly.
+  const pickupUnitValue = form.pickup_no_unit ? NO_UNIT_LABEL : form.pickup_unit;
+  const deliveryUnitValue = form.delivery_no_unit ? NO_UNIT_LABEL : form.delivery_unit;
+  // Contract customers (rate card + monthly invoice) get a shortcut to the multi-drop order page
+  const [contractCard, setContractCard] = useState(null);
+  useEffect(() => {
+    if (!user || user.role !== 'client') return;
+    fetch('/api/jobs/trip').then(r => r.json()).then(r => setContractCard(r.data || null)).catch(() => {});
+  }, [user]);
+
+  // Who delivers (2 Oct 2026): any on-call driver, TCG Express fleet, or one driver by code
+  const [driverLookup, setDriverLookup] = useState({ status: 'idle' }); // idle | checking | ok | error
+  useEffect(() => {
+    if (form.driver_pool !== 'direct') return;
+    const code = (form.driver_code || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (code.length < 4) { setDriverLookup({ status: 'idle' }); return; }
+    setDriverLookup({ status: 'checking' });
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/drivers/lookup?code=${encodeURIComponent(code)}`);
+        const r = await res.json().catch(() => ({}));
+        setDriverLookup(res.ok ? { status: 'ok', ...r.data } : { status: 'error', error: r.error || 'Driver not found' });
+      } catch { setDriverLookup({ status: 'error', error: 'Could not check the code' }); }
+    }, 450);
+    return () => clearTimeout(t);
+  }, [form.driver_pool, form.driver_code]);
+
+  const unitErrors = () => {
+    const e = {};
+    if (!form.pickup_no_unit && !form.pickup_unit.trim()) e.pickup_unit = 'Pickup unit no. is required (e.g. #05-01) — or tick "No unit"';
+    if (!crossBorder && !form.delivery_no_unit && !form.delivery_unit.trim()) e.delivery_unit = 'Delivery unit no. is required (e.g. #05-01) — or tick "No unit"';
+    return e;
   };
 
   useEffect(() => {
@@ -351,6 +380,9 @@ export default function NewJob() {
     const errs = {};
     if (!form.pickup_address.trim()) errs.pickup_address = 'Pickup address is required';
     if (!form.delivery_address.trim()) errs.delivery_address = 'Delivery address is required';
+    Object.assign(errs, unitErrors());
+    if (form.driver_pool === 'direct' && !(form.driver_code || '').trim()) errs.driver_code = 'Enter the driver code, or choose another option';
+    if (form.driver_pool === 'direct' && driverLookup.status === 'error') errs.driver_code = driverLookup.error;
     if (!form.item_description.trim()) errs.item_description = 'Item description is required';
     if (crossBorder) {
       if (xb.city === 'other' && !xb.city_other.trim()) errs.xb_city_other = 'City or town is required';
@@ -359,7 +391,7 @@ export default function NewJob() {
       if (!(parseFloat(xb.declared_value_sgd) >= 0) || xb.declared_value_sgd === '') errs.xb_declared_value_sgd = 'Declared value is required for customs';
       if (xb.customs_agent === 'own' && !xb.customs_agent_name.trim()) errs.xb_customs_agent_name = 'Name your customs agent';
     }
-    if (Object.keys(errs).length > 0) { setErrors(errs); toast.error(Object.values(errs)[0] || 'Please fill in all required fields'); if (Object.keys(errs).some(k => k.startsWith('xb_'))) setStep(1); return; }
+    if (Object.keys(errs).length > 0) { setErrors(errs); toast.error(Object.values(errs)[0] || 'Please fill in all required fields'); if (Object.keys(errs).some(k => k.startsWith('xb_') || k.endsWith('_unit') || k.endsWith('_address'))) setStep(1); return; }
     if (!crossBorder && zoneWarning?.type === 'restricted') { toast.error(zoneWarning.message); return; }
 
     // Validate pickup time is at least MIN_PICKUP_LEAD_MIN (60) minutes from now (1 Oct 2026)
@@ -407,8 +439,10 @@ export default function NewJob() {
     const buildJobInsert = (overrides = {}) => {
       const base = {
         client_id: user.id,
-        pickup_address: buildAddress(form.pickup_address, form.pickup_blk, form.pickup_unit), pickup_contact: (form.pickup_contact_first.trim() + ' ' + form.pickup_contact_last.trim()).trim(), pickup_phone: form.pickup_phone, pickup_instructions: form.pickup_instructions,
-        delivery_address: buildAddress(form.delivery_address, form.delivery_blk, form.delivery_unit), delivery_contact: (form.delivery_contact_first.trim() + ' ' + form.delivery_contact_last.trim()).trim(), delivery_phone: form.delivery_phone, delivery_instructions: form.delivery_instructions,
+        pickup_address: composeAddress(form.pickup_address, form.pickup_blk, pickupUnitValue), pickup_contact: (form.pickup_contact_first.trim() + ' ' + form.pickup_contact_last.trim()).trim(), pickup_phone: form.pickup_phone, pickup_instructions: form.pickup_instructions,
+        delivery_address: composeAddress(form.delivery_address, form.delivery_blk, deliveryUnitValue), delivery_contact: (form.delivery_contact_first.trim() + ' ' + form.delivery_contact_last.trim()).trim(), delivery_phone: form.delivery_phone, delivery_instructions: form.delivery_instructions,
+        pickup_unit: pickupUnitValue, delivery_unit: crossBorder ? undefined : deliveryUnitValue,
+        driver_pool: form.driver_pool, driver_code: form.driver_pool === 'direct' ? (form.driver_code || '').trim() : undefined,
         item_description: form.item_description, item_category: form.item_category,
         item_weight: midWeight || null, item_dimensions: dimensions,
         urgency: form.urgency, budget_min: budgetMin, budget_max: budgetMax,
@@ -512,8 +546,8 @@ export default function NewJob() {
         const scheduleBody = {
           schedule_type: form.recurrence,
           next_run_at: firstRunAt,
-          pickup_address: buildAddress(form.pickup_address, form.pickup_blk, form.pickup_unit), pickup_contact: (form.pickup_contact_first.trim() + ' ' + form.pickup_contact_last.trim()).trim(), pickup_phone: form.pickup_phone, pickup_instructions: form.pickup_instructions,
-          delivery_address: buildAddress(form.delivery_address, form.delivery_blk, form.delivery_unit), delivery_contact: (form.delivery_contact_first.trim() + ' ' + form.delivery_contact_last.trim()).trim(), delivery_phone: form.delivery_phone, delivery_instructions: form.delivery_instructions,
+          pickup_address: composeAddress(form.pickup_address, form.pickup_blk, pickupUnitValue), pickup_contact: (form.pickup_contact_first.trim() + ' ' + form.pickup_contact_last.trim()).trim(), pickup_phone: form.pickup_phone, pickup_instructions: form.pickup_instructions,
+          delivery_address: composeAddress(form.delivery_address, form.delivery_blk, deliveryUnitValue), delivery_contact: (form.delivery_contact_first.trim() + ' ' + form.delivery_contact_last.trim()).trim(), delivery_phone: form.delivery_phone, delivery_instructions: form.delivery_instructions,
           item_description: form.item_description, item_category: form.item_category,
           item_weight: midWeight || null, item_dimensions: dimensions,
           urgency: form.urgency, budget_min: budgetMin, budget_max: budgetMax,
@@ -574,8 +608,8 @@ export default function NewJob() {
     setDestination('SG');
     setXb({ city: 'johor_bahru', city_other: '', postcode: '', consignee_company: '', goods_description: '', declared_value_sgd: '', packages: '', hs_code: '', customs_agent: 'tcg', customs_agent_name: '' });
     setForm({
-      pickup_address: '', pickup_blk: '', pickup_unit: '', pickup_contact_first: '', pickup_contact_last: '', pickup_phone: '', pickup_instructions: '',
-      delivery_address: '', delivery_blk: '', delivery_unit: '', delivery_contact_first: '', delivery_contact_last: '', delivery_phone: '', delivery_instructions: '',
+      driver_pool: 'open', driver_code: '', pickup_address: '', pickup_blk: '', pickup_unit: '', pickup_no_unit: false, pickup_contact_first: '', pickup_contact_last: '', pickup_phone: '', pickup_instructions: '',
+      delivery_address: '', delivery_blk: '', delivery_unit: '', delivery_no_unit: false, delivery_contact_first: '', delivery_contact_last: '', delivery_phone: '', delivery_instructions: '',
       item_description: '', item_category: 'general',
       weight_range: '', dim_l: '', dim_w: '', dim_h: '',
       urgency: 'standard', budget_min: '', budget_max: '', vehicle_required: 'any', special_requirements: '',
@@ -690,6 +724,11 @@ export default function NewJob() {
       <Sidebar active="New Delivery" />
       <div style={{ flex: 1, padding: m ? '20px 16px' : '30px', maxWidth: '720px' }}>
         <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>➕ New Delivery Job</h1>
+        {contractCard && (
+          <div onClick={() => router.push('/client/jobs/contract')} style={{ cursor: 'pointer', marginBottom: '16px', padding: '12px 14px', borderRadius: '12px', background: '#ecfdf5', border: '1px solid #a7f3d0', fontSize: '13px', color: '#065f46' }}>
+            <strong>Contract rate available:</strong> S${Number(contractCard.first_drop_sgd).toFixed(2)} first drop, S${Number(contractCard.next_drop_sgd).toFixed(2)} each additional — monthly invoice. <span style={{ textDecoration: 'underline' }}>Post a contract order →</span>
+          </div>
+        )}
         {draftRestored && !success && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '10px 14px', borderRadius: '10px', background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1e40af', fontSize: '13px', marginBottom: '14px' }}>
             <span>We restored your unfinished job.</span>
@@ -737,7 +776,9 @@ export default function NewJob() {
               <div style={{ marginBottom: '14px' }}><label style={label}>Pickup Address<span style={req}>*</span></label><AddressAutocomplete inputStyle={inputErr('pickup_address')} value={form.pickup_address} onChange={v => set('pickup_address', v)} onSelect={c => setPickupCoords(c)} placeholder="Search address or postal code" /><div style={errText('pickup_address')}>{errors.pickup_address}</div></div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
                 <div><label style={label}>Blk/Block No.</label><input style={input} value={form.pickup_blk} onChange={e => set('pickup_blk', e.target.value)} placeholder="e.g. Blk 123" /></div>
-                <div><label style={label}>Unit No.</label><input style={input} value={form.pickup_unit} onChange={e => set('pickup_unit', e.target.value)} placeholder="e.g. #05-01" /></div>
+                <div><label style={label}>Unit No.<span style={req}>*</span></label><input style={{ ...inputErr('pickup_unit'), ...(form.pickup_no_unit ? { opacity: 0.5 } : {}) }} disabled={form.pickup_no_unit} value={form.pickup_no_unit ? '' : form.pickup_unit} onChange={e => { set('pickup_unit', e.target.value); setErrors(p => { const { pickup_unit, ...r } = p; return r; }); }} placeholder="e.g. #05-01 or Shop 12" />
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#64748b', marginTop: '6px', cursor: 'pointer' }}><input type="checkbox" checked={!!form.pickup_no_unit} onChange={e => { set('pickup_no_unit', e.target.checked); setErrors(p => { const { pickup_unit, ...r } = p; return r; }); }} />No unit (landed / whole building)</label>
+                  <div style={errText('pickup_unit')}>{errors.pickup_unit}</div></div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '14px' }}>
                 <div><label style={label}>First Name</label><input style={input} value={form.pickup_contact_first} onChange={e => set('pickup_contact_first', e.target.value)} placeholder="First name" /></div>
@@ -787,7 +828,9 @@ export default function NewJob() {
                   <div style={{ marginBottom: '14px' }}><label style={label}>Delivery Address<span style={req}>*</span></label><AddressAutocomplete inputStyle={inputErr('delivery_address')} value={form.delivery_address} onChange={v => set('delivery_address', v)} onSelect={c => setDeliveryCoords(c)} placeholder="Search address or postal code" /><div style={errText('delivery_address')}>{errors.delivery_address}</div></div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
                     <div><label style={label}>Blk/Block No.</label><input style={input} value={form.delivery_blk} onChange={e => set('delivery_blk', e.target.value)} placeholder="e.g. Blk 123" /></div>
-                    <div><label style={label}>Unit No.</label><input style={input} value={form.delivery_unit} onChange={e => set('delivery_unit', e.target.value)} placeholder="e.g. #05-01" /></div>
+                    <div><label style={label}>Unit No.<span style={req}>*</span></label><input style={{ ...inputErr('delivery_unit'), ...(form.delivery_no_unit ? { opacity: 0.5 } : {}) }} disabled={form.delivery_no_unit} value={form.delivery_no_unit ? '' : form.delivery_unit} onChange={e => { set('delivery_unit', e.target.value); setErrors(p => { const { delivery_unit, ...r } = p; return r; }); }} placeholder="e.g. #05-01 or Shop 12" />
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#64748b', marginTop: '6px', cursor: 'pointer' }}><input type="checkbox" checked={!!form.delivery_no_unit} onChange={e => { set('delivery_no_unit', e.target.checked); setErrors(p => { const { delivery_unit, ...r } = p; return r; }); }} />No unit (landed / whole building)</label>
+                      <div style={errText('delivery_unit')}>{errors.delivery_unit}</div></div>
                   </div>
                 </>
               )}
@@ -837,6 +880,7 @@ export default function NewJob() {
               const e = {};
               if (!form.pickup_address.trim()) e.pickup_address = 'Pickup address is required';
               if (!form.delivery_address.trim()) e.delivery_address = 'Delivery address is required';
+              Object.assign(e, unitErrors());
               if (crossBorder) {
                 if (xb.city === 'other' && !xb.city_other.trim()) e.xb_city_other = 'City or town is required';
                 if (!xb.consignee_company.trim()) e.xb_consignee_company = 'Consignee company is required for customs';
@@ -844,7 +888,7 @@ export default function NewJob() {
                 if (xb.declared_value_sgd === '' || !(parseFloat(xb.declared_value_sgd) >= 0)) e.xb_declared_value_sgd = 'Declared value is required for customs';
                 if (xb.customs_agent === 'own' && !xb.customs_agent_name.trim()) e.xb_customs_agent_name = 'Name your customs agent';
               }
-              if (Object.keys(e).length > 0) { setErrors(e); toast.error(crossBorder ? (Object.values(e)[0]) : 'Please fill in required addresses'); return; }
+              if (Object.keys(e).length > 0) { setErrors(e); toast.error(Object.values(e)[0] || 'Please fill in required addresses'); return; }
               if (crossBorder || zoneWarning?.type !== 'restricted') setStep(2);
             }} disabled={!crossBorder && zoneWarning?.type === 'restricted'} style={{ ...btnPrimary, opacity: !crossBorder && zoneWarning?.type === 'restricted' ? 0.5 : 1 }}>Next →</button>
           </div>
@@ -1352,6 +1396,40 @@ export default function NewJob() {
                 <div><label style={label}>Deliver By</label><input type="datetime-local" style={input} value={form.deliver_by} onChange={e => set('deliver_by', e.target.value)} min={form.pickup_by || toLocalDatetime(defaultPickupDate().getTime())} /></div>
               </div>
               <p style={{ fontSize: '12px', color: '#475569', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '8px 10px', marginTop: '-4px', marginBottom: '14px' }}>{PICKUP_LEAD_NOTE}</p>
+              {/* Who delivers — 2 Oct 2026 */}
+              <div style={{ marginBottom: '14px' }}>
+                <label style={label}>Who should deliver?</label>
+                <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr' : '1fr 1fr 1fr', gap: '8px' }}>
+                  {[
+                    { key: 'open', title: 'Any available driver', sub: 'On-call drivers near you — fastest' },
+                    { key: 'tcg', title: 'TCG Express fleet', sub: 'Our own vetted fleet drivers only' },
+                    { key: 'direct', title: 'Specific driver', sub: 'Enter your driver\'s code' },
+                  ].map(o => (
+                    <button key={o.key} type="button" onClick={() => { set('driver_pool', o.key); setErrors(p => { const { driver_code, ...r } = p; return r; }); }} style={{
+                      textAlign: 'left', padding: '10px 12px', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
+                      border: form.driver_pool === o.key ? '2px solid #3b82f6' : '2px solid #e2e8f0', background: form.driver_pool === o.key ? '#eff6ff' : 'white',
+                    }}>
+                      <div style={{ fontSize: '13px', fontWeight: '700', color: form.driver_pool === o.key ? '#1d4ed8' : '#1e293b' }}>{o.title}</div>
+                      <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>{o.sub}</div>
+                    </button>
+                  ))}
+                </div>
+                {form.driver_pool === 'direct' && (
+                  <div style={{ marginTop: '10px', maxWidth: '320px' }}>
+                    <input style={{ ...inputErr('driver_code'), textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: '700' }} value={form.driver_code} onChange={e => { set('driver_code', e.target.value); setErrors(p => { const { driver_code, ...r } = p; return r; }); }} placeholder="Driver code, e.g. K7M3Q" maxLength={8} />
+                    <div style={{ fontSize: '12px', marginTop: '6px', color: driverLookup.status === 'ok' ? '#166534' : driverLookup.status === 'error' ? '#b91c1c' : '#64748b' }}>
+                      {driverLookup.status === 'checking' && 'Checking…'}
+                      {driverLookup.status === 'ok' && `✓ ${driverLookup.name}${driverLookup.vehicle ? ` · ${driverLookup.vehicle}` : ''} — only this driver will see the job`}
+                      {driverLookup.status === 'error' && driverLookup.error}
+                      {driverLookup.status === 'idle' && 'Your driver finds the code in Settings → My driver code.'}
+                    </div>
+                    <div style={errText('driver_code')}>{errors.driver_code}</div>
+                  </div>
+                )}
+                {form.driver_pool !== 'open' && (
+                  <p style={{ fontSize: '11px', color: '#64748b', marginTop: '6px' }}>If nobody from {form.driver_pool === 'tcg' ? 'the fleet' : 'your choice'} accepts in time, you can open the job to all drivers from the job page.</p>
+                )}
+              </div>
               {crossBorder && (
                 <p style={{ fontSize: '12px', color: '#854d0e', background: '#fefce8', border: '1px solid #fde68a', borderRadius: '8px', padding: '8px 10px', marginBottom: '14px' }}>
                   🛂 Cross-border: set the pickup at least 24 hours ahead so the customs permits can be filed. Motorcycles can't be used — the smallest vehicle is a car.

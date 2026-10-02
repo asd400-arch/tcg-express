@@ -34,6 +34,7 @@ const adminLinks = [
   { label: 'Disputes', href: '/admin/disputes', icon: '⚖️' },
   { label: 'Drivers', href: '/admin/drivers', icon: '🚗' },
   { label: 'Clients', href: '/admin/clients', icon: '🏢' },
+  { label: 'Contracts', href: '/admin/contracts', icon: '🧾' },
   { label: 'Coupons', href: '/admin/coupons', icon: '🎟️' },
   { label: 'Promotions', href: '/admin/promotions', icon: '🎯' },
   { label: 'Promoters', href: '/admin/promoters', icon: '📋' },

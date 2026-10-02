@@ -1,6 +1,8 @@
 'use client';
 import { getRouteLabel, formatPickupTime, formatBudgetRange, getCountdown, getVehicleLabel, getJobBudget, isQuoteJob, isCrossBorder, crossBorderCity } from '../../lib/job-helpers';
 import useLocale from './useLocale';
+import UnitBadge from './UnitBadge';
+import { jobPool } from '../../lib/driver-pool-rules';
 import { formatCurrency } from '../../lib/locale/config';
 import { getLaunchTopup } from '../../lib/fares';
 
@@ -99,6 +101,13 @@ export default function JobCard({ job, myBid, accepting, onClick, onAccept, onBi
       <div style={{ fontSize: '13px', color: '#374151', marginBottom: '4px' }}>
         {getRouteLabel(job)}
         {job.distance_km ? <span style={{ color: '#94a3b8', marginLeft: '8px' }}>{parseFloat(job.distance_km).toFixed(1)} km</span> : ''}
+      </div>
+      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '6px' }}>
+        {jobPool(job) === 'direct' && <span style={{ fontSize: '12px', fontWeight: 800, padding: '2px 8px', borderRadius: '8px', background: '#dcfce7', color: '#166534', border: '1px solid #86efac' }}>📌 Booked for you</span>}
+        {job._trip_drops > 1 && <span style={{ fontSize: '12px', fontWeight: 800, padding: '2px 8px', borderRadius: '8px', background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d' }}>🧭 Trip · {job._trip_drops} drops — accept once, all are yours</span>}
+        {jobPool(job) === 'tcg' && <span style={{ fontSize: '12px', fontWeight: 800, padding: '2px 8px', borderRadius: '8px', background: '#dbeafe', color: '#1d4ed8', border: '1px solid #93c5fd' }}>TCG fleet job</span>}
+        <UnitBadge compact label="Pickup" address={job.pickup_address} />
+        {!isCrossBorder(job) && <UnitBadge compact label="Drop" address={job.delivery_address} />}
       </div>
       {isCrossBorder(job) && (
         <div style={{ fontSize: '12px', color: '#a16207', marginBottom: '4px' }}>

@@ -20,10 +20,12 @@ export async function POST(request) {
       return query;
     };
 
-    let { data, error } = await run(BASE_COLUMNS + XB_COLUMNS);
-    if (error && (error.code === '42703' || /column .* does not exist/i.test(error.message || ''))) {
-      ({ data, error } = await run(BASE_COLUMNS));
-    }
+    // Driver pool columns — 2 Oct 2026 migration
+    const POOL_COLUMNS = ', tcg_fleet, tcg_fleet_since, driver_code';
+    const missing = (e) => e && (e.code === '42703' || /column .* does not exist/i.test(e.message || ''));
+    let { data, error } = await run(BASE_COLUMNS + XB_COLUMNS + POOL_COLUMNS);
+    if (missing(error)) ({ data, error } = await run(BASE_COLUMNS + XB_COLUMNS));
+    if (missing(error)) ({ data, error } = await run(BASE_COLUMNS));
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }

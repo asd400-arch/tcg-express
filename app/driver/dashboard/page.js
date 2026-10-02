@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { driverCanTakeJob, collapseTrips } from '../../../lib/driver-pool-rules';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../components/AuthContext';
 import Sidebar from '../../components/Sidebar';
@@ -38,7 +39,7 @@ export default function DriverDashboard() {
         supabase.from('express_transactions').select('driver_payout').eq('driver_id', user.id).eq('payment_status', 'paid'),
         supabase.from('express_reviews').select('*').eq('driver_id', user.id).eq('reviewer_role', 'client').order('created_at', { ascending: false }).limit(5),
       ]);
-      const mj = myJ.data || []; const oj = (openJ.data || []).sort(sortByPickupUrgency);
+      const mj = myJ.data || []; const oj = collapseTrips((openJ.data || []).filter(j => driverCanTakeJob(j, user))).sort(sortByPickupUrgency);
       const totalEarnings = (txn.data || []).reduce((sum, t) => sum + (parseFloat(t.driver_payout) || 0), 0);
       setMyJobs(mj);
       setAvailableJobs(oj);

@@ -6,6 +6,7 @@ import { rateLimiters, applyRateLimit } from '../../../../../lib/rate-limiters';
 import { requirePositiveNumber, cleanString } from '../../../../../lib/validate';
 import { checkVehicleFit } from '../../../../../lib/fares';
 import { isQuoteJob, driverPrice, quoteBounds, isCrossBorder } from '../../../../../lib/pricing-mode';
+import { driverCanTakeJob, loadDriverPoolProfile, poolBlockMessage } from '../../../../../lib/driver-pool';
 
 const DISMANTLE_KEYS = new Set(['dismantlement', 'installation']);
 
@@ -92,6 +93,12 @@ export async function POST(request, { params }) {
     if (!job) return NextResponse.json({ error: 'Job not found' }, { status: 404 });
     if (!['open', 'bidding'].includes(job.status)) {
       return NextResponse.json({ error: 'Job is no longer accepting bids' }, { status: 400 });
+    }
+
+    // TCG fleet / booked-driver jobs (2 Oct 2026)
+    const poolMe = await loadDriverPoolProfile(session.userId);
+    if (!driverCanTakeJob(job, poolMe)) {
+      return NextResponse.json({ error: poolBlockMessage(job), code: 'driver_pool_blocked' }, { status: 403 });
     }
 
     // Cross-border (Malaysia) runs: only drivers TCG has verified (VEP RFID, Malaysia cover, passport)

@@ -3,6 +3,8 @@ import { supabaseAdmin } from '../../../../../lib/supabase-server';
 import { getSession } from '../../../../../lib/auth';
 import { notify } from '../../../../../lib/notify';
 import { calculateCO2Saved, calculateGreenPoints, SAVE_MODE_GREEN_POINTS, DRIVER_LAUNCH_TOPUP, getLaunchTopup } from '../../../../../lib/fares';
+import { isSalaryJob, settleSalaryJob } from '../../../../../lib/driver-pool';
+import { isInvoiceJob, payInvoiceJobDriver } from '../../../../../lib/contract';
 import { generateInvoice } from '../../../../../lib/generate-invoice';
 import { normalizePhone } from '../../../../../lib/promo-guard';
 import { rateLimiters, applyRateLimit } from '../../../../../lib/rate-limiters';
@@ -181,9 +183,48 @@ export async function POST(request, { params }) {
       console.error('[notify-dispatch] status update failed:', notifyErr?.message);
     }
 
+    // Fleet work by a salaried TCG fleet driver (2 Oct 2026): no per-job payout or bonuses — the fare is TCG revenue.
+    // Fleet drivers doing open marketplace jobs are paid per job as usual (their incentive).
+    const isCompletion = normalizedStatus === 'confirmed' || normalizedStatus === 'completed';
+    const salaried = isCompletion && job.assigned_driver_id ? await isSalaryJob(job, job.assigned_driver_id) : false;
+    const invoiceBilled = isCompletion && isInvoiceJob(job);
+    if (invoiceBilled && !salaried && job.assigned_driver_id) {
+      // Contract job done by an on-call driver: TCG pays the driver now, the customer pays on the monthly invoice
+      try {
+        const p = await payInvoiceJobDriver(job, job.assigned_driver_id);
+        if (p.paid) {
+          notify(job.assigned_driver_id, {
+            type: 'wallet', category: 'earnings',
+            title: 'Earnings credited!',
+            message: `$${p.payout.toFixed(2)} has been added to your wallet for job ${job.job_number || ''}`.trim(),
+            referenceId: id,
+            url: '/driver/wallet',
+          }).catch(() => {});
+        }
+      } catch (e) {
+        console.error('[status] invoice-job payout failed:', e?.message);
+      }
+    }
+    if (salaried) {
+      try {
+        const s = await settleSalaryJob(id, job.assigned_driver_id, job.final_amount ?? job.budget_min);
+        if (s.settled) {
+          notify(job.assigned_driver_id, {
+            type: 'job', category: 'job_updates',
+            title: `Job ${job.job_number || ''} completed`.trim(),
+            message: 'Counted towards your monthly pay as a TCG Express fleet driver.',
+            referenceId: id,
+            url: '/driver/my-jobs',
+          }).catch(() => {});
+        }
+      } catch (e) {
+        console.error('[status] salary settlement failed:', e?.message);
+      }
+    }
+
     // Auto-release escrow payment when job is confirmed/completed (wallet-only settlement)
     let releaseResult = null;
-    if (normalizedStatus === 'confirmed' || normalizedStatus === 'completed') {
+    if (isCompletion && !salaried && !invoiceBilled) {
       try {
         const { data: rpcResult, error: rpcErr } = await supabaseAdmin.rpc('release_payment', {
           p_job_id: id,
@@ -240,8 +281,8 @@ export async function POST(request, { params }) {
       } catch {}
     }
 
-    // Driver bonuses: S$20 after the 1st completed delivery, S$50 after 5
-    if (!isPartnerJob && (normalizedStatus === 'confirmed' || normalizedStatus === 'completed') && job.assigned_driver_id) {
+    // Driver bonuses: S$20 after the 1st completed delivery, S$50 after 5 (not for salaried fleet drivers)
+    if (!isPartnerJob && !salaried && (normalizedStatus === 'confirmed' || normalizedStatus === 'completed') && job.assigned_driver_id) {
       try {
         await processFirstJobBonus(job.assigned_driver_id);
       } catch (e) {
@@ -259,7 +300,7 @@ export async function POST(request, { params }) {
     if (!isPartnerJob && (normalizedStatus === 'confirmed' || normalizedStatus === 'completed')) {
       try {
         // Check driver referral
-        if (job.assigned_driver_id) await processReferralReward(job.assigned_driver_id, 'first_delivery');
+        if (job.assigned_driver_id && !salaried) await processReferralReward(job.assigned_driver_id, 'first_delivery');
         // Check client referral
         if (job.client_id) await processReferralReward(job.client_id, 'first_order');
       } catch (e) {

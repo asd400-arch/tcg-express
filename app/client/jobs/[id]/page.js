@@ -238,6 +238,25 @@ export default function ClientJobDetail({ params }) {
     loadData();
   };
 
+  // Booked driver / fleet hasn't accepted → open the job to every on-call driver (2 Oct 2026)
+  const [openingPool, setOpeningPool] = useState(false);
+  const openToAll = async () => {
+    if (openingPool) return;
+    if (!confirm('Open this job to all available drivers? They will be alerted now.')) return;
+    setOpeningPool(true);
+    try {
+      const res = await fetch(`/api/jobs/${jobId}/pool`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pool: 'open' }) });
+      const r = await res.json().catch(() => ({}));
+      if (!res.ok) { toast.error(r.error || 'Could not open the job'); return; }
+      toast.success('Opened to all drivers — they have been alerted');
+      loadData();
+    } catch {
+      toast.error('Could not open the job');
+    } finally {
+      setOpeningPool(false);
+    }
+  };
+
   // No driver yet on a fixed-price job → the customer can add a little so drivers are alerted again
   const boostPrice = async (amount) => {
     if (boosting) return;
@@ -394,6 +413,18 @@ export default function ClientJobDetail({ params }) {
         {/* Details Tab */}
         {tab === 'details' && (
           <>
+            {/* Booked for the TCG fleet or one driver (2 Oct 2026) */}
+            {['open', 'bidding'].includes(job.status) && (job.target_driver_id || job.driver_pool === 'tcg') && (
+              <div style={{ ...card, background: '#f8fafc', border: '1px solid #cbd5e1' }}>
+                <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '6px' }}>
+                  {job.target_driver_id ? '📌 Booked for your chosen driver' : '🚚 Booked for the TCG Express fleet'}
+                </div>
+                <div style={{ fontSize: '13px', color: '#475569', marginBottom: '10px' }}>
+                  {job.target_driver_id ? 'Only this driver can see and accept the job. They have been notified.' : 'Only TCG Express fleet drivers can see and accept the job.'} If nobody accepts in time, open it to all drivers:
+                </div>
+                <button onClick={openToAll} disabled={openingPool} style={{ padding: '10px 18px', borderRadius: '10px', border: '1px solid #0f172a', background: 'white', color: '#0f172a', fontSize: '14px', fontWeight: '700', cursor: openingPool ? 'not-allowed' : 'pointer', fontFamily: "'Inter', sans-serif", opacity: openingPool ? 0.6 : 1 }}>Open to all drivers</button>
+              </div>
+            )}
             {/* Fixed price: finding a driver + optional boost (27 Sep 2026) */}
             {['open', 'bidding'].includes(job.status) && !quoteJob && (
               <div style={{ ...card, background: '#eff6ff', border: '1px solid #bfdbfe' }}>
