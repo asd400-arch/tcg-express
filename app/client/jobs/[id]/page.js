@@ -248,7 +248,7 @@ export default function ClientJobDetail({ params }) {
       const res = await fetch(`/api/jobs/${jobId}/pool`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pool: 'open' }) });
       const r = await res.json().catch(() => ({}));
       if (!res.ok) { toast.error(r.error || 'Could not open the job'); return; }
-      toast.success('Opened to all drivers — they have been alerted');
+      toast.success(r.opened > 1 ? `Whole trip (${r.opened} drops) opened to all drivers — they have been alerted` : 'Opened to all drivers — they have been alerted');
       loadData();
     } catch {
       toast.error('Could not open the job');

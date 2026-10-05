@@ -138,6 +138,32 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: 'Failed to update status' }, { status: 500 });
     }
 
+    // Contract trip (2 Oct 2026): one pickup photo confirms every drop of the trip still waiting with
+    // this driver (same warehouse, same moment), and one tap starts delivery for all of them.
+    // Delivery itself stays per drop (signature + photo).
+    const TRIP_BULK_FROM = { pickup_confirmed: 'assigned', in_transit: 'pickup_confirmed' };
+    let tripMoved = [];
+    if (body.whole_trip === true && TRIP_BULK_FROM[normalizedStatus] && session.role === 'driver'
+        && job.billing_mode === 'invoice' && job.consolidation_group_id) {
+      try {
+        const sibUpdate = normalizedStatus === 'pickup_confirmed'
+          ? { status: 'pickup_confirmed', pickup_photo: photoUrl }
+          : { status: 'in_transit' };
+        const { data: sib, error: sibErr } = await supabaseAdmin
+          .from('express_jobs')
+          .update(sibUpdate)
+          .eq('consolidation_group_id', job.consolidation_group_id)
+          .eq('assigned_driver_id', session.userId)
+          .eq('status', TRIP_BULK_FROM[normalizedStatus])
+          .neq('id', id)
+          .select('id, job_number');
+        if (sibErr) console.error('[status] trip bulk update failed:', sibErr.message);
+        tripMoved = sib || [];
+      } catch (e) {
+        console.error('[status] trip bulk update failed:', e?.message);
+      }
+    }
+
     // Partner (TCG Fresh etc.) callback + route roll-up — fire-and-forget, never blocks the driver
     if (data?.external_api_key_id) {
       notifyPartner(data).catch(() => {});
@@ -164,10 +190,16 @@ export async function POST(request, { params }) {
           confirmed: { title: `Confirmed - ${job.job_number}`, message: 'Delivery has been confirmed. Payment released to driver.' },
           completed: { title: `Completed - ${job.job_number}`, message: 'Job is now complete. Thank you for using TCG Express!' },
         };
-        const msg = statusMessages[normalizedStatus] || {
+        let msg = statusMessages[normalizedStatus] || {
           title: `Job ${job.job_number || ''} updated`,
           message: `Status: ${normalizedStatus.replace(/_/g, ' ')}`,
         };
+        if (tripMoved.length) {
+          const n = tripMoved.length + 1;
+          msg = normalizedStatus === 'pickup_confirmed'
+            ? { title: `Pickup confirmed - ${job.job_number} +${n - 1}`, message: `Driver has picked up all ${n} drops of your trip.` }
+            : { title: `In transit - ${job.job_number} +${n - 1}`, message: `All ${n} drops of your trip are on the way.` };
+        }
 
         await notify(notifyTarget, {
           type: 'status_update',
@@ -328,7 +360,7 @@ export async function POST(request, { params }) {
       }
     }
 
-    return NextResponse.json({ data, release: releaseResult });
+    return NextResponse.json({ data, release: releaseResult, trip_updated: tripMoved.length });
   } catch (err) {
     console.error('POST /api/jobs/[id]/status error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

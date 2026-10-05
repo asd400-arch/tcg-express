@@ -726,7 +726,7 @@ export default function NewJob() {
         <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', marginBottom: '16px' }}>➕ New Delivery Job</h1>
         {contractCard && (
           <div onClick={() => router.push('/client/jobs/contract')} style={{ cursor: 'pointer', marginBottom: '16px', padding: '12px 14px', borderRadius: '12px', background: '#ecfdf5', border: '1px solid #a7f3d0', fontSize: '13px', color: '#065f46' }}>
-            <strong>Contract rate available:</strong> S${Number(contractCard.first_drop_sgd).toFixed(2)} first drop, S${Number(contractCard.next_drop_sgd).toFixed(2)} each additional — monthly invoice. <span style={{ textDecoration: 'underline' }}>Post a contract order →</span>
+            <strong>Contract rate available:</strong> S${Number(contractCard.first_drop_sgd).toFixed(2)} first drop, S${Number(contractCard.next_drop_sgd).toFixed(2)} each additional — {contractCard.period || 'monthly'} invoice. <span style={{ textDecoration: 'underline' }}>Post a contract order →</span>
           </div>
         )}
         {draftRestored && !success && (

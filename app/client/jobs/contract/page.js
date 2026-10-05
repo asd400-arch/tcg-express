@@ -66,10 +66,31 @@ export default function ContractOrderPage() {
     if (!loading && user && user.role !== 'client') router.push('/');
   }, [user, loading]);
 
+  const loadCard = () => fetch('/api/jobs/trip').then((r) => r.json()).then((r) => setCard(r.data || null)).catch(() => setCard(null));
   useEffect(() => {
     if (!user) return;
-    fetch('/api/jobs/trip').then((r) => r.json()).then((r) => setCard(r.data || null)).catch(() => setCard(null));
+    loadCard();
   }, [user]);
+
+  // Company contracts (5 Oct 2026): staff link their own account with the company code
+  const [joinCode, setJoinCode] = useState('');
+  const [joining, setJoining] = useState(false);
+  const joinCompany = async () => {
+    if (joining || !joinCode.trim()) return;
+    setJoining(true);
+    try {
+      const res = await fetch('/api/contract/join', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: joinCode.trim() }) });
+      const r = await res.json().catch(() => ({}));
+      if (!res.ok) { toast.error(r.error || 'Could not use that code'); return; }
+      toast.success(`Linked to ${r.data?.company_name || 'your company'} contract`);
+      setJoinCode('');
+      await loadCard();
+    } catch {
+      toast.error('Could not use that code');
+    } finally {
+      setJoining(false);
+    }
+  };
 
   // Keep an unfinished order (pickup + drops) in this browser
   useEffect(() => {
@@ -134,7 +155,8 @@ export default function ContractOrderPage() {
       const r = await res.json().catch(() => ({}));
       if (!res.ok) { toast.error(r.error || 'Could not post the trip'); return; }
       setDone(r.data);
-      try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
+      // Keep the pickup (same warehouse every day) ready for the next order; drops start empty
+      try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ pickup, drops: [], item })); } catch { /* ignore */ }
     } catch {
       toast.error('Could not post the trip');
     } finally {
@@ -158,24 +180,31 @@ export default function ContractOrderPage() {
 
         {card === null ? (
           <div style={card$}>
-            <p style={{ fontSize: '14px', color: '#475569' }}>Contract ordering (fixed rate per drop, monthly invoice) isn&apos;t set up for your account yet. WhatsApp us on +65 8976 3771 and we&apos;ll set it up.</p>
+            <h3 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '6px' }}>Have a company code?</h3>
+            <p style={{ fontSize: '13px', color: '#475569', marginBottom: '10px' }}>If your company has a contract with TCG Express, enter the code you were given. You only need to do this once; your orders then go on your company&apos;s invoice.</p>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <input style={{ ...input, maxWidth: '240px', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 700 }} value={joinCode} onChange={(e) => setJoinCode(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') joinCompany(); }} placeholder="e.g. ABCMOB-7K3P" maxLength={20} />
+              <button onClick={joinCompany} disabled={joining || !joinCode.trim()} style={{ padding: '10px 18px', borderRadius: '10px', border: 'none', background: '#0f172a', color: 'white', fontWeight: 700, cursor: 'pointer', opacity: joining || !joinCode.trim() ? 0.6 : 1 }}>{joining ? 'Checking…' : 'Use code'}</button>
+            </div>
+            <p style={{ fontSize: '12px', color: '#64748b', marginTop: '14px' }}>No code yet? Contract ordering (fixed rate per drop, one invoice) isn&apos;t set up for your account. WhatsApp us on +65 8976 3771 and we&apos;ll set it up.</p>
             <button onClick={() => router.push('/client/jobs/new')} style={{ marginTop: '10px', padding: '10px 18px', borderRadius: '10px', border: 'none', background: '#2563eb', color: 'white', fontWeight: 600, cursor: 'pointer' }}>Post a regular delivery</button>
           </div>
         ) : done ? (
           <div style={{ ...card$, textAlign: 'center', padding: '36px' }}>
             <div style={{ fontSize: '44px' }}>🎉</div>
             <h2 style={{ fontSize: '20px', fontWeight: 700, margin: '10px 0 6px' }}>Trip posted: {done.drops} drop{done.drops > 1 ? 's' : ''}</h2>
-            <p style={{ fontSize: '14px', color: '#475569' }}>S${Number(done.total_sgd).toFixed(2)} on your monthly invoice. {done.driver ? `${done.driver} has been notified.` : 'Our fleet drivers have been notified — one driver takes the whole trip.'}</p>
+            <p style={{ fontSize: '14px', color: '#475569' }}>S${Number(done.total_sgd).toFixed(2)} on your {card.period || 'monthly'} invoice. {done.driver ? `${done.driver} has been notified.` : 'Our fleet drivers have been notified — one driver takes the whole trip.'}</p>
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '16px' }}>
               <button onClick={() => router.push('/client/jobs')} style={{ padding: '10px 18px', borderRadius: '10px', border: 'none', background: '#2563eb', color: 'white', fontWeight: 600, cursor: 'pointer' }}>View my jobs</button>
-              <button onClick={() => { setDone(null); setDrops([emptyDrop()]); }} style={{ padding: '10px 18px', borderRadius: '10px', border: '1px solid #e2e8f0', background: 'white', fontWeight: 600, cursor: 'pointer' }}>New trip</button>
+              <button onClick={() => { setDone(null); setDrops([emptyDrop()]); setPickupBy(toLocalDatetime(defaultPickupDate().getTime())); }} style={{ padding: '10px 18px', borderRadius: '10px', border: '1px solid #e2e8f0', background: 'white', fontWeight: 600, cursor: 'pointer' }}>New trip</button>
             </div>
           </div>
         ) : (
           <>
             <div style={{ ...card$, background: '#eff6ff', border: '1px solid #bfdbfe' }}>
-              <div style={{ fontSize: '14px', color: '#1e3a8a', fontWeight: 700 }}>{card.label}: S${card.first_drop_sgd.toFixed(2)} first drop · S${card.next_drop_sgd.toFixed(2)} each additional drop</div>
-              <div style={{ fontSize: '12px', color: '#1e40af', marginTop: '4px' }}>Billed on your monthly invoice (payment {card.payment_terms_days} days). {card.driver_pool === 'tcg' ? 'Delivered by the TCG Express fleet.' : 'Delivered by on-call drivers.'} One driver takes the whole trip.</div>
+              <div style={{ fontSize: '14px', color: '#1e3a8a', fontWeight: 700 }}>{card.company_name ? `${card.company_name} · ` : ''}{card.label}: S${card.first_drop_sgd.toFixed(2)} first drop · S${card.next_drop_sgd.toFixed(2)} each additional drop</div>
+              <div style={{ fontSize: '12px', color: '#1e40af', marginTop: '4px' }}>Billed on your {card.period || 'monthly'} invoice (payment {card.payment_terms_days} days). {card.driver_pool === 'tcg' ? 'Delivered by the TCG Express fleet.' : 'Delivered by on-call drivers.'} One driver takes the whole trip.</div>
+              {card.join_code && <div style={{ fontSize: '12px', color: '#1e40af', marginTop: '4px' }}>Colleagues ordering for your company: they sign up and enter code <strong style={{ fontFamily: 'monospace', letterSpacing: '0.08em' }}>{card.join_code}</strong> here.</div>}
             </div>
 
             <div style={card$}>
@@ -232,7 +261,7 @@ export default function ContractOrderPage() {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
-              <div style={{ fontSize: '15px', fontWeight: 700 }}>Total: S${total.toFixed(2)} <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>({drops.length} drop{drops.length > 1 ? 's' : ''}, monthly invoice)</span></div>
+              <div style={{ fontSize: '15px', fontWeight: 700 }}>Total: S${total.toFixed(2)} <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>({drops.length} drop{drops.length > 1 ? 's' : ''}, {card.period || 'monthly'} invoice)</span></div>
               <button onClick={submit} disabled={submitting} style={{ padding: '13px 28px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontSize: '15px', fontWeight: 700, cursor: 'pointer', opacity: submitting ? 0.7 : 1 }}>{submitting ? 'Posting…' : 'Post trip'}</button>
             </div>
           </>

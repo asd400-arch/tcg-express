@@ -203,15 +203,15 @@ export default function DriverMyJobs() {
       setSelected(prev => ({ ...prev, customer_signature_url: uploadResult.url, signer_name: signerName, signed_at: signedAt }));
       toast.success('Signature captured');
 
-      // Auto-proceed to mark delivered
-      await updateStatus('delivered', true);
+      // Auto-proceed to mark delivered (pass the new signature: `selected` in this closure is stale)
+      await updateStatus('delivered', true, { signature_url: uploadResult.url });
     } catch (e) {
       console.error('Signature save error:', e);
       toast.error(`Failed to save signature: ${e.message}`);
     }
   };
 
-  const updateStatus = async (status, skipSignatureCheck) => {
+  const updateStatus = async (status, skipSignatureCheck, extra = {}) => {
     // Photo proof enforcement
     if (status === 'pickup_confirmed' && !selected.pickup_photo) {
       toast.error('Please upload a pickup photo first');
@@ -231,15 +231,29 @@ export default function DriverMyJobs() {
     if (statusUpdating) return;
     setStatusUpdating(true);
     try {
+      // The API needs the proof with the status change (pickup photo; delivery photo + signature)
+      const proof = status === 'pickup_confirmed' ? selected.pickup_photo
+        : status === 'delivered' ? selected.delivery_photo : null;
+      const signature = status === 'delivered' ? (extra.signature_url || selected.customer_signature_url) : null;
       const res = await fetch(`/api/jobs/${selected.id}/status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({
+          status,
+          ...(proof ? { proof_photo_url: proof } : {}),
+          ...(signature ? { signature_url: signature } : {}),
+          ...(extra.whole_trip ? { whole_trip: true } : {}),
+        }),
       });
       const result = await res.json();
       if (!res.ok) {
         toast.error(result.error || 'Failed to update status');
         return;
+      }
+      if (result.trip_updated > 0) {
+        toast.success(status === 'pickup_confirmed'
+          ? `Picked up all ${result.trip_updated + 1} drops of the trip`
+          : `Delivery started for all ${result.trip_updated + 1} drops`);
       }
       // Auto-start GPS on in_transit, auto-stop on delivered
       if (status === 'in_transit') gps.startTracking();
@@ -524,8 +538,22 @@ export default function DriverMyJobs() {
               const photoHint = nextStatus === 'pickup_confirmed' ? '⚠️ Upload pickup photo first'
                 : nextStatus === 'delivered' ? '⚠️ Upload delivery photo first' : null;
               const isDisabled = needsPhoto || statusUpdating;
+              // Contract trip: one pickup photo confirms every drop waiting at the same pickup,
+              // and one tap starts delivery for all of them (delivery itself stays per drop)
+              const tripStep = nextStatus === 'pickup_confirmed' || nextStatus === 'in_transit';
+              const tripWaiting = tripStep && selected.billing_mode === 'invoice' && selected.consolidation_group_id
+                ? jobs.filter((j) => j.consolidation_group_id === selected.consolidation_group_id && j.status === selected.status).length
+                : 0;
               return (
                 <div style={{ marginBottom: '10px' }}>
+                  {tripWaiting > 1 && (
+                    <button onClick={() => !isDisabled && updateStatus(nextStatus, false, { whole_trip: true })} disabled={isDisabled} style={{
+                      padding: '16px 28px', borderRadius: '12px', border: 'none', width: '100%', marginBottom: '8px',
+                      background: isDisabled ? 'linear-gradient(135deg, #0f766e80, #0f766e60)' : 'linear-gradient(135deg, #0f766e, #0f766ecc)',
+                      color: 'white', fontSize: '18px', fontWeight: '700', cursor: isDisabled ? 'not-allowed' : 'pointer', fontFamily: "'Inter', sans-serif",
+                      boxShadow: isDisabled ? 'none' : '0 4px 14px #0f766e40', opacity: isDisabled ? 0.7 : 1,
+                    }}>{statusUpdating ? 'Processing...' : (nextStatus === 'pickup_confirmed' ? `📦 Picked up all ${tripWaiting} drops` : `🚚 Start delivery — all ${tripWaiting} drops`)}</button>
+                  )}
                   <button onClick={() => !isDisabled && updateStatus(nextStatus)} disabled={isDisabled} style={{
                     padding: '16px 28px', borderRadius: '12px', border: 'none', width: '100%',
                     background: isDisabled
@@ -534,7 +562,7 @@ export default function DriverMyJobs() {
                     color: 'white', fontSize: '18px', fontWeight: '700', cursor: isDisabled ? 'not-allowed' : 'pointer', fontFamily: "'Inter', sans-serif",
                     boxShadow: isDisabled ? 'none' : `0 4px 14px ${statusFlow[selected.status].color}40`,
                     opacity: isDisabled ? 0.7 : 1,
-                  }}>{statusUpdating ? 'Processing...' : statusFlow[selected.status].label}</button>
+                  }}>{statusUpdating ? 'Processing...' : (tripWaiting > 1 ? (nextStatus === 'pickup_confirmed' ? '📸 Confirm pickup (this drop only)' : '🚚 Start delivery (this drop only)') : statusFlow[selected.status].label)}</button>
                   {needsPhoto && photoHint && (
                     <div style={{ textAlign: 'center', fontSize: '13px', color: '#ef4444', fontWeight: '700', marginTop: '6px' }}>
                       {photoHint}

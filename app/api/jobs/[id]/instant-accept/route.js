@@ -111,7 +111,7 @@ export async function POST(request, { params }) {
         await notify(job.client_id, {
           type: 'job', category: 'bid_activity',
           title: drops > 1 ? `Driver assigned to your ${drops}-drop trip` : `Driver found for ${job.job_number}!`,
-          message: `${drv?.contact_name || 'A driver'} accepted. Billed on your monthly invoice.`,
+          message: `${drv?.contact_name || 'A driver'} accepted. Billed on your company invoice.`,
           referenceId: jobId,
           data: { job_id: jobId, role: 'client' },
         });

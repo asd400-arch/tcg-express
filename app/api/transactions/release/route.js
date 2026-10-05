@@ -42,7 +42,7 @@ export async function POST(req) {
     {
       const { data: j2 } = await supabaseAdmin.from('express_jobs').select('*').eq('id', jobId).maybeSingle();
       if (j2?.billing_mode === 'invoice') {
-        return NextResponse.json({ error: 'This job is billed on your monthly invoice — there is no wallet payment to release.' }, { status: 400 });
+        return NextResponse.json({ error: 'This job is billed on your company invoice — there is no wallet payment to release.' }, { status: 400 });
       }
       if (j2?.assigned_driver_id && await isSalaryJob(j2, j2.assigned_driver_id)) {
         const r = await settleSalaryJob(jobId, j2.assigned_driver_id);

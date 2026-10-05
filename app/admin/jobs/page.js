@@ -67,6 +67,25 @@ export default function AdminJobs() {
     loadData();
   };
 
+  // Fleet-only / booked-driver job (or contract trip) nobody has taken → open it to every on-call driver
+  const openToAll = async (job) => {
+    const what = job.billing_mode === 'invoice' && job.consolidation_group_id ? 'this whole trip' : `job ${job.job_number}`;
+    if (!confirm(`Open ${what} to all available drivers? They will be alerted now.`)) return;
+    try {
+      const res = await fetch(`/api/jobs/${job.id}/pool`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pool: 'open' }),
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok) { toast.error(result.error || 'Could not open the job'); return; }
+      toast.success(result.opened > 1 ? `Trip opened to all drivers (${result.opened} drops)` : 'Opened to all drivers');
+      loadData();
+    } catch {
+      toast.error('Could not open the job');
+    }
+  };
+
   const cancelSchedule = async (schedule) => {
     if (!confirm('Cancel this schedule? This cannot be undone.')) return;
     try {
@@ -155,6 +174,9 @@ export default function AdminJobs() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
                     <span style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b' }}>{job.job_number}</span>
                     <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '700', background: `${statusColor[job.status]}15`, color: statusColor[job.status], textTransform: 'uppercase' }}>{job.status.replace(/_/g, ' ')}</span>
+                    {job.driver_pool === 'tcg' && <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '700', background: '#dbeafe', color: '#1d4ed8' }}>TCG FLEET ONLY</span>}
+                    {job.driver_pool === 'direct' && <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '700', background: '#fef3c7', color: '#92400e' }}>BOOKED DRIVER</span>}
+                    {job.billing_mode === 'invoice' && <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '700', background: '#f1f5f9', color: '#334155' }}>CONTRACT{job.trip_seq ? ` · DROP ${job.trip_seq}` : ''}</span>}
                   </div>
                   <div style={{ fontSize: '13px', color: '#374151' }}>{job.item_description}</div>
                   <div style={{ fontSize: '11px', color: '#94a3b8' }}>Client: {job.client?.company_name || job.client?.contact_name} {job.driver ? `• Driver: ${job.driver.contact_name}` : ''}</div>
@@ -164,6 +186,9 @@ export default function AdminJobs() {
                     {job.final_amount && <div style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b' }}>${job.final_amount}</div>}
                     <div style={{ fontSize: '11px', color: '#94a3b8' }}>{new Date(job.created_at).toLocaleDateString()}</div>
                   </div>
+                  {['open', 'bidding'].includes(job.status) && ['tcg', 'direct'].includes(job.driver_pool) && (
+                    <button onClick={(e) => { e.stopPropagation(); openToAll(job); }} style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid #2563eb', background: 'white', color: '#2563eb', fontSize: '11px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif", whiteSpace: 'nowrap' }}>Open to all</button>
+                  )}
                   {!['confirmed', 'completed', 'cancelled'].includes(job.status) && (
                     <button onClick={(e) => { e.stopPropagation(); forceCancel(job); }} style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid #ef4444', background: 'white', color: '#ef4444', fontSize: '11px', fontWeight: '600', cursor: 'pointer', fontFamily: "'Inter', sans-serif", whiteSpace: 'nowrap' }}>Cancel</button>
                   )}

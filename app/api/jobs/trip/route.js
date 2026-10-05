@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto';
 import { supabaseAdmin } from '../../../../lib/supabase-server';
 import { getSession } from '../../../../lib/auth';
 import { cleanString } from '../../../../lib/validate';
-import { loadRateCard, dropPrice } from '../../../../lib/contract';
+import { loadRateCard, dropPrice, billingPeriod } from '../../../../lib/contract';
 import { composeAddress, NO_UNIT_LABEL, MIN_PICKUP_LEAD_MIN, minPickupMessage } from '../../../../lib/job-rules';
 import { resolveDriverCode, driverShortName } from '../../../../lib/driver-pool';
 import { alertDriversAboutJob, isSchemaMissing } from '../../../../lib/dispatch';
@@ -24,6 +24,8 @@ export async function GET(request) {
     data: {
       label: card.label, vehicle: card.vehicle, first_drop_sgd: r2(card.first_drop_sgd), next_drop_sgd: r2(card.next_drop_sgd),
       driver_pool: card.driver_pool, billing: card.billing, payment_terms_days: card.payment_terms_days,
+      // Company contracts (5 Oct 2026): shown so staff can share the code with colleagues
+      company_name: card.company_name || null, join_code: card.join_code || null, period: billingPeriod(card),
     },
   });
 }
