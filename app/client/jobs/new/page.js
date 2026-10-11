@@ -1323,7 +1323,9 @@ export default function NewJob() {
                   <div>
                     <span style={{ fontSize: '14px', fontWeight: '700', color: '#16a34a' }}>
                       {voucherResult.coupon.code} applied!{' '}
-                      {voucherResult.coupon.type === 'percentage'
+                      {voucherResult.coupon.type === 'fixed_price'
+                        ? `Flat S$${voucherResult.coupon.value}`
+                        : voucherResult.coupon.type === 'percentage'
                         ? `${voucherResult.coupon.value}% off`
                         : `$${voucherResult.coupon.value} off`}
                     </span>
@@ -1351,7 +1353,7 @@ export default function NewJob() {
                           const orderAmt = parseFloat(form.budget_min) || fare?.total || 0;
                           const res = await fetch('/api/coupons/validate', {
                             method: 'POST', headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ code: voucherCode.trim(), orderAmount: orderAmt }),
+                            body: JSON.stringify({ code: voucherCode.trim(), orderAmount: orderAmt, driver_pool: form.driver_pool, weight: midWeight || null, dimensions: (form.dim_l && form.dim_w && form.dim_h) ? `${form.dim_l}x${form.dim_w}x${form.dim_h}cm` : null }),
                           });
                           const data = await res.json();
                           if (res.ok && data.valid) { setVoucherResult(data); setVoucherError(''); }

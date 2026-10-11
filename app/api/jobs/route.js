@@ -25,6 +25,7 @@ import { MIN_PICKUP_LEAD_MIN, minPickupMessage, extractUnit } from '../../../lib
 import { driverCanTakeJob, resolveDriverCode, driverShortName, loadDriverPoolProfile } from '../../../lib/driver-pool';
 import { collapseTrips } from '../../../lib/driver-pool-rules';
 import { checkVehicleFit } from '../../../lib/fares';
+import { isFixedPricePromo, fixedPriceEligibility, fixedPriceDiscount } from '../../../lib/fleet-promo';
 
 /**
  * Cross-border (Malaysia) job details from the request body — Phase 1, 30 Sep 2026.
@@ -232,6 +233,7 @@ export async function POST(request) {
     // Validate and calculate voucher discount (if provided)
     let couponDiscount = 0;
     let validatedCouponId = null;
+    let fixedPricePromo = null; // flat-rate voucher (e.g. FLEET15): discount is set from the final fare below
     if (body.coupon_id && !crossBorderDetails) {
       const { data: promo } = await supabaseAdmin
         .from('promo_codes')
@@ -275,7 +277,17 @@ export async function POST(request) {
             if (count > 0) newCustomerOk = false;
           }
 
-          if (perUserOk && newCustomerOk) {
+          if (perUserOk && newCustomerOk && isFixedPricePromo(promo)) {
+            const elig = fixedPriceEligibility({
+              driverPool: requestedPool,
+              weight: body.weight ?? body.item_weight,
+              dimensions: body.dimensions || body.item_dimensions,
+              crossBorder: Boolean(crossBorderDetails),
+            });
+            if (!elig.ok) return NextResponse.json({ error: elig.error, code: elig.code }, { status: 400 });
+            fixedPricePromo = promo;
+            validatedCouponId = promo.id;
+          } else if (perUserOk && newCustomerOk) {
             // Cap the voucher against the job's upper budget, not the 80% floor — otherwise a
             // "S$10 off" voucher on a S$11 fare (budget_min 9) was silently cut to S$9.
             const orderAmount = Math.max(
@@ -388,6 +400,7 @@ export async function POST(request) {
     } else if (fareForJob > 0) {
       const r2p = (v) => Math.round(v * 100) / 100;
       fareForJob = r2p(fareForJob);
+      if (fixedPricePromo) couponDiscount = fixedPriceDiscount(fixedPricePromo, fareForJob);
       if (couponDiscount > 0) couponDiscount = r2p(Math.min(couponDiscount, fareForJob));
       pricedBudgetMin = r2p(Math.max(0, fareForJob - couponDiscount));
       const askedMax = correctedBudgetMax ?? (parseFloat(body.budget_max) || 0);

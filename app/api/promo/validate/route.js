@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../../lib/supabase-server';
 import { getSession } from '../../../../lib/auth';
+import { isFixedPricePromo, fixedPriceEligibility, fixedPriceDiscount } from '../../../../lib/fleet-promo';
 
 export async function POST(request) {
   try {
@@ -65,9 +66,16 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
+    if (isFixedPricePromo(promo) && body.driver_pool !== undefined) {
+      const elig = fixedPriceEligibility({ driverPool: body.driver_pool, weight: body.weight, dimensions: body.dimensions, crossBorder: Boolean(body.cross_border) });
+      if (!elig.ok) return NextResponse.json({ valid: false, error: elig.error, code: elig.code }, { status: 400 });
+    }
+
     let discount = 0;
     if (orderAmount > 0) {
-      if (promo.discount_type === 'percentage') {
+      if (isFixedPricePromo(promo)) {
+        discount = fixedPriceDiscount(promo, orderAmount);
+      } else if (promo.discount_type === 'percentage') {
         discount = orderAmount * (parseFloat(promo.discount_value) / 100);
         if (promo.max_discount) discount = Math.min(discount, parseFloat(promo.max_discount));
       } else {

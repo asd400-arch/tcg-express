@@ -24,6 +24,14 @@ export async function POST(request, { params }) {
     }
     if (jobPool(job) === 'open') return NextResponse.json({ data: job });
 
+    // Flat-rate fleet voucher (FLEET15): the price only holds on the salaried TCG fleet
+    if (job.coupon_id) {
+      const { data: promo } = await supabaseAdmin.from('promo_codes').select('discount_type').eq('id', job.coupon_id).maybeSingle();
+      if (promo?.discount_type === 'fixed_price') {
+        return NextResponse.json({ error: 'This job uses the TCG Fleet flat-rate promo, so it stays with the TCG Express fleet. To open it to all drivers, cancel and rebook without the voucher.', code: 'promo_fleet_only' }, { status: 400 });
+      }
+    }
+
     // A contract trip opens as one: every drop still waiting goes to all drivers together,
     // so whoever accepts still gets the whole trip
     const isTrip = job.billing_mode === 'invoice' && Boolean(job.consolidation_group_id);

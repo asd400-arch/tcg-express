@@ -2,13 +2,14 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../../lib/supabase-server';
 import { getSession } from '../../../../lib/auth';
 import { checkPromoEligibility } from '../../../../lib/promo-guard';
+import { isFixedPricePromo, fixedPriceEligibility, fixedPriceDiscount } from '../../../../lib/fleet-promo';
 
 export async function POST(request) {
   try {
     const session = getSession(request);
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { code, orderAmount } = await request.json();
+    const { code, orderAmount, driver_pool, weight, dimensions, cross_border } = await request.json();
     if (!code) return NextResponse.json({ error: 'Coupon code required' }, { status: 400 });
 
     // Fetch coupon using service role (bypasses RLS)
@@ -65,6 +66,13 @@ export async function POST(request) {
       }
     }
 
+    // Flat-rate fleet voucher: check T&C when the form tells us the booking details
+    // (job creation re-checks them, so older app builds that don't send them are still safe)
+    if (isFixedPricePromo(promo) && driver_pool !== undefined) {
+      const elig = fixedPriceEligibility({ driverPool: driver_pool, weight, dimensions, crossBorder: Boolean(cross_border) });
+      if (!elig.ok) return NextResponse.json({ error: elig.error, code: elig.code }, { status: 400 });
+    }
+
     // Min order amount check
     if (promo.min_order_amount && orderAmount && parseFloat(orderAmount) < parseFloat(promo.min_order_amount)) {
       return NextResponse.json({ error: `Minimum order $${promo.min_order_amount} required` }, { status: 400 });
@@ -74,7 +82,9 @@ export async function POST(request) {
     let discount = 0;
     if (orderAmount) {
       const amt = parseFloat(orderAmount);
-      if (promo.discount_type === 'percentage') {
+      if (isFixedPricePromo(promo)) {
+        discount = fixedPriceDiscount(promo, amt);
+      } else if (promo.discount_type === 'percentage') {
         discount = amt * (parseFloat(promo.discount_value) / 100);
         if (promo.max_discount) discount = Math.min(discount, parseFloat(promo.max_discount));
       } else {
