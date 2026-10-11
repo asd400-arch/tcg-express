@@ -10,6 +10,8 @@ import { normalizePhone } from '../../../../../lib/promo-guard';
 import { rateLimiters, applyRateLimit } from '../../../../../lib/rate-limiters';
 import { requireEnum, cleanString } from '../../../../../lib/validate';
 import { notifyPartner, refreshRouteStatus } from '../../../../../lib/partner-webhook';
+import { checkStopLocation, getGeofenceMode, formatDistance } from '../../../../../lib/geofence';
+import { alertAdmins } from '../../../../../lib/admin-alerts';
 
 const VALID_TRANSITIONS = {
   assigned: ['pickup_confirmed', 'picked_up'],
@@ -106,6 +108,32 @@ export async function POST(request, { params }) {
       }
     }
 
+    // Geofence (11 Oct 2026): pickup / delivery must be confirmed near the job's pin.
+    // Mode 'log' (default) only flags; 'block' refuses. Admin updates skip the check.
+    let geo = null;
+    const geoStage = normalizedStatus === 'pickup_confirmed' ? 'pickup' : (status === 'delivered' ? 'delivery' : null);
+    if (geoStage && session.role === 'driver') {
+      const geoMode = await getGeofenceMode();
+      if (geoMode !== 'off') {
+        geo = await checkStopLocation(job, geoStage, body, session.userId);
+        geo.mode = geoMode;
+        if (geoMode === 'block' && !geo.ok) {
+          if (geo.reason === 'too_far') {
+            return NextResponse.json({
+              error: `You're ${formatDistance(geo.distance_m)} from the ${geoStage} address. Confirm ${geoStage} when you're there (within ${geo.allowed_m} m). If the pin is wrong, call TCG.`,
+              code: 'too_far_from_pin', distance_m: geo.distance_m, allowed_m: geo.allowed_m,
+            }, { status: 400 });
+          }
+          if (geo.reason === 'no_location') {
+            return NextResponse.json({
+              error: `Turn on location for the TCG Express app, then confirm ${geoStage} again.`,
+              code: 'location_required',
+            }, { status: 400 });
+          }
+        }
+      }
+    }
+
     const updates = { status: normalizedStatus };
     // Save photo to the correct field based on transition
     if (photoUrl) {
@@ -136,6 +164,10 @@ export async function POST(request, { params }) {
         return NextResponse.json({ error: 'Job status has already changed. Please refresh and try again.' }, { status: 409 });
       }
       return NextResponse.json({ error: 'Failed to update status' }, { status: 500 });
+    }
+
+    if (geo && !geo.ok) {
+      flagGeofence(job, geoStage, geo, session.userId).catch(() => {});
     }
 
     // Contract trip (2 Oct 2026): one pickup photo confirms every drop of the trip still waiting with
@@ -360,7 +392,7 @@ export async function POST(request, { params }) {
       }
     }
 
-    return NextResponse.json({ data, release: releaseResult, trip_updated: tripMoved.length });
+    return NextResponse.json({ data, release: releaseResult, trip_updated: tripMoved.length, ...(geo ? { geofence: { ok: geo.ok, reason: geo.reason, distance_m: geo.distance_m ?? null } } : {}) });
   } catch (err) {
     console.error('POST /api/jobs/[id]/status error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -888,4 +920,32 @@ async function screenCompletedJob(job, driverId, jobId) {
 
   console.warn(`[abuse-screen] job ${job.job_number} flagged: ${flags.join(', ')}`);
   return flags;
+}
+
+// Geofence miss (log mode, or a block-mode miss an admin later overrides): record + tell the admins.
+async function flagGeofence(job, stage, geo, driverId) {
+  const tag = geo.reason === 'too_far' ? `${stage}_far:${geo.distance_m}m` : `${stage}_no_location`;
+  try {
+    await supabaseAdmin.from('job_review_flags').insert([{
+      job_id: job.id,
+      driver_id: driverId,
+      client_id: job.client_id,
+      reasons: [tag, `source:${geo.source || 'none'}`, ...(geo.accuracy_m != null ? [`accuracy:${Math.round(geo.accuracy_m)}m`] : [])],
+      bonus_held: false,
+      coupon_discount: parseFloat(job.coupon_discount) || 0,
+    }]);
+  } catch (e) {
+    console.warn('[geofence] job_review_flags insert skipped:', e?.message);
+  }
+  console.warn(`[geofence] ${job.job_number} ${tag}`);
+  // Only a real distance miss is worth a push/email; a missing fix (older app build) is just recorded
+  if (geo.reason === 'too_far') {
+    await alertAdmins({
+      type: 'geofence',
+      title: `📍 ${job.job_number}: ${stage} confirmed ${formatDistance(geo.distance_m)} from the pin`,
+      message: `Driver confirmed ${stage} ${formatDistance(geo.distance_m)} away from the ${stage} address (allowed ${geo.allowed_m} m${geo.accuracy_m != null ? `, GPS accuracy ${Math.round(geo.accuracy_m)} m` : ''}). Check with the driver.`,
+      referenceId: job.id,
+      url: '/admin/jobs',
+    });
+  }
 }

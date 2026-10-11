@@ -30,6 +30,18 @@ function shouldShareLocation(job) {
   return Number.isNaN(pickupAt) || pickupAt - Date.now() <= 2 * 60 * 60 * 1000;
 }
 
+// Current GPS fix for the geofence check; null if the browser can't give one within 8 s.
+function currentFix() {
+  return new Promise((resolve) => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) return resolve(null);
+    navigator.geolocation.getCurrentPosition(
+      (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy }),
+      () => resolve(null),
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 },
+    );
+  });
+}
+
 export default function DriverMyJobs() {
   const { user, loading } = useAuth();
   const { locale } = useLocale();
@@ -235,6 +247,8 @@ export default function DriverMyJobs() {
       const proof = status === 'pickup_confirmed' ? selected.pickup_photo
         : status === 'delivered' ? selected.delivery_photo : null;
       const signature = status === 'delivered' ? (extra.signature_url || selected.customer_signature_url) : null;
+      // Geofence (11 Oct 2026): send where the driver is when confirming pickup / delivery
+      const fix = (status === 'pickup_confirmed' || status === 'delivered') ? await currentFix() : null;
       const res = await fetch(`/api/jobs/${selected.id}/status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -243,6 +257,7 @@ export default function DriverMyJobs() {
           ...(proof ? { proof_photo_url: proof } : {}),
           ...(signature ? { signature_url: signature } : {}),
           ...(extra.whole_trip ? { whole_trip: true } : {}),
+          ...(fix || {}),
         }),
       });
       const result = await res.json();
