@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../../lib/supabase-server';
 import { getSession } from '../../../../lib/auth';
-import { checkVehicleFit } from '../../../../lib/fares';
+import { checkVehicleFit, checkVehicleFitForJob } from '../../../../lib/fares';
 import { driverCanTakeJob, loadDriverPoolProfile } from '../../../../lib/driver-pool';
 
 // GET: Find nearby pending jobs within radius
@@ -69,7 +69,7 @@ export async function GET(request) {
 
       // Vehicle rank filter: driver can only see jobs their vehicle can handle
       if (job.vehicle_required && job.vehicle_required !== 'any' && driver?.vehicle_type) {
-        const fit = checkVehicleFit(driver.vehicle_type, job.vehicle_required);
+        const fit = checkVehicleFitForJob(driver.vehicle_type, job);
         if (!fit.ok) return false;
       }
 

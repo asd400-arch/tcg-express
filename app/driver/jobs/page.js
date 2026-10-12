@@ -10,7 +10,7 @@ import { useToast } from '../../components/Toast';
 import { supabase } from '../../../lib/supabase';
 import useMobile from '../../components/useMobile';
 import { getCategoryByKey, getEquipmentLabel } from '../../../lib/constants';
-import { ADDON_OPTIONS, checkVehicleFit } from '../../../lib/fares';
+import { ADDON_OPTIONS, checkVehicleFit, checkVehicleFitForJob } from '../../../lib/fares';
 import { getRouteLabel, formatPickupTime, formatBudgetRange, getCountdown, getVehicleLabel, getJobBudget, sortByPickupUrgency, isQuoteJob, isCrossBorder, crossBorderCity } from '../../../lib/job-helpers';
 import JobCard from '../../components/JobCard';
 import useLocale from '../../components/useLocale';
@@ -100,7 +100,7 @@ export default function DriverJobs() {
         if (j.is_corp_premium) return false;
         if (!driverCanTakeJob(j, user)) return false; // TCG fleet / booked-driver jobs (2 Oct 2026)
         if (j.vehicle_required && j.vehicle_required !== 'any' && user.vehicle_type) {
-          const fit = checkVehicleFit(user.vehicle_type, j.vehicle_required);
+          const fit = checkVehicleFitForJob(user.vehicle_type, j);
           if (!fit.ok) return false;
         }
         return true;

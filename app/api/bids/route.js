@@ -4,7 +4,7 @@ import { getSession } from '../../../lib/auth';
 import { notify } from '../../../lib/notify';
 import { rateLimiters, applyRateLimit } from '../../../lib/rate-limiters';
 import { requireUUID, requirePositiveNumber, cleanString } from '../../../lib/validate';
-import { checkVehicleFit } from '../../../lib/fares';
+import { checkVehicleFit, checkVehicleFitForJob } from '../../../lib/fares';
 import { isQuoteJob, driverPrice, quoteBounds } from '../../../lib/pricing-mode';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -138,7 +138,7 @@ export async function POST(request) {
         .eq('id', session.userId)
         .single();
 
-      const fit = checkVehicleFit(driver?.vehicle_type, job.vehicle_required);
+      const fit = checkVehicleFitForJob(driver?.vehicle_type, job);
       if (!fit.ok) {
         return NextResponse.json({
           error: `Your vehicle is too small for this job. Required: ${fit.required}`,

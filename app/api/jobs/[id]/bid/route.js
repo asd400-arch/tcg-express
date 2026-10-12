@@ -4,7 +4,7 @@ import { getSession } from '../../../../../lib/auth';
 import { notify } from '../../../../../lib/notify';
 import { rateLimiters, applyRateLimit } from '../../../../../lib/rate-limiters';
 import { requirePositiveNumber, cleanString } from '../../../../../lib/validate';
-import { checkVehicleFit } from '../../../../../lib/fares';
+import { checkVehicleFit, checkVehicleFitForJob } from '../../../../../lib/fares';
 import { isQuoteJob, driverPrice, quoteBounds, isCrossBorder } from '../../../../../lib/pricing-mode';
 import { driverCanTakeJob, loadDriverPoolProfile, poolBlockMessage } from '../../../../../lib/driver-pool';
 
@@ -142,7 +142,7 @@ export async function POST(request, { params }) {
         .eq('id', session.userId)
         .single();
 
-      const fit = checkVehicleFit(driver?.vehicle_type, job.vehicle_required);
+      const fit = checkVehicleFitForJob(driver?.vehicle_type, job);
       if (!fit.ok) {
         const msg = fit.reason === 'exclusive'
           ? `This job is for small vehicles only. Required: ${fit.required}`

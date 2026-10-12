@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../../../lib/supabase-server';
 import { getSession } from '../../../../../lib/auth';
 import { notify } from '../../../../../lib/notify';
-import { checkVehicleFit } from '../../../../../lib/fares';
+import { checkVehicleFit, checkVehicleFitForJob } from '../../../../../lib/fares';
 import { buildPaymentsBreakdown } from '../../../../../lib/bid-breakdown';
 import { getCommissionRate } from '../../../../../lib/zero-commission';
 import { isQuoteJob, driverPrice } from '../../../../../lib/pricing-mode';
@@ -93,7 +93,7 @@ export async function POST(request, { params }) {
 
     // Vehicle size validation: driver's vehicle must be big enough
     if (job.vehicle_required && job.vehicle_required !== 'any') {
-      const fit = checkVehicleFit(driver?.vehicle_type, job.vehicle_required);
+      const fit = checkVehicleFitForJob(driver?.vehicle_type, job);
       if (!fit.ok) {
         return NextResponse.json({
           error: `Your vehicle is too small for this job. Required: ${fit.required}`,
