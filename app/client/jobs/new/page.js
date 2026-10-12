@@ -135,7 +135,7 @@ export default function NewJob() {
     weight_range: '', dim_l: '', dim_w: '', dim_h: '',
     urgency: 'standard', budget_min: '', budget_max: '', vehicle_required: 'any', special_requirements: '',
     basic_equipment: [], special_equipment: [], special_equipment_comment: '', manpower_count: 1, manpower_auto: true,
-    pickup_by: '', deliver_by: '',
+    pickup_by: '', pickup_asap: true, deliver_by: '',
     size_tier: '',
     addons: {},
     schedule_mode: 'now',
@@ -395,7 +395,7 @@ export default function NewJob() {
     if (!crossBorder && zoneWarning?.type === 'restricted') { toast.error(zoneWarning.message); return; }
 
     // Validate pickup time is at least MIN_PICKUP_LEAD_MIN (60) minutes from now (1 Oct 2026)
-    if (form.pickup_by && pickupTooSoon(form.pickup_by)) {
+    if (!form.pickup_asap && form.pickup_by && pickupTooSoon(form.pickup_by)) {
       setErrors(prev => ({ ...prev, pickup_by: minPickupMessage() }));
       toast.error(minPickupMessage());
       return;
@@ -448,7 +448,7 @@ export default function NewJob() {
         urgency: form.urgency, budget_min: budgetMin, budget_max: budgetMax,
         vehicle_required: effectiveVehicleMode || 'any', special_requirements: specialReqs || null,
         equipment_needed: allEquipment, manpower_count: form.manpower_count,
-        pickup_by: form.pickup_by ? new Date(form.pickup_by).toISOString() : null,
+        pickup_by: form.pickup_asap ? defaultPickupDate().toISOString() : (form.pickup_by ? new Date(form.pickup_by).toISOString() : null),
         deliver_by: form.deliver_by ? new Date(form.deliver_by).toISOString() : null,
         status: 'open',
         job_type: jobType,
@@ -614,7 +614,7 @@ export default function NewJob() {
       weight_range: '', dim_l: '', dim_w: '', dim_h: '',
       urgency: 'standard', budget_min: '', budget_max: '', vehicle_required: 'any', special_requirements: '',
       basic_equipment: [], special_equipment: [], special_equipment_comment: '', manpower_count: 1, manpower_auto: true,
-      pickup_by: '', deliver_by: '',
+      pickup_by: '', pickup_asap: true, deliver_by: '',
       size_tier: '', addons: {},
       schedule_mode: 'now', schedule_date: '', recurrence: 'weekly', recurrence_day: '1', recurrence_time: '09:00', recurrence_end: '',
     });
@@ -1394,8 +1394,23 @@ export default function NewJob() {
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
-                <div><label style={label}>Pickup By</label><input type="datetime-local" style={inputErr('pickup_by')} value={form.pickup_by} onChange={e => { set('pickup_by', e.target.value); setErrors(prev => { const { pickup_by, ...rest } = prev; return rest; }); }} min={toLocalDatetime(defaultPickupDate().getTime())} /><div style={errText('pickup_by')}>{errors.pickup_by}</div></div>
-                <div><label style={label}>Deliver By</label><input type="datetime-local" style={input} value={form.deliver_by} onChange={e => set('deliver_by', e.target.value)} min={form.pickup_by || toLocalDatetime(defaultPickupDate().getTime())} /></div>
+                <div>
+                  <label style={label}>Pickup By</label>
+                  {/* 12 Oct 2026: Post Now — pickup ASAP, no date picking needed */}
+                  <div style={{ display: 'flex', gap: '6px', marginBottom: '6px' }}>
+                    {[{ k: true, t: '⚡ Now (ASAP)' }, { k: false, t: '🕒 Pick a time' }].map(o => (
+                      <button key={String(o.k)} type="button" onClick={() => { set('pickup_asap', o.k); setErrors(prev => { const { pickup_by, ...rest } = prev; return rest; }); }} style={{
+                        flex: 1, padding: '8px 10px', borderRadius: '8px', cursor: 'pointer', fontFamily: "'Inter', sans-serif", fontSize: '13px', fontWeight: '700',
+                        border: form.pickup_asap === o.k ? '2px solid #3b82f6' : '2px solid #e2e8f0', background: form.pickup_asap === o.k ? '#eff6ff' : 'white', color: form.pickup_asap === o.k ? '#1d4ed8' : '#475569',
+                      }}>{o.t}</button>
+                    ))}
+                  </div>
+                  {form.pickup_asap
+                    ? <div style={{ ...input, background: '#f0fdf4', border: '1px solid #86efac', color: '#166534', fontWeight: '600' }}>Pickup ASAP — posted the moment you submit</div>
+                    : <input type="datetime-local" style={inputErr('pickup_by')} value={form.pickup_by} onChange={e => { set('pickup_by', e.target.value); setErrors(prev => { const { pickup_by, ...rest } = prev; return rest; }); }} min={toLocalDatetime(defaultPickupDate().getTime())} />}
+                  <div style={errText('pickup_by')}>{errors.pickup_by}</div>
+                </div>
+                <div><label style={label}>Deliver By</label><div style={{ height: '38px' }} /><input type="datetime-local" style={input} value={form.deliver_by} onChange={e => set('deliver_by', e.target.value)} min={(!form.pickup_asap && form.pickup_by) || toLocalDatetime(defaultPickupDate().getTime())} /></div>
               </div>
               <p style={{ fontSize: '12px', color: '#475569', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '8px 10px', marginTop: '-4px', marginBottom: '14px' }}>{PICKUP_LEAD_NOTE}</p>
               {/* Who delivers — 2 Oct 2026 */}
