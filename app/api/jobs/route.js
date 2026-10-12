@@ -169,7 +169,7 @@ export async function GET(request) {
       // …and jobs whose vehicle the driver can't take (12 Oct 2026 — a car driver could see a van job,
       // tap Accept and only then be told the vehicle is too small)
       const fitsVehicle = (j) => !j.vehicle_required || j.vehicle_required === 'any' || !me?.vehicle_type
-        || checkVehicleFitForJob(me.vehicle_type, j).ok;
+        || checkVehicleFitForJob(me.vehicle_type, j, me).ok;
       data = collapseTrips(data.filter((j) => driverCanTakeJob(j, me) && fitsVehicle(j)));
     }
     // Drivers' job boards poll this every 30 s — piggyback the dispatch sweep (throttled, after the response)
@@ -212,7 +212,7 @@ export async function POST(request) {
       if (r.error) return NextResponse.json({ error: r.error, code: 'driver_code_invalid' }, { status: r.status || 400 });
       targetDriver = r.driver;
       const wantVehicle = body.vehicle_required || body.vehicle_mode;
-      if (wantVehicle && wantVehicle !== 'any' && !checkVehicleFitForJob(targetDriver.vehicle_type, { vehicle_required: wantVehicle, target_driver_id: targetDriver.id }).ok) {
+      if (wantVehicle && wantVehicle !== 'any' && !checkVehicleFitForJob(targetDriver.vehicle_type, { vehicle_required: wantVehicle, target_driver_id: targetDriver.id }, targetDriver).ok) {
         return NextResponse.json({ error: `${driverShortName(targetDriver.contact_name)} drives a ${targetDriver.vehicle_type || 'different vehicle'}, which doesn't fit this job. Pick a smaller vehicle or another option.`, code: 'driver_vehicle_mismatch' }, { status: 400 });
       }
       if (crossBorderDetails) {

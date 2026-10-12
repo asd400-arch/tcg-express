@@ -93,7 +93,7 @@ export async function POST(request, { params }) {
 
     // Vehicle size validation: driver's vehicle must be big enough
     if (job.vehicle_required && job.vehicle_required !== 'any') {
-      const fit = checkVehicleFitForJob(driver?.vehicle_type, job);
+      const fit = checkVehicleFitForJob(driver?.vehicle_type, job, poolMe);
       if (!fit.ok) {
         return NextResponse.json({
           error: `Your vehicle is too small for this job. Required: ${fit.required}`,

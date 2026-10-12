@@ -69,7 +69,7 @@ export async function GET(request) {
 
       // Vehicle rank filter: driver can only see jobs their vehicle can handle
       if (job.vehicle_required && job.vehicle_required !== 'any' && driver?.vehicle_type) {
-        const fit = checkVehicleFitForJob(driver.vehicle_type, job);
+        const fit = checkVehicleFitForJob(driver.vehicle_type, job, poolMe);
         if (!fit.ok) return false;
       }
 

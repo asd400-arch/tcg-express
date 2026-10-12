@@ -142,7 +142,7 @@ export async function POST(request, { params }) {
         .eq('id', session.userId)
         .single();
 
-      const fit = checkVehicleFitForJob(driver?.vehicle_type, job);
+      const fit = checkVehicleFitForJob(driver?.vehicle_type, job, poolMe);
       if (!fit.ok) {
         const msg = fit.reason === 'exclusive'
           ? `This job is for small vehicles only. Required: ${fit.required}`

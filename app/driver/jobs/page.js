@@ -100,7 +100,7 @@ export default function DriverJobs() {
         if (j.is_corp_premium) return false;
         if (!driverCanTakeJob(j, user)) return false; // TCG fleet / booked-driver jobs (2 Oct 2026)
         if (j.vehicle_required && j.vehicle_required !== 'any' && user.vehicle_type) {
-          const fit = checkVehicleFitForJob(user.vehicle_type, j);
+          const fit = checkVehicleFitForJob(user.vehicle_type, j, user);
           if (!fit.ok) return false;
         }
         return true;

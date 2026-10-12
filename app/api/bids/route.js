@@ -134,11 +134,11 @@ export async function POST(request) {
     if (job.vehicle_required && job.vehicle_required !== 'any') {
       const { data: driver } = await supabaseAdmin
         .from('express_users')
-        .select('vehicle_type')
+        .select('vehicle_type, tcg_fleet')
         .eq('id', session.userId)
         .single();
 
-      const fit = checkVehicleFitForJob(driver?.vehicle_type, job);
+      const fit = checkVehicleFitForJob(driver?.vehicle_type, job, driver);
       if (!fit.ok) {
         return NextResponse.json({
           error: `Your vehicle is too small for this job. Required: ${fit.required}`,
